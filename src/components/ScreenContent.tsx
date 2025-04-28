@@ -26,13 +26,13 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.primary,
   },
   separator: {
     height: 1,
     marginVertical: 30,
     width: '80%',
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.colors.secondary,
   },
   title: {
     fontSize: 20,

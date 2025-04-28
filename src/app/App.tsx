@@ -5,7 +5,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState, useCallback } from 'react';
 import { View } from 'react-native';
 
-import RootStack from '~/navigation';
+import RootStack from '~/navigation/Root';
 import { useLoadFonts } from '~/utils/loadFonts';
 
 export default function App() {
