@@ -19,14 +19,14 @@ export default function TabLayout({ navigation }: Props) {
     <Tab.Navigator
       screenOptions={{
         headerStyle: {
-          backgroundColor: theme.colors.primary,
+          backgroundColor: theme.colors.background,
         },
         headerTitleStyle: {
-          color: theme.colors.typography,
+          color: theme.colors.text,
         },
-        tabBarActiveTintColor: theme.colors.secondary,
+        tabBarActiveTintColor: theme.colors.accent,
         tabBarStyle: {
-          backgroundColor: theme.colors.primary,
+          backgroundColor: theme.colors.background,
         },
       }}>
       <Tab.Screen

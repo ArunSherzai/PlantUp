@@ -7,7 +7,8 @@ import { View } from 'react-native';
 
 import RootStack from '~/navigation/Root';
 import { useLoadFonts } from '~/utils/loadFonts';
-
+import * as Linking from 'expo-linking';
+import { useNavigation } from '@react-navigation/native';
 export default function App() {
   const fontsLoaded = useLoadFonts();
   const [appIsReady, setAppIsReady] = useState(false);

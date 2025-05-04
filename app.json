@@ -4,7 +4,7 @@
     "slug": "PlantUp",
     "version": "1.0.0",
     "newArchEnabled": true,
-    "scheme": "plantUp",
+    "scheme": "plantup",
     "platforms": ["ios", "android"],
     "web": {
       "favicon": "./assets/images/icon.png"
