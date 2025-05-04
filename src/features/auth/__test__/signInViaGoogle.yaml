@@ -1,0 +1,10 @@
+appId: com.abehari.PlantUp
+---
+- tapOn:
+    id: 'Already have an Account'
+
+- tapOn:
+    id: 'Google-Login'
+
+- assertVisible:
+    text: 'Tab One'

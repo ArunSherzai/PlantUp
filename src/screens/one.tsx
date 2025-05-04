@@ -1,9 +1,12 @@
-import { View, Text } from 'react-native';
+import { View, Text, Linking } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
+import { Alert, Button } from 'react-native';
+
+import { supabase } from '~/utils/supabase';
 export default function TabOneScreen() {
   return (
     <View style={styles.container}>
-      <Text style={styles.inter}> Text with Inter</Text>
+      <Text style={styles.inter}>Text with Inter</Text>
       <Text style={styles.nunito}>Text with nunito</Text>
     </View>
   );

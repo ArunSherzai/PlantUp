@@ -2,7 +2,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StackScreenProps } from '@react-navigation/stack';
 import { useUnistyles } from 'react-native-unistyles';
 
-import { RootStackParamList } from '.';
+import { RootStackParamList } from './Root';
 import { HeaderButton } from '../components/HeaderButton';
 import { TabBarIcon } from '../components/TabBarIcon';
 import One from '../screens/one';
@@ -22,9 +22,9 @@ export default function TabLayout({ navigation }: Props) {
           backgroundColor: theme.colors.background,
         },
         headerTitleStyle: {
-          color: theme.colors.typography,
+          color: theme.colors.text,
         },
-        tabBarActiveTintColor: theme.colors.astral,
+        tabBarActiveTintColor: theme.colors.accent,
         tabBarStyle: {
           backgroundColor: theme.colors.background,
         },
