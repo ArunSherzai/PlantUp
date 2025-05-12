@@ -30,9 +30,9 @@ export default function AddPlantScreen() {
     <ImageBackground
       source={require('../../../assets/images/updatePlant.png')}
       style={styles.backgroundImage}>
-      <View style={styles.arrowIcon}>
+      <TouchableOpacity style={styles.arrowIcon} onPress={() => navigation.goBack()}>
         <Feather name="arrow-left" size={24} color="white" />
-      </View>
+      </TouchableOpacity>
       <View style={styles.headerContainer}>
         <Text style={styles.headerTitle}>Add</Text>
         <Text style={styles.headerTitle}>your</Text>
