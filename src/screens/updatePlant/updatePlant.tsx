@@ -104,6 +104,8 @@ const styles = StyleSheet.create((theme) => ({
   },
   arrowIcon: {
     margin: 5,
+    top: 30,
+    position: 'absolute',
   },
 
   headerContainer: {
