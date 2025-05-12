@@ -24,79 +24,77 @@ export default function UpdateDeviceScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ImageBackground
-        source={require('../../../assets/images/updatePlant.png')}
-        style={styles.backgroundImage}>
-        <View style={styles.arrowIcon}>
-          <Feather name="arrow-left" size={24} color="white" />
+    <ImageBackground
+      source={require('../../../assets/images/updatePlant.png')}
+      style={styles.backgroundImage}>
+      <View style={styles.arrowIcon}>
+        <Feather name="arrow-left" size={24} color="white" />
+      </View>
+      <View style={styles.headerContainer}>
+        <Text style={styles.headerTitle}>Update</Text>
+        <Text style={styles.headerTitle}>{name}!</Text>
+      </View>
+
+      <ScrollView
+        style={styles.formContainer}
+        contentContainerStyle={{ paddingBottom: 40 }}
+        keyboardShouldPersistTaps="handled">
+        <TouchableOpacity style={styles.xButton} onPress={() => navigation.goBack()}>
+          <Feather name="x-circle" size={24} color="black" />
+        </TouchableOpacity>
+
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Name*</Text>
+          <TextInput
+            style={styles.input}
+            value={name}
+            onChangeText={setName}
+            placeholder="Enter name"
+          />
         </View>
-        <View style={styles.headerContainer}>
-          <Text style={styles.headerTitle}>Update</Text>
-          <Text style={styles.headerTitle}>{name}!</Text>
+
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Out/In*</Text>
+          <View style={styles.radioContainer}>
+            <TouchableOpacity
+              style={[styles.radioButton, direction === 'Out' && styles.radioButtonSelected]}
+              onPress={() => setDirection('Out')}>
+              <Text style={direction === 'Out' ? styles.radioTextSelected : styles.radioText}>
+                Out
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.radioButton, direction === 'In' && styles.radioButtonSelected]}
+              onPress={() => setDirection('In')}>
+              <Text style={direction === 'In' ? styles.radioTextSelected : styles.radioText}>
+                In
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        <ScrollView
-          style={styles.formContainer}
-          contentContainerStyle={{ paddingBottom: 40 }}
-          keyboardShouldPersistTaps="handled">
-          <TouchableOpacity style={styles.xButton} onPress={() => navigation.goBack()}>
-            <Feather name="x-circle" size={24} color="black" />
-          </TouchableOpacity>
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Location</Text>
+          <TextInput
+            style={styles.input}
+            value={location}
+            onChangeText={setLocation}
+            placeholder="Enter location"
+          />
+        </View>
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Name*</Text>
-            <TextInput
-              style={styles.input}
-              value={name}
-              onChangeText={setName}
-              placeholder="Enter name"
-            />
-          </View>
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Sensor</Text>
+          <FilledButton text="+ Link Device"></FilledButton>
+        </View>
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Out/In*</Text>
-            <View style={styles.radioContainer}>
-              <TouchableOpacity
-                style={[styles.radioButton, direction === 'Out' && styles.radioButtonSelected]}
-                onPress={() => setDirection('Out')}>
-                <Text style={direction === 'Out' ? styles.radioTextSelected : styles.radioText}>
-                  Out
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.radioButton, direction === 'In' && styles.radioButtonSelected]}
-                onPress={() => setDirection('In')}>
-                <Text style={direction === 'In' ? styles.radioTextSelected : styles.radioText}>
-                  In
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+        <View style={styles.imagePlaceholder}>
+          <Feather name="image" size={32} color="gray" />
+        </View>
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Location</Text>
-            <TextInput
-              style={styles.input}
-              value={location}
-              onChangeText={setLocation}
-              placeholder="Enter location"
-            />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Sensor</Text>
-            <FilledButton text="+ Link Device"></FilledButton>
-          </View>
-
-          <View style={styles.imagePlaceholder}>
-            <Feather name="image" size={32} color="gray" />
-          </View>
-
-          <FilledButton text="Save" onPress={handleSave}></FilledButton>
-        </ScrollView>
-      </ImageBackground>
-    </SafeAreaView>
+        <FilledButton text="Save" onPress={handleSave}></FilledButton>
+      </ScrollView>
+    </ImageBackground>
   );
 }
 
