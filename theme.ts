@@ -11,6 +11,7 @@ export const lightTheme = {
     textDark: '#FFFFFF',
     greyedOut: '#BFC1C0',
     icon: '#FFFFFF',
+    gradient: ['#329D9C', '#4FDA74'],
   },
   fonts: {
     regular: 'Nunito-Regular',
@@ -56,6 +57,7 @@ export const darkTheme = {
     textDark: '#BFC1C0',
     greyedOut: '#5A5D5F',
     icon: '#E4E6EB',
+    gradient: ['#205072', '#4FDA74'],
   },
   fonts: {
     regular: 'Nunito',
