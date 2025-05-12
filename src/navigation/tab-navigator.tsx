@@ -8,7 +8,8 @@ import { TabBarIcon } from '../components/TabBarIcon';
 import One from '../screens/one';
 import Two from '../screens/two';
 import AddPlant from '~/screens/AddPlant';
-import UpdateDeviceScreen from '~/screens/updatePlant/updatePlant';
+import UpdatePlantScreen from '../screens/updatePlant/updatePlant';
+import AddPlantScreen from '../screens/addPlant/addPlant';
 
 const Tab = createBottomTabNavigator();
 
@@ -58,9 +59,18 @@ export default function TabLayout({ navigation }: Props) {
       />
       <Tab.Screen
         name="Update Plant"
-        component={UpdateDeviceScreen}
+        component={UpdatePlantScreen}
         options={{
           title: 'Update a Plant',
+          headerShown: false,
+          tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
+        }}
+      />
+      <Tab.Screen
+        name="Add a Plant"
+        component={AddPlantScreen}
+        options={{
+          title: 'Add a Plant',
           headerShown: false,
           tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
         }}
