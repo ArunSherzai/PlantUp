@@ -35,7 +35,7 @@ export default function Login() {
     const user = await signIn(email, password);
     if (user) {
       useUserStore.getState().setUser(user);
-      navigation.replace('TabNavigator');
+      navigation.replace('Home');
     }
   };
 

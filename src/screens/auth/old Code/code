@@ -1,0 +1,9 @@
+
+    <Carousel
+          data={plants}
+          renderItem={PlantCard}
+          sliderWidth={width}
+          itemWidth={300}
+          layout="default"
+          loop={true}
+        />
