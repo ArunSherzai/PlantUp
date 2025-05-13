@@ -22,6 +22,7 @@ export default function TabLayout({ navigation }: Props) {
       screenOptions={{
         headerStyle: {
           backgroundColor: theme.colors.background,
+          height: 60,
         },
         headerTitleStyle: {
           color: theme.colors.text,
