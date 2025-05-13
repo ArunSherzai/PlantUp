@@ -50,42 +50,42 @@ const plants = [
     name: 'Fernando',
     points: 850000,
     type: 'Outdoor',
-    image: require('../../assets/images/plant2.png'),
+    image: require('../../../assets/images/plant4.png'),
     gradientColors: customGradients[0], 
   },
   {
     name: 'Franz',
     points: 920000,
     type: 'Outdoor',
-    image: require('../../assets/images/plant3.png'),
+    image: require('../../../assets/images/plant3.png'),
     gradientColors: customGradients[1],
   },
   {
     name: 'Lily Phillips',
     points: 780000,
     type: 'Indoor',
-    image: require('../../assets/images/plant4.png'),
+    image: require('../../../assets/images/plant4.png'),
     gradientColors: customGradients[2],
   },
   {
     name: 'Lily Phillips',
     points: 780000,
     type: 'Indoor',
-    image: require('../../assets/images/plant4.png'),
+    image: require('../../../assets/images/plant4.png'),
     gradientColors: customGradients[3],
   },
   {
     name: 'Lily Phillips',
     points: 780000,
     type: 'Indoor',
-    image: require('../../assets/images/plant4.png'),
+    image: require('../../../assets/images/plant4.png'),
     gradientColors: customGradients[4],
   },
   {
     name: 'Lily Phillips',
     points: 780000,
     type: 'Indoor',
-    image: require('../../assets/images/plant4.png'),
+    image: require('../../../assets/images/plant4.png'),
     // This will use the default gradient or you can assign customGradients[0] to cycle
     gradientColors: customGradients[0], 
   },
@@ -93,14 +93,14 @@ const plants = [
     name: 'Lily Phillips',
     points: 780000,
     type: 'Indoor',
-    image: require('../../assets/images/plant4.png'),
+    image: require('../../../assets/images/plant4.png'),
     gradientColors: customGradients[1],
   },
    {
     name: 'Lily Phillips',
     points: 780000,
     type: 'Indoor',
-    image: require('../../assets/images/plant4.png'),
+    image: require('../../../assets/images/plant4.png'),
     gradientColors: customGradients[2],
   },
 ];
@@ -257,7 +257,7 @@ function AddPlant() {
   return (
     <SafeAreaView style={localstyles.container}>
       <ImageBackground 
-            source={require('../../assets/images/PlantViewBackground.png')}
+            source={require('../../../assets/images/PlantViewBackground.png')}
             style={localstyles.backgroundImage}>
             <View style={localstyles.arrowIcon}>
               <Feather name="arrow-left" size={24} color="white" />
