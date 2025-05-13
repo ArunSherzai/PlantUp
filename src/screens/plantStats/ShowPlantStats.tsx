@@ -30,12 +30,15 @@ export default function ShowPlantStats() {
   const [temperature, setTemperature] = useState('24°');
   const [humidity, setHumidity] = useState('54%');
   const [isDropdownVisible, setDropdownVisible] = useState(false);
-
+  
   const dropdownOptions = [
-    { label: 'Temperature', action: () => console.log('Option 1 selected') },
-    { label: 'Humidity', action: () => console.log('Option 2 selected') },
-    { label: 'Nutrition', action: () => console.log('Option 3 selected') },
+    { label: 'Temperature', color: "#fdae11" },
+    { label: 'Humidity',    color: "#329d9c" },
+    { label: 'Nutrition',   color: "#22b261" },
   ];
+
+  const [selectedOptionLabel, setSelectedOptionLabel] = useState(dropdownOptions[0].label);
+  const [barColor, setBarColor] = useState(dropdownOptions[0].color);
 
   const chartData = {
     dataSets: [{
@@ -87,7 +90,7 @@ export default function ShowPlantStats() {
   const giftedBarData = originalBarChartData.map(item => ({
     value: item.yValue,
     label: item.xLabel,
-    frontColor: '#FFA500', // Bar color
+    frontColor: barColor, // Bar color
     // topColor: 'lightgray', // Example for 3D effect, if desired
     // sideColor: 'gray', // Example for 3D effect, if desired
   }));
@@ -130,29 +133,36 @@ export default function ShowPlantStats() {
         </View>
 
         {/* Bar Chart Card (replaces the duplicated humidity card) */}
-        <View style={[styles.card, styles.chartCardContainer]}>
+        <View style={styles.chartCard}>
+          <Text style={styles.chartCardTitle}>Today's stats</Text>
           <TouchableOpacity 
             style={styles.dropdownIconContainer}
             onPress={() => setDropdownVisible(!isDropdownVisible)}
           >
-            <Feather name="more-vertical" size={24} color={theme.colors.text} />
+            <Text style={styles.selectedOptionText}>{selectedOptionLabel}</Text>
+            <Feather name="chevron-down" size={20} color={theme.colors.text} style={{marginLeft: 5}} />
           </TouchableOpacity>
 
-          <BarChart
-            data={giftedBarData}
-            barWidth={30} // Adjust as needed
-            initialSpacing={10}
-            xAxisThickness={1}
-            yAxisThickness={1}
-            xAxisColor={theme.colors.greyedOut}
-            yAxisColor={theme.colors.greyedOut}
-            xAxisLabelTextStyle={{ color: theme.colors.text, fontSize: 10 }}
-            yAxisTextStyle={{ color: theme.colors.text }}
-            noOfSections={4} // Number of sections for Y-axis lines/labels
-            maxValue={Math.max(...giftedBarData.map(d => d.value)) + 5} // Ensure max value is a bit above the highest bar
-            hideRules
-            barBorderRadius={4}
-          />
+          <View style={{ marginTop: 55 }}> {/* Wrapper View for spacing */} 
+            <BarChart
+              data={giftedBarData}
+              height={130}      // Explicit height for the chart
+              barWidth={20}
+              width={280}     // Current bar width
+              initialSpacing={5} // Reduced initial (and thus end) spacing
+              xAxisThickness={1}
+              yAxisThickness={1}
+              xAxisColor={theme.colors.greyedOut}
+              yAxisColor={theme.colors.greyedOut}
+              xAxisLabelTextStyle={{ color: theme.colors.text, fontSize: 10 }}
+              yAxisTextStyle={{ color: theme.colors.text }}
+              noOfSections={4}
+              maxValue={Math.max(...giftedBarData.map(d => d.value)) + 5}
+              hideRules          // Hides grid lines
+              barBorderRadius={4}
+              // disablePress={true} // Optional: uncomment if you want to disable touch interactions
+            />
+          </View>
           {isDropdownVisible && (
             <View style={styles.dropdownMenu}>
               {dropdownOptions.map((option, index) => (
@@ -160,7 +170,8 @@ export default function ShowPlantStats() {
                   key={index}
                   style={styles.dropdownItem}
                   onPress={() => {
-                    option.action();
+                    setBarColor(option.color);
+                    setSelectedOptionLabel(option.label);
                     setDropdownVisible(false);
                   }}
                 >
@@ -190,33 +201,46 @@ const styles = StyleSheet.create((theme) => ({
         padding: 20,       // Increased padding
         // minHeight: 120, // Suggesting a minHeight to ensure content fits well
     },
-    chartCardContainer: {
-        height: 300,
-        // backgroundColor: 'lightgrey', // For debugging layout
-    },
-    cardTopRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 15, // Space before separator
-    },
-    cardValueText: {
-        fontSize: 48, // Large text for value
-        fontWeight: '300', // Lighter font weight like in image
-        color: theme.colors.text, // Assuming theme.colors.text is black or dark grey
-    },
-    // cardIcon style (if specific styling needed beyond size/color props)
-    cardSeparator: {
-        height: 1,
-        backgroundColor: theme.colors.greyedOut || '#E0E0E0', // Use theme color or fallback
-        marginBottom: 10, // Space after separator
-    },
-    cardLabelText: {
-        fontSize: 14,
-        color: theme.colors.greyedOut || '#757575', // Use theme color or fallback for muted text
-        fontFamily: theme.fonts.regular, 
-    },
+    chartCard: {
+      borderRadius: 20,
+      backgroundColor: "#FFFFFF", // Changed to white for a cleaner look like the image
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 }, // Reduced shadow offset
+      shadowOpacity: 0.1, // Reduced shadow opacity
+      shadowRadius: 8,    // Increased shadow radius for a softer look
+      elevation: 5,       // Kept elevation for Android
+      width: "100%",
+      marginBottom: 20,
+      padding: 5,  
+      paddingRight: 10,
+           // Increased padding
+      // minHeight: 120, // Suggesting a minHeight to ensure content fits well
+  },
+    
+  cardTopRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 15, // Space before separator
+  },
+  cardValueText: {
+      fontSize: 48, // Large text for value
+      fontWeight: '300', // Lighter font weight like in image
+      color: theme.colors.text, // Assuming theme.colors.text is black or dark grey
+  },
+  // cardIcon style (if specific styling needed beyond size/color props)
+  cardSeparator: {
+      height: 1,
+      backgroundColor: theme.colors.greyedOut || '#E0E0E0', // Use theme color or fallback
+      marginBottom: 10, // Space after separator
+  },
+  cardLabelText: {
+      fontSize: 14,
+      color: theme.colors.greyedOut || '#757575', // Use theme color or fallback for muted text
+      fontFamily: theme.fonts.regular, 
+  },
   backgroundImage: {
+    flex: 1,
     justifyContent: 'flex-end',
   },
   arrowIcon: {
@@ -241,6 +265,7 @@ const styles = StyleSheet.create((theme) => ({
     borderTopLeftRadius: 25,
     borderTopRightRadius: 25,
     padding: 20,
+    maxHeight: 500, // Explicit height for the card container area
   },
 
   container: {
@@ -351,14 +376,31 @@ const styles = StyleSheet.create((theme) => ({
     position: 'absolute',
     top: 15,
     right: 15,
-    zIndex: 10, // Ensure icon is above the chart
+    zIndex: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.surface || '#EFEFEF', // Use theme surface or fallback
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  selectedOptionText: {
+    fontSize: 16, // Match image font size if possible
+    color: theme.colors.text,
+    fontFamily: theme.fonts.regular, // Or theme.fonts.bold if it should be bolder
+    marginRight: 3, // Space between text and icon
   },
   dropdownMenu: {
     position: 'absolute',
     top: 45, // Position below the icon (24 icon size + 15 top padding + some offset)
     right: 15,
     backgroundColor: theme.colors.background, // Or a specific dropdown background color
-    borderRadius: 8,
+    borderRadius: 15,
     paddingVertical: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -376,5 +418,14 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: 16,
     color: theme.colors.text,
     fontFamily: theme.fonts.regular,
+  },
+  chartCardTitle: {
+    position: 'absolute',
+    top: 15, // Align with dropdown button's top or adjust as needed
+    left: 15, // Padding from the left edge of the card
+    fontSize: 18, // Adjust as needed
+    fontWeight: 'bold', // Or use theme.fonts.bold
+    color: theme.colors.text,
+    zIndex: 5, // Lower zIndex than dropdown icon if they could overlap
   },
 }));
