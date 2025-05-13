@@ -52,10 +52,11 @@ export default function TabLayout({ navigation }: Props) {
         }}
       />
       <Tab.Screen
-        name="Add Plant"
+        name="Show Plants"
         component={ShowPlantListScreen}
         options={{
           title: 'Show Plant List',
+          headerShown: false,
           tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
         }}
       />
