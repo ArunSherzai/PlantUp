@@ -1,4 +1,4 @@
-import { View, Text, TextInput, TouchableOpacity, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Image, processColor } from 'react-native';
 import { useUnistyles, StyleSheet } from 'react-native-unistyles';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -9,18 +9,18 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { ImageBackground } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
 import FilledButton from '~/features/auth/components/FilledButton';
-import { CartesianChart, Bar } from 'victory-native';
+import { BarChart } from 'react-native-gifted-charts';
 
 // Data for the bar chart
-const barChartData = [
-  { x: '6AM', y: 18 },
-  { x: '8AM', y: 19 },
-  { x: '10AM', y: 17 },
-  { x: '12PM', y: 21 },
-  { x: '2PM', y: 25 },
-  { x: '4PM', y: 20 },
-  { x: '6PM', y: 19 },
-  { x: '8PM', y: 18 }
+const originalBarChartData = [
+  { xLabel: '6AM', yValue: 18 },
+  { xLabel: '8AM', yValue: 19 },
+  { xLabel: '10AM', yValue: 17 },
+  { xLabel: '12PM', yValue: 21 },
+  { xLabel: '2PM', yValue: 25 },
+  { xLabel: '4PM', yValue: 20 },
+  { xLabel: '6PM', yValue: 19 },
+  { xLabel: '8PM', yValue: 18 }
 ];
 
 export default function ShowPlantStats() {
@@ -29,8 +29,68 @@ export default function ShowPlantStats() {
   const [name, setName] = useState('Franz');
   const [temperature, setTemperature] = useState('24°');
   const [humidity, setHumidity] = useState('54%');
- 
-  
+  const [isDropdownVisible, setDropdownVisible] = useState(false);
+
+  const dropdownOptions = [
+    { label: 'Temperature', action: () => console.log('Option 1 selected') },
+    { label: 'Humidity', action: () => console.log('Option 2 selected') },
+    { label: 'Nutrition', action: () => console.log('Option 3 selected') },
+  ];
+
+  const chartData = {
+    dataSets: [{
+      values: originalBarChartData.map(data => data.yValue),
+      label: 'Temperature',
+      config: {
+        color: processColor('#FFA500'),
+        barShadowColor: processColor('lightgrey'),
+        highlightAlpha: 90,
+        highlightColor: processColor('red'),
+        valueTextSize: 10,
+        valueTextColor: processColor(theme.colors.text),
+      }
+    }],
+    config: {
+      barWidth: 0.7,
+    }
+  };
+
+  const xAxis = {
+    valueFormatter: originalBarChartData.map(data => data.xLabel),
+    granularityEnabled: true,
+    granularity: 1,
+    position: 'BOTTOM' as 'BOTTOM',
+    drawGridLines: false,
+    axisLineColor: processColor(theme.colors.greyedOut),
+    textColor: processColor(theme.colors.text),
+    textSize: 12,
+    // Adjust labelCount to match the number of labels to prevent them from being cut off or duplicated
+    labelCount: originalBarChartData.length, 
+  };
+
+  const yAxis = {
+    left: {
+      drawLabels: true,
+      drawAxisLine: true,
+      drawGridLines: false,
+      axisLineColor: processColor(theme.colors.greyedOut),
+      textColor: processColor(theme.colors.text),
+      textSize: 12,
+      // You might want to set a a min/max value or let the chart auto-calculate
+      // axisMinimum: 0, 
+    },
+    right: {
+      enabled: false
+    }
+  };
+
+  const giftedBarData = originalBarChartData.map(item => ({
+    value: item.yValue,
+    label: item.xLabel,
+    frontColor: '#FFA500', // Bar color
+    // topColor: 'lightgray', // Example for 3D effect, if desired
+    // sideColor: 'gray', // Example for 3D effect, if desired
+  }));
 
   return (
     <ImageBackground
@@ -41,7 +101,7 @@ export default function ShowPlantStats() {
       </TouchableOpacity>
       <View style={styles.headerContainer}>
         <Text style={styles.headerTitle}>How's</Text>
-        <Text style={styles.headerTitle}>{name}?</Text>
+        <Text style={styles.headerTitle}>{`${name}?`}</Text>
       </View>
 
       <ScrollView
@@ -70,30 +130,45 @@ export default function ShowPlantStats() {
         </View>
 
         {/* Bar Chart Card (replaces the duplicated humidity card) */}
-        <View style={[styles.card, styles.chartCardContainer]}> 
-          <CartesianChart
-            data={barChartData}
-            xKey="x"
-            yKeys={["y"]}
-            domainPadding={{ left: 20, right: 20, top: 10, bottom:10 }}
-            axisOptions={{
-              // formatXLabel: (value) => `${value}`,
-              // formatYLabel: (value) => `${value}`,
-              // Add font here if you have one, e.g., font: yourLoadedSkiaFont
-            }}
+        <View style={[styles.card, styles.chartCardContainer]}>
+          <TouchableOpacity 
+            style={styles.dropdownIconContainer}
+            onPress={() => setDropdownVisible(!isDropdownVisible)}
           >
-            {({ points, chartBounds }) => (
-              <Bar 
-                points={points.y}
-                chartBounds={chartBounds}
-                color="#FFA500"
-                // Optional: individual bar styling or rounded corners (might need different approach)
-                // For rounded corners with Skia, you might draw custom paths or use <RoundedRect>
-                // For simplicity, direct bar rounding is omitted here, focusing on basic rendering
-                innerPadding={0.2}
-              />
-            )}
-          </CartesianChart>
+            <Feather name="more-vertical" size={24} color={theme.colors.text} />
+          </TouchableOpacity>
+
+          <BarChart
+            data={giftedBarData}
+            barWidth={30} // Adjust as needed
+            initialSpacing={10}
+            xAxisThickness={1}
+            yAxisThickness={1}
+            xAxisColor={theme.colors.greyedOut}
+            yAxisColor={theme.colors.greyedOut}
+            xAxisLabelTextStyle={{ color: theme.colors.text, fontSize: 10 }}
+            yAxisTextStyle={{ color: theme.colors.text }}
+            noOfSections={4} // Number of sections for Y-axis lines/labels
+            maxValue={Math.max(...giftedBarData.map(d => d.value)) + 5} // Ensure max value is a bit above the highest bar
+            hideRules
+            barBorderRadius={4}
+          />
+          {isDropdownVisible && (
+            <View style={styles.dropdownMenu}>
+              {dropdownOptions.map((option, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.dropdownItem}
+                  onPress={() => {
+                    option.action();
+                    setDropdownVisible(false);
+                  }}
+                >
+                  <Text style={styles.dropdownItemText}>{option.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
         </View>
        
       </ScrollView>
@@ -271,5 +346,35 @@ const styles = StyleSheet.create((theme) => ({
   saveButtonText: {
     color: 'black',
     fontSize: 18,
+  },
+  dropdownIconContainer: {
+    position: 'absolute',
+    top: 15,
+    right: 15,
+    zIndex: 10, // Ensure icon is above the chart
+  },
+  dropdownMenu: {
+    position: 'absolute',
+    top: 45, // Position below the icon (24 icon size + 15 top padding + some offset)
+    right: 15,
+    backgroundColor: theme.colors.background, // Or a specific dropdown background color
+    borderRadius: 8,
+    paddingVertical: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    zIndex: 20, // Ensure menu is above other elements
+    minWidth: 120, // Give it some minimum width
+  },
+  dropdownItem: {
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+  },
+  dropdownItemText: {
+    fontSize: 16,
+    color: theme.colors.text,
+    fontFamily: theme.fonts.regular,
   },
 }));
