@@ -105,7 +105,6 @@ const plants = [
   },
 ];
 
-
 interface PlantItem {
   name: string;
   points: number;

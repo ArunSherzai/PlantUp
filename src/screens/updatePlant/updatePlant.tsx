@@ -10,13 +10,16 @@ import { ImageBackground } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
 import FilledButton from '~/features/auth/components/FilledButton';
 
-export default function UpdateDeviceScreen() {
+export default function UpdatePlantScreen() {
   const { theme } = useUnistyles();
   const navigation = useNavigation<any>();
   const [name, setName] = useState('Franz');
   const [direction, setDirection] = useState('In');
   const [location, setLocation] = useState('');
   const [sensor, setSensor] = useState('Sensor AH5GT');
+  const [sensorImageURL, setSensorImageURL] = useState(
+    require('../../../assets/images/sensor.png')
+  );
 
   const handleSave = () => {
     console.log({ name, direction, location, sensor });
@@ -27,9 +30,9 @@ export default function UpdateDeviceScreen() {
     <ImageBackground
       source={require('../../../assets/images/updatePlant.png')}
       style={styles.backgroundImage}>
-      <View style={styles.arrowIcon}>
+      <TouchableOpacity style={styles.arrowIcon} onPress={() => navigation.goBack()}>
         <Feather name="arrow-left" size={24} color="white" />
-      </View>
+      </TouchableOpacity>
       <View style={styles.headerContainer}>
         <Text style={styles.headerTitle}>Update</Text>
         <Text style={styles.headerTitle}>{name}!</Text>
@@ -85,6 +88,9 @@ export default function UpdateDeviceScreen() {
 
         <View style={styles.inputContainer}>
           <Text style={styles.label}>Sensor</Text>
+          <View style={{ justifyContent: 'center', alignItems: 'center' }}>
+            <Image source={sensorImageURL} style={{ width: 50, height: 50 }}></Image>
+          </View>
           <FilledButton text="+ Link Device"></FilledButton>
         </View>
 
