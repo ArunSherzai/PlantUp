@@ -2,13 +2,19 @@ import { View, Text, SafeAreaView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useState } from 'react';
+import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 
 import { signUp } from '~/features/auth/api/auth';
 import FilledButton from '~/features/auth/components/FilledButton';
 import GradientInput from '~/features/auth/components/GradientInput';
+import { AuthStackParamList } from '~/navigation/auth';
+
+type RegisterScreenNavigationProp = StackNavigationProp<AuthStackParamList, 'Register'>;
 
 export default function Register() {
   const { theme } = useUnistyles();
+  const navigation = useNavigation<RegisterScreenNavigationProp>();
 
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -52,6 +58,10 @@ export default function Register() {
 
     const result = await signUp(email, password, username);
     console.log(result);
+
+    if (result) {
+      navigation.navigate('Login');
+    }
   };
 
   return (
