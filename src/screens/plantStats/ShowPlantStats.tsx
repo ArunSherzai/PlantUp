@@ -20,7 +20,7 @@ const originalBarChartData = [
   { xLabel: '2PM', yValue: 25 },
   { xLabel: '4PM', yValue: 20 },
   { xLabel: '6PM', yValue: 19 },
-  { xLabel: '8PM', yValue: 18 }
+  { xLabel: '8PM', yValue: 18 },
 ];
 
 export default function ShowPlantStats() {
@@ -30,36 +30,38 @@ export default function ShowPlantStats() {
   const [temperature, setTemperature] = useState('24°');
   const [humidity, setHumidity] = useState('54%');
   const [isDropdownVisible, setDropdownVisible] = useState(false);
-  
+
   const dropdownOptions = [
-    { label: 'Temperature', color: "#fdae11" },
-    { label: 'Humidity',    color: "#329d9c" },
-    { label: 'Nutrition',   color: "#22b261" },
+    { label: 'Temperature', color: '#fdae11' },
+    { label: 'Humidity', color: '#329d9c' },
+    { label: 'Nutrition', color: '#22b261' },
   ];
 
   const [selectedOptionLabel, setSelectedOptionLabel] = useState(dropdownOptions[0].label);
   const [barColor, setBarColor] = useState(dropdownOptions[0].color);
 
   const chartData = {
-    dataSets: [{
-      values: originalBarChartData.map(data => data.yValue),
-      label: 'Temperature',
-      config: {
-        color: processColor('#FFA500'),
-        barShadowColor: processColor('lightgrey'),
-        highlightAlpha: 90,
-        highlightColor: processColor('red'),
-        valueTextSize: 10,
-        valueTextColor: processColor(theme.colors.text),
-      }
-    }],
+    dataSets: [
+      {
+        values: originalBarChartData.map((data) => data.yValue),
+        label: 'Temperature',
+        config: {
+          color: processColor('#FFA500'),
+          barShadowColor: processColor('lightgrey'),
+          highlightAlpha: 90,
+          highlightColor: processColor('red'),
+          valueTextSize: 10,
+          valueTextColor: processColor(theme.colors.text),
+        },
+      },
+    ],
     config: {
       barWidth: 0.7,
-    }
+    },
   };
 
   const xAxis = {
-    valueFormatter: originalBarChartData.map(data => data.xLabel),
+    valueFormatter: originalBarChartData.map((data) => data.xLabel),
     granularityEnabled: true,
     granularity: 1,
     position: 'BOTTOM' as 'BOTTOM',
@@ -68,7 +70,7 @@ export default function ShowPlantStats() {
     textColor: processColor(theme.colors.text),
     textSize: 12,
     // Adjust labelCount to match the number of labels to prevent them from being cut off or duplicated
-    labelCount: originalBarChartData.length, 
+    labelCount: originalBarChartData.length,
   };
 
   const yAxis = {
@@ -80,14 +82,14 @@ export default function ShowPlantStats() {
       textColor: processColor(theme.colors.text),
       textSize: 12,
       // You might want to set a a min/max value or let the chart auto-calculate
-      // axisMinimum: 0, 
+      // axisMinimum: 0,
     },
     right: {
-      enabled: false
-    }
+      enabled: false,
+    },
   };
 
-  const giftedBarData = originalBarChartData.map(item => ({
+  const giftedBarData = originalBarChartData.map((item) => ({
     value: item.yValue,
     label: item.xLabel,
     frontColor: barColor, // Bar color
@@ -111,7 +113,6 @@ export default function ShowPlantStats() {
         style={styles.formContainer}
         contentContainerStyle={{ paddingBottom: 40 }}
         keyboardShouldPersistTaps="handled">
-
         {/* Temperature Card */}
         <View style={styles.card}>
           <View style={styles.cardTopRow}>
@@ -119,7 +120,7 @@ export default function ShowPlantStats() {
             <Feather name="sun" size={36} color="#FFD700" /> {/* Gold color for sun */}
           </View>
           <View style={styles.cardSeparator} />
-          <Text style={styles.cardLabelText}>today's weather</Text>
+          <Text style={styles.cardLabelText}>Today's weather</Text>
         </View>
 
         {/* Humidity Card */}
@@ -129,26 +130,31 @@ export default function ShowPlantStats() {
             <Feather name="droplet" size={36} color="#1E90FF" /> {/* DodgerBlue for droplet */}
           </View>
           <View style={styles.cardSeparator} />
-          <Text style={styles.cardLabelText}>today's weather</Text>
+          <Text style={styles.cardLabelText}>Today's weather</Text>
         </View>
 
         {/* Bar Chart Card (replaces the duplicated humidity card) */}
         <View style={styles.chartCard}>
           <Text style={styles.chartCardTitle}>Today's stats</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.dropdownIconContainer}
-            onPress={() => setDropdownVisible(!isDropdownVisible)}
-          >
+            onPress={() => setDropdownVisible(!isDropdownVisible)}>
             <Text style={styles.selectedOptionText}>{selectedOptionLabel}</Text>
-            <Feather name="chevron-down" size={20} color={theme.colors.text} style={{marginLeft: 5}} />
+            <Feather
+              name="chevron-down"
+              size={20}
+              color={theme.colors.text}
+              style={{ marginLeft: 5 }}
+            />
           </TouchableOpacity>
 
-          <View style={{ marginTop: 55 }}> {/* Wrapper View for spacing */} 
+          <View style={{ marginTop: 55 }}>
+            {/* Wrapper View for spacing */}
             <BarChart
               data={giftedBarData}
-              height={130}      // Explicit height for the chart
+              height={130} // Explicit height for the chart
               barWidth={20}
-              width={280}     // Current bar width
+              width={280} // Current bar width
               initialSpacing={5} // Reduced initial (and thus end) spacing
               xAxisThickness={1}
               yAxisThickness={1}
@@ -157,8 +163,8 @@ export default function ShowPlantStats() {
               xAxisLabelTextStyle={{ color: theme.colors.text, fontSize: 10 }}
               yAxisTextStyle={{ color: theme.colors.text }}
               noOfSections={4}
-              maxValue={Math.max(...giftedBarData.map(d => d.value)) + 5}
-              hideRules          // Hides grid lines
+              maxValue={Math.max(...giftedBarData.map((d) => d.value)) + 5}
+              hideRules // Hides grid lines
               barBorderRadius={4}
               // disablePress={true} // Optional: uncomment if you want to disable touch interactions
             />
@@ -173,71 +179,69 @@ export default function ShowPlantStats() {
                     setBarColor(option.color);
                     setSelectedOptionLabel(option.label);
                     setDropdownVisible(false);
-                  }}
-                >
+                  }}>
                   <Text style={styles.dropdownItemText}>{option.label}</Text>
                 </TouchableOpacity>
               ))}
             </View>
           )}
         </View>
-       
       </ScrollView>
     </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create((theme) => ({
-    card: {
-        borderRadius: 20,
-        backgroundColor: "#FFFFFF", // Changed to white for a cleaner look like the image
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 }, // Reduced shadow offset
-        shadowOpacity: 0.1, // Reduced shadow opacity
-        shadowRadius: 8,    // Increased shadow radius for a softer look
-        elevation: 5,       // Kept elevation for Android
-        width: "100%",
-        marginBottom: 20,
-        padding: 20,       // Increased padding
-        // minHeight: 120, // Suggesting a minHeight to ensure content fits well
-    },
-    chartCard: {
-      borderRadius: 20,
-      backgroundColor: "#FFFFFF", // Changed to white for a cleaner look like the image
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 2 }, // Reduced shadow offset
-      shadowOpacity: 0.1, // Reduced shadow opacity
-      shadowRadius: 8,    // Increased shadow radius for a softer look
-      elevation: 5,       // Kept elevation for Android
-      width: "100%",
-      marginBottom: 20,
-      padding: 5,  
-      paddingRight: 10,
-           // Increased padding
-      // minHeight: 120, // Suggesting a minHeight to ensure content fits well
+  card: {
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF', // Changed to white for a cleaner look like the image
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 }, // Reduced shadow offset
+    shadowOpacity: 0.1, // Reduced shadow opacity
+    shadowRadius: 8, // Increased shadow radius for a softer look
+    elevation: 5, // Kept elevation for Android
+    width: '100%',
+    marginBottom: 20,
+    padding: 20, // Increased padding
+    // minHeight: 120, // Suggesting a minHeight to ensure content fits well
   },
-    
+  chartCard: {
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF', // Changed to white for a cleaner look like the image
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 }, // Reduced shadow offset
+    shadowOpacity: 0.1, // Reduced shadow opacity
+    shadowRadius: 8, // Increased shadow radius for a softer look
+    elevation: 5, // Kept elevation for Android
+    width: '100%',
+    marginBottom: 20,
+    padding: 5,
+    paddingRight: 10,
+    // Increased padding
+    // minHeight: 120, // Suggesting a minHeight to ensure content fits well
+  },
+
   cardTopRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 15, // Space before separator
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15, // Space before separator
   },
   cardValueText: {
-      fontSize: 48, // Large text for value
-      fontWeight: '300', // Lighter font weight like in image
-      color: theme.colors.text, // Assuming theme.colors.text is black or dark grey
+    fontSize: 48, // Large text for value
+    fontWeight: '300', // Lighter font weight like in image
+    color: theme.colors.text, // Assuming theme.colors.text is black or dark grey
   },
   // cardIcon style (if specific styling needed beyond size/color props)
   cardSeparator: {
-      height: 1,
-      backgroundColor: theme.colors.greyedOut || '#E0E0E0', // Use theme color or fallback
-      marginBottom: 10, // Space after separator
+    height: 1,
+    backgroundColor: theme.colors.greyedOut || '#E0E0E0', // Use theme color or fallback
+    marginBottom: 10, // Space after separator
   },
   cardLabelText: {
-      fontSize: 14,
-      color: theme.colors.greyedOut || '#757575', // Use theme color or fallback for muted text
-      fontFamily: theme.fonts.regular, 
+    fontSize: 14,
+    color: theme.colors.greyedOut || '#757575', // Use theme color or fallback for muted text
+    fontFamily: theme.fonts.regular,
   },
   backgroundImage: {
     flex: 1,

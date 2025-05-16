@@ -55,6 +55,8 @@ export default function Welcome() {
           style={styles.googleButton}
           testID="Google-Login">
           <AntDesign name="google" size={60} color={theme.colors.secondary} />
+          {/*Feedback von Sebastian: lieber Text mit Logo "Log in with Google" statt nur Logo.
+           Man weiß nicht dass es ein button ist*/}
         </TouchableOpacity>
       </View>
 
