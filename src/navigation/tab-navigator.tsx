@@ -12,6 +12,7 @@ import AddPlantScreen from '../screens/addPlant/addPlant';
 import ShowPlantListScreen from '~/screens/plantList/ShowPlantList';
 import PlantStatsScreen from '~/screens/plantStats/ShowPlantStats';
 import UpdateDeviceScreen from '~/screens/updatePlant/updatePlant';
+import NavigationBar from '~/components/NavigationBar';
 
 const Tab = createBottomTabNavigator();
 
@@ -23,18 +24,18 @@ export default function TabLayout({ navigation }: Props) {
   return (
     <Tab.Navigator
       screenOptions={{
-        headerStyle: {
-          backgroundColor: theme.colors.background,
-          height: 60,
-        },
+        headerShown: false,
         headerTitleStyle: {
           color: theme.colors.text,
         },
         tabBarActiveTintColor: theme.colors.accent,
         tabBarStyle: {
           backgroundColor: theme.colors.background,
+          justifyContent: 'center',
+          alignItems: 'center',
         },
-      }}>
+      }}
+      tabBar={(props) => <NavigationBar {...props} />}>
       <Tab.Screen
         name="One"
         component={One}
@@ -44,19 +45,20 @@ export default function TabLayout({ navigation }: Props) {
           headerRight: () => <HeaderButton onPress={() => navigation.navigate('Modal')} />,
         }}
       />
+      {/* 
       <Tab.Screen
         name="Two"
         component={Two}
         options={{
           title: 'Tab Two',
           tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
-        }}
-      />
+        }} 
+      />*/}
       <Tab.Screen
-        name="Show Plants"
-        component={ShowPlantListScreen}
+        name="Add a Plant"
+        component={AddPlantScreen}
         options={{
-          title: 'Show Plant List',
+          title: 'Add a Plant',
           headerShown: false,
           tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
         }}
@@ -70,11 +72,12 @@ export default function TabLayout({ navigation }: Props) {
           tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
         }}
       />
+
       <Tab.Screen
-        name="Add a Plant"
-        component={AddPlantScreen}
+        name="Show Plants"
+        component={ShowPlantListScreen}
         options={{
-          title: 'Add a Plant',
+          title: 'Show Plant List',
           headerShown: false,
           tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
         }}
