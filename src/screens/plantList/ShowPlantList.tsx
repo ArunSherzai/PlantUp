@@ -1,6 +1,7 @@
 import { Nunito_400Regular, useFonts } from '@expo-google-fonts/nunito';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigation } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -25,7 +26,7 @@ import Constants from 'expo-constants';
 const width = Dimensions.get('window').width;
 const ITEM_WIDTH = width;
 
-// --- Constants for Overlapping Carousel --- 
+// --- Constants for Overlapping Carousel ---
 // 1. Visual width of each card before scaling
 const BASE_CARD_WIDTH = ITEM_WIDTH * 0.8; // e.g., 80% of screen width
 // 2. Width of the slot each card occupies in FlatList (for scroll & snap)
@@ -51,7 +52,7 @@ const plants = [
     points: 850000,
     type: 'Outdoor',
     image: require('../../../assets/images/plant4.png'),
-    gradientColors: customGradients[0], 
+    gradientColors: customGradients[0],
   },
   {
     name: 'Franz',
@@ -87,16 +88,16 @@ const plants = [
     type: 'Indoor',
     image: require('../../../assets/images/plant4.png'),
     // This will use the default gradient or you can assign customGradients[0] to cycle
-    gradientColors: customGradients[0], 
+    gradientColors: customGradients[0],
   },
-    {
+  {
     name: 'Lily Phillips',
     points: 780000,
     type: 'Indoor',
     image: require('../../../assets/images/plant4.png'),
     gradientColors: customGradients[1],
   },
-   {
+  {
     name: 'Lily Phillips',
     points: 780000,
     type: 'Indoor',
@@ -109,7 +110,7 @@ interface PlantItem {
   name: string;
   points: number;
   type: string;
-  image: number; 
+  image: number;
   gradientColors?: [string, string]; // Updated to be an array/tuple of two strings
 }
 
@@ -136,19 +137,26 @@ const PlantCard = ({ item, isFocused }: PlantCardProps) => {
   };
 
   return (
-    <Animated.View style={[
-      localstyles.plantCard, 
-      { 
-        transform: [{ scale: scaleAnim }],
-        zIndex: isFocused ? 1 : 0, 
-      }
-    ]}>
+    <Animated.View
+      style={[
+        localstyles.plantCard,
+        {
+          transform: [{ scale: scaleAnim }],
+          zIndex: isFocused ? 1 : 0,
+        },
+      ]}>
       <LinearGradient
         colors={item.gradientColors || lightTheme.colors.gradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={{flex: 1, borderRadius: 20, padding: 20, flexDirection: 'row', alignItems: 'center', position: 'relative'}}
-      >
+        style={{
+          flex: 1,
+          borderRadius: 20,
+          padding: 20,
+          flexDirection: 'row',
+          alignItems: 'center',
+          position: 'relative',
+        }}>
         <Image source={item.image} style={localstyles.image} />
         <View style={localstyles.infoColumn}>
           <Text style={localstyles.name}>{item.name}</Text>
@@ -157,8 +165,16 @@ const PlantCard = ({ item, isFocused }: PlantCardProps) => {
         <Text style={localstyles.type}>{item.type}</Text>
 
         {/* Action Button */}
-        <TouchableOpacity style={localstyles.plantCardActionButton} onPress={handleActionPress} activeOpacity={0.7}>
-          <Feather name="more-horizontal" size={24} color="white" style={localstyles.plantCardActionIcon} />
+        <TouchableOpacity
+          style={localstyles.plantCardActionButton}
+          onPress={handleActionPress}
+          activeOpacity={0.7}>
+          <Feather
+            name="more-horizontal"
+            size={24}
+            color="white"
+            style={localstyles.plantCardActionIcon}
+          />
         </TouchableOpacity>
       </LinearGradient>
     </Animated.View>
@@ -189,61 +205,66 @@ const PageIndicator = ({ count, activeIndex }: PageIndicatorProps) => {
 // ++ End PageIndicator Component Definition ++
 
 function AddPlant() {
+  const navigation = useNavigation<any>();
   const { theme } = useUnistyles();
   const [fontsLoaded] = useFonts({
     Nunito_400Regular,
   });
-
   const [focusedIndex, setFocusedIndex] = useState<number>(0);
-  const [currentView, setCurrentView] = useState({visible:false,index:null as number | null});
-  
-  const onViewRef = React.useRef((viewableItems: { viewableItems: Array<{ index: number | null }> }) => {
-    if(viewableItems?.viewableItems.length === 1){
-      const currentItemIndex = viewableItems?.viewableItems[0]?.index;
-      setCurrentView({visible:true,index:currentItemIndex});
-    } else {
-      setCurrentView({visible:false,index:null});
+  const [currentView, setCurrentView] = useState({ visible: false, index: null as number | null });
+
+  const onViewRef = React.useRef(
+    (viewableItems: { viewableItems: Array<{ index: number | null }> }) => {
+      if (viewableItems?.viewableItems.length === 1) {
+        const currentItemIndex = viewableItems?.viewableItems[0]?.index;
+        setCurrentView({ visible: true, index: currentItemIndex });
+      } else {
+        setCurrentView({ visible: false, index: null });
+      }
     }
-  });
+  );
 
   const viewConfigRef = React.useRef({ viewAreaCoveragePercentThreshold: 50 });
 
-  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const scrollX = event.nativeEvent.contentOffset.x;
-    // viewportCenter is based on ITEM_WIDTH (screen width)
-    const viewportCenter = scrollX + ITEM_WIDTH / 2;
+  const handleScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const scrollX = event.nativeEvent.contentOffset.x;
+      // viewportCenter is based on ITEM_WIDTH (screen width)
+      const viewportCenter = scrollX + ITEM_WIDTH / 2;
 
-    let closestIndex = 0;
-    let minDistance = Infinity;
+      let closestIndex = 0;
+      let minDistance = Infinity;
 
-    plants.forEach((_, index) => {
-      // itemSlotCenter is based on CAROUSEL_SLOT_WIDTH
-      const itemSlotCenter = (index * CAROUSEL_SLOT_WIDTH) + (CAROUSEL_SLOT_WIDTH / 2);
-      const distance = Math.abs(viewportCenter - itemSlotCenter);
+      plants.forEach((_, index) => {
+        // itemSlotCenter is based on CAROUSEL_SLOT_WIDTH
+        const itemSlotCenter = index * CAROUSEL_SLOT_WIDTH + CAROUSEL_SLOT_WIDTH / 2;
+        const distance = Math.abs(viewportCenter - itemSlotCenter);
 
-      if (distance < minDistance) {
-        minDistance = distance;
-        closestIndex = index;
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestIndex = index;
+        }
+      });
+
+      if (focusedIndex !== closestIndex) {
+        setFocusedIndex(closestIndex);
       }
-    });
+    },
+    [focusedIndex]
+  );
 
-    if (focusedIndex !== closestIndex) {
-      setFocusedIndex(closestIndex);
-    }
-  }, [focusedIndex]);
-
-  const renderNewCarouselItem = ({item, index}: {item: PlantItem, index: number}) => {
+  const renderNewCarouselItem = ({ item, index }: { item: PlantItem; index: number }) => {
     const isFocused = index === focusedIndex;
     return (
-      <View style={localstyles.itemContainer}> 
+      <View style={localstyles.itemContainer}>
         <PlantCard item={item} isFocused={isFocused} />
       </View>
     );
-  }
+  };
 
   if (!fontsLoaded) {
     return (
-      <View style={[localstyles.container, {justifyContent: 'center'}]}> 
+      <View style={[localstyles.container, { justifyContent: 'center' }]}>
         <Text>Loading...</Text>
       </View>
     );
@@ -251,52 +272,62 @@ function AddPlant() {
 
   const handleAddPlant = () => {
     console.log('Add Plant pressed');
-    // Navigate or show a form here
+    navigation.navigate('TabNavigator', {
+      screen: 'Add a Plant',
+    });
   };
 
   return (
     <SafeAreaView style={localstyles.container}>
-      <ImageBackground 
-            source={require('../../../assets/images/PlantViewBackground.png')}
-            style={localstyles.backgroundImage}>
-            <View style={localstyles.arrowIcon}>
-              <Feather name="arrow-left" size={24} color="white" />
-            </View>
-            <View style={localstyles.headerContainer}>
-              <Text style={localstyles.headerTitle}>View</Text>
-              <Text style={localstyles.headerTitle}>your</Text>
-              <Text style={localstyles.headerTitle}>Plants!</Text>
-            </View>
-            <ScrollView style={localstyles.contentContainer}>
-              <View style={localstyles.carouselContainer}>
-                <Animated.FlatList 
-                  data={plants}
-                  style={{flex:1}}
-                  contentContainerStyle={{
-                    paddingTop:Constants.statusBarHeight / 2, 
-                    paddingHorizontal: (ITEM_WIDTH - CAROUSEL_SLOT_WIDTH) / 2 
-                  }}
-                  horizontal={true}
-                  onScroll={handleScroll}
-                  scrollEventThrottle={16}
-                  onViewableItemsChanged={onViewRef.current}
-                  viewabilityConfig={viewConfigRef.current}
-                  renderItem={renderNewCarouselItem}
-                  keyExtractor={(item, index) => item.name + index.toString()}
-                  showsHorizontalScrollIndicator={false}
-                  snapToInterval={CAROUSEL_SLOT_WIDTH} 
-                  decelerationRate="fast" 
-                  getItemLayout={(data, index) => (
-                    { length: CAROUSEL_SLOT_WIDTH, offset: CAROUSEL_SLOT_WIDTH * index, index }
-                  )}
-                />
-              </View>
-              <PageIndicator count={plants.length} activeIndex={focusedIndex} />
-            </ScrollView>
-            
-            </ImageBackground>
-     
-      <FilledButton  text="+ Add Plant" onPress={handleAddPlant} testID="AddPlant" />
+      <ImageBackground
+        source={require('../../../assets/images/PlantViewBackground.png')}
+        style={localstyles.backgroundImage}>
+        <View style={localstyles.arrowIcon}>
+          <Feather name="arrow-left" size={24} color="white" />
+        </View>
+        <View style={localstyles.headerContainer}>
+          <Text style={localstyles.headerTitle}>View</Text>
+          <Text style={localstyles.headerTitle}>your</Text>
+          <Text style={localstyles.headerTitle}>Plants!</Text>
+        </View>
+        <ScrollView style={localstyles.contentContainer}>
+          <View style={localstyles.carouselContainer}>
+            <Animated.FlatList
+              data={plants}
+              style={{ flex: 1 }}
+              contentContainerStyle={{
+                paddingTop: Constants.statusBarHeight / 2,
+                paddingHorizontal: (ITEM_WIDTH - CAROUSEL_SLOT_WIDTH) / 2,
+              }}
+              horizontal={true}
+              onScroll={handleScroll}
+              scrollEventThrottle={16}
+              onViewableItemsChanged={onViewRef.current}
+              viewabilityConfig={viewConfigRef.current}
+              renderItem={renderNewCarouselItem}
+              keyExtractor={(item, index) => item.name + index.toString()}
+              showsHorizontalScrollIndicator={false}
+              snapToInterval={CAROUSEL_SLOT_WIDTH}
+              decelerationRate="fast"
+              getItemLayout={(data, index) => ({
+                length: CAROUSEL_SLOT_WIDTH,
+                offset: CAROUSEL_SLOT_WIDTH * index,
+                index,
+              })}
+            />
+          </View>
+          <PageIndicator count={plants.length} activeIndex={focusedIndex} />
+        </ScrollView>
+      </ImageBackground>
+
+      <FilledButton
+        style={{
+          marginBottom: 15,
+        }}
+        text="+ Add Plant"
+        onPress={handleAddPlant}
+        testID="AddPlant"
+      />
     </SafeAreaView>
   );
 }
@@ -306,15 +337,15 @@ export default AddPlant;
 const localstyles = StyleSheet.create({
   carouselContainer: {
     paddingTop: 30,
-    height: (200 * SCALE_FOCUSED) + (10 * 2) + 40, 
+    height: 200 * SCALE_FOCUSED + 10 * 2 + 40,
     paddingVertical: 0,
-    zIndex: 1, 
+    zIndex: 1,
   },
   contentContainer: {
     backgroundColor: 'white',
     borderTopLeftRadius: 25,
     borderTopRightRadius: 25,
-    minHeight: 350, 
+    minHeight: 350,
     padding: 0,
   },
   headerTitle: {
@@ -330,7 +361,7 @@ const localstyles = StyleSheet.create({
     margin: 5,
   },
   plantCard: {
-    width: BASE_CARD_WIDTH, 
+    width: BASE_CARD_WIDTH,
     height: 200,
     backgroundColor: 'transparent',
     borderRadius: 20,
@@ -348,8 +379,8 @@ const localstyles = StyleSheet.create({
     justifyContent: 'center',
   },
   itemContainer: {
-    width: CAROUSEL_SLOT_WIDTH, 
-    alignItems: 'center', 
+    width: CAROUSEL_SLOT_WIDTH,
+    alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
   },
@@ -398,10 +429,10 @@ const localstyles = StyleSheet.create({
   },
   plantCardActionButton: {
     position: 'absolute',
-    top: 10, 
-    right: 10, 
-    padding: 5, 
-    zIndex: 2, 
+    top: 10,
+    right: 10,
+    padding: 5,
+    zIndex: 2,
   },
   plantCardActionIcon: {
     // Additional styling for the icon itself, if needed
@@ -410,19 +441,19 @@ const localstyles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 15, 
-    marginTop: 5,      
+    paddingVertical: 15,
+    marginTop: 5,
   },
   pageIndicatorDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#E0E0E0', 
-    marginHorizontal: 5, 
+    backgroundColor: '#E0E0E0',
+    marginHorizontal: 5,
   },
   pageIndicatorDotActive: {
-    backgroundColor: '#616161', 
-    width: 9, 
+    backgroundColor: '#616161',
+    width: 9,
     height: 9,
     borderRadius: 4.5,
   },
