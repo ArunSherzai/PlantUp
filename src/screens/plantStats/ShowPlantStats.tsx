@@ -106,7 +106,7 @@ export default function ShowPlantStats() {
       </TouchableOpacity>
       <View style={styles.headerContainer}>
         <Text style={styles.headerTitle}>How's</Text>
-        <Text style={styles.headerTitle}>{`${name}?`}</Text>
+        <Text style={styles.headerTitle}>{name}?</Text>
       </View>
 
       <ScrollView
@@ -117,7 +117,7 @@ export default function ShowPlantStats() {
         <View style={styles.card}>
           <View style={styles.cardTopRow}>
             <Text style={styles.cardValueText}>{temperature}</Text>
-            <Feather name="sun" size={36} color="#FFD700" /> {/* Gold color for sun */}
+            <Feather name="sun" size={36} color="#FFD700" />
           </View>
           <View style={styles.cardSeparator} />
           <Text style={styles.cardLabelText}>Today's weather</Text>
@@ -127,7 +127,7 @@ export default function ShowPlantStats() {
         <View style={styles.card}>
           <View style={styles.cardTopRow}>
             <Text style={styles.cardValueText}>{humidity}</Text>
-            <Feather name="droplet" size={36} color="#1E90FF" /> {/* DodgerBlue for droplet */}
+            <Feather name="droplet" size={36} color="#1E90FF" />
           </View>
           <View style={styles.cardSeparator} />
           <Text style={styles.cardLabelText}>Today's weather</Text>
