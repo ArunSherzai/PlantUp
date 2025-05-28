@@ -123,11 +123,11 @@ const styles = StyleSheet.create((theme) => ({
   headerTitle: {
     fontSize: 48,
     fontWeight: 'bold',
-    color: 'white',
+    color: theme.colors.text,
   },
 
   formContainer: {
-    backgroundColor: 'white',
+    backgroundColor: theme.colors.background,
     borderTopLeftRadius: 25,
     borderTopRightRadius: 25,
     padding: 20,
@@ -170,7 +170,7 @@ const styles = StyleSheet.create((theme) => ({
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    color: 'black',
+    color: theme.colors.textDark,
   },
   radioContainer: {
     flexDirection: 'row',
@@ -191,7 +191,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   radioText: {
     fontSize: 16,
-    color: 'black',
+    color: theme.colors.textDark,
   },
   radioTextSelected: {
     fontSize: 16,
@@ -199,7 +199,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   sensorText: {
     fontSize: 16,
-    color: 'black',
+    color: theme.colors.textDark,
     marginBottom: 5,
   },
   connectedText: {
@@ -211,7 +211,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   linkDeviceText: {
     fontSize: 16,
-    color: 'black',
+    color: theme.colors.textDark,
     textDecorationLine: 'underline',
   },
   imagePlaceholder: {
@@ -225,7 +225,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   imageText: {
     fontSize: 16,
-    color: 'black',
+    color: theme.colors.textDark,
   },
   saveButton: {
     backgroundColor: theme.colors.primary,
@@ -234,7 +234,7 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: 'center',
   },
   saveButtonText: {
-    color: 'black',
+    color: theme.colors.textDark,
     fontSize: 18,
   },
 }));
