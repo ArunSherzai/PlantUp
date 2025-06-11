@@ -43,10 +43,6 @@ export default function AddPlantScreen() {
         style={styles.formContainer}
         contentContainerStyle={{ paddingBottom: 40 }}
         keyboardShouldPersistTaps="handled">
-        <TouchableOpacity style={styles.xButton} onPress={() => navigation.goBack()}>
-          <Feather name="x-circle" size={24} color="black" />
-        </TouchableOpacity>
-
         <View style={styles.inputContainer}>
           <Text style={styles.label}>Name*</Text>
           <TextInput
@@ -54,6 +50,7 @@ export default function AddPlantScreen() {
             value={name}
             onChangeText={setName}
             placeholder="Enter name"
+            placeholderTextColor={theme.colors.text}
           />
         </View>
 
@@ -84,6 +81,7 @@ export default function AddPlantScreen() {
             value={location}
             onChangeText={setLocation}
             placeholder="Enter location"
+            placeholderTextColor={theme.colors.text}
           />
         </View>
 
@@ -161,7 +159,7 @@ const styles = StyleSheet.create((theme) => ({
   label: {
     fontSize: 16,
     fontFamily: theme.fonts.regular,
-    color: 'black',
+    color: theme.colors.text,
     marginBottom: 8,
   },
   input: {
@@ -170,7 +168,7 @@ const styles = StyleSheet.create((theme) => ({
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    color: theme.colors.textDark,
+    color: theme.colors.text,
   },
   radioContainer: {
     flexDirection: 'row',

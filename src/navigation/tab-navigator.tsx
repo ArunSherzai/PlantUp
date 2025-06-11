@@ -7,11 +7,10 @@ import { HeaderButton } from '../components/HeaderButton';
 import { TabBarIcon } from '../components/TabBarIcon';
 import One from '../screens/one';
 import Two from '../screens/two';
-import UpdatePlantScreen from '../screens/updatePlant/updatePlant';
 import AddPlantScreen from '../screens/addPlant/addPlant';
+import HomeScreen from '~/screens/homeScreen/homeScreen';
 import ShowPlantListScreen from '~/screens/plantList/ShowPlantList';
 import PlantStatsScreen from '~/screens/plantStats/ShowPlantStats';
-import UpdateDeviceScreen from '~/screens/updatePlant/updatePlant';
 import NavigationBar from '~/components/NavigationBar';
 
 const Tab = createBottomTabNavigator();
@@ -64,10 +63,10 @@ export default function TabLayout({ navigation }: Props) {
         }}
       />
       <Tab.Screen
-        name="Update Plant"
-        component={UpdatePlantScreen}
+        name="Homescreen"
+        component={HomeScreen}
         options={{
-          title: 'Update a Plant',
+          title: 'Home',
           headerShown: false,
           tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
         }}
