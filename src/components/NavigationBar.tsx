@@ -102,7 +102,7 @@ import { useRoute } from '@react-navigation/native';
 const iconMap: { [key: string]: keyof typeof FontAwesome6.glyphMap } = {
   One: 'newspaper',
   'Add a Plant': 'message',
-  'Update Plant': 'house',
+  Homescreen: 'house',
   'Show Plants': 'seedling',
   Stats: 'user-large',
 };

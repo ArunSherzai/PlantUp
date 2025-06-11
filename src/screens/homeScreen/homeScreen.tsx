@@ -1,10 +1,11 @@
-import { View, Text, TextInput, TouchableOpacity, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Image, FlatList } from 'react-native';
 import { useUnistyles, StyleSheet } from 'react-native-unistyles';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useState } from 'react';
 import { AntDesign } from '@expo/vector-icons';
 import { ScrollView } from 'react-native-gesture-handler';
+import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { ImageBackground } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
@@ -31,8 +32,8 @@ function TaskCard({
         <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
       </View>
       <View style={styles.iconGroup}>
-        <Feather name="check" size={16} style={styles.icon} />
-        <Feather name="arrow-right" size={16} style={styles.icon} />
+        <FontAwesome6 name="check" size={16} style={styles.icon} />
+        <FontAwesome6 name="arrow-right" size={16} style={styles.icon} />
       </View>
     </View>
   );
@@ -42,15 +43,22 @@ export default function HomeScreen() {
   const { theme } = useUnistyles();
   const navigation = useNavigation<any>();
 
+  const tasks = [
+    { id: '1', tag: 'New', text: 'Water your plant 3 times!', progress: 1, total: 3 },
+    { id: '2', tag: 'New', text: 'Post a picture 1 time!', progress: 0, total: 1 },
+    { id: '3', tag: 'claim in 5:45:21', text: 'Progressing...', progress: 3, total: 5 },
+    { id: '4', tag: 'claim in 5:45:21', text: 'Progressing...', progress: 3, total: 5 },
+    { id: '5', tag: 'claim in 5:45:21', text: 'Progressing...', progress: 3, total: 5 },
+  ];
+
   return (
     <View style={{ flex: 1 }}>
       <ImageBackground
         source={require('../../../assets/images/homeScreenBackground.png')}
         style={styles.backgroundImage}>
         <View style={styles.topBar}>
-          <Feather name="search" size={22} color="white" style={styles.icon} />
+          <FontAwesome name="search" size={22} color="white" />
         </View>
-
         <View style={styles.titleWrapper}>
           <Text style={styles.title}>Home</Text>
           <Text style={styles.title}>Sweet</Text>
@@ -58,9 +66,19 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.taskContainer}>
-          <TaskCard tag="New" text="Do this 3 times!" progress={1} total={3} />
-          <TaskCard tag="New" text="Do this 1 time!" progress={0} total={1} />
-          <TaskCard tag="claim in 5:45:21" text="Progressing..." progress={3} total={5} />
+          <FlatList
+            data={tasks}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <TaskCard
+                tag={item.tag}
+                text={item.text}
+                progress={item.progress}
+                total={item.total}
+              />
+            )}
+            showsVerticalScrollIndicator={false}
+          />
         </View>
       </ImageBackground>
     </View>
@@ -75,8 +93,9 @@ const styles = StyleSheet.create((theme) => ({
   topBar: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    alignItems: 'center',
-    margin: 10,
+    alignItems: 'flex-start',
+    margin: 20,
+    height: 100,
   },
   logo: {
     color: theme.colors.icon,
@@ -92,16 +111,15 @@ const styles = StyleSheet.create((theme) => ({
   },
   title: {
     color: 'white',
-    fontSize: 36,
+    fontSize: 50,
     fontWeight: 'bold',
     marginLeft: 15,
   },
   taskContainer: {
-    backgroundColor: theme.colors.background + 'cc', // 'cc' adds semi-transparency (hex alpha)
+    backgroundColor: theme.colors.background + 'cc',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 16,
-    gap: 16,
     flex: 1,
   },
 
@@ -110,6 +128,7 @@ const styles = StyleSheet.create((theme) => ({
     elevation: 3,
     borderRadius: 12,
     padding: 16,
+    margin: 5,
   },
   tag: {
     backgroundColor: theme.colors.greyedOut,
