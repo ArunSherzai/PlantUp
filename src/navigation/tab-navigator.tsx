@@ -82,10 +82,10 @@ export default function TabLayout({ navigation }: Props) {
         }}
       />
       <Tab.Screen
-        name="Stats"
+        name="Profile"
         component={PlantStatsScreen}
         options={{
-          title: 'Add a Plant',
+          title: 'Profile Screen',
           headerShown: false,
           tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
         }}
