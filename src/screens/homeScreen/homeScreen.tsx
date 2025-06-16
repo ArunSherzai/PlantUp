@@ -31,9 +31,12 @@ function TaskCard({
         <View style={{ flex: 1 }}>
           <Text style={styles.taskText}>{text}</Text>
         </View>
-        <Image source={require('../../../assets/images/icon.png')} style={styles.rewardImageLeft} />
         <Image
-          source={require('../../../assets/images/icon.png')}
+          source={require('../../../assets/images/plantupcoin.png')}
+          style={styles.rewardImageLeft}
+        />
+        <Image
+          source={require('../../../assets/images/plantupcoin.png')}
           style={styles.rewardImageRight}
         />
       </View>
@@ -102,22 +105,18 @@ const styles = StyleSheet.create((theme) => ({
   rewardImageLeft: {
     width: 50,
     height: 50,
-    borderWidth: 1,
-    borderColor: theme.colors.accent,
     marginRight: 3,
   },
   rewardImageRight: {
     width: 50,
     height: 50,
-    borderWidth: 1,
-    borderColor: theme.colors.accent,
   },
   topBar: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     alignItems: 'flex-start',
     margin: 20,
-    height: 100,
+    height: 160,
   },
   logo: {
     color: theme.colors.icon,
