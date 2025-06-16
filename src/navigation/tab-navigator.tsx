@@ -12,6 +12,7 @@ import HomeScreen from '~/screens/homeScreen/homeScreen';
 import ShowPlantListScreen from '~/screens/plantList/ShowPlantList';
 import PlantStatsScreen from '~/screens/plantStats/ShowPlantStats';
 import NavigationBar from '~/components/NavigationBar';
+import ProfileScreen from '~/screens/profileScreen/profileScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -83,7 +84,7 @@ export default function TabLayout({ navigation }: Props) {
       />
       <Tab.Screen
         name="Profile"
-        component={PlantStatsScreen}
+        component={ProfileScreen}
         options={{
           title: 'Profile Screen',
           headerShown: false,

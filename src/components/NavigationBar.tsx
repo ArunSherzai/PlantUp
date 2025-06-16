@@ -104,7 +104,7 @@ const iconMap: { [key: string]: keyof typeof FontAwesome6.glyphMap } = {
   'Add a Plant': 'message',
   Homescreen: 'house',
   'Show Plants': 'seedling',
-  Stats: 'user-large',
+  Profile: 'user-large',
 };
 
 export default function NavigationBar({ state, descriptors, navigation }: any) {
