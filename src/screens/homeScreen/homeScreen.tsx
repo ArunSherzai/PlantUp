@@ -27,7 +27,19 @@ function TaskCard({
   return (
     <View style={styles.taskCard}>
       <Text style={styles.tag}>{tag}</Text>
-      <Text style={styles.taskText}>{text}</Text>
+      <View style={styles.task}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.taskText}>{text}</Text>
+        </View>
+        <Image
+          source={require('../../../assets/images/plantupcoin.png')}
+          style={styles.rewardImageLeft}
+        />
+        <Image
+          source={require('../../../assets/images/plantupcoin.png')}
+          style={styles.rewardImageRight}
+        />
+      </View>
       <View style={styles.progressBar}>
         <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
       </View>
@@ -90,12 +102,21 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
     paddingTop: 20,
   },
+  rewardImageLeft: {
+    width: 50,
+    height: 50,
+    marginRight: 3,
+  },
+  rewardImageRight: {
+    width: 50,
+    height: 50,
+  },
   topBar: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     alignItems: 'flex-start',
     margin: 20,
-    height: 100,
+    height: 160,
   },
   logo: {
     color: theme.colors.icon,
@@ -105,6 +126,12 @@ const styles = StyleSheet.create((theme) => ({
   icon: {
     marginRight: 12,
     color: theme.colors.text,
+  },
+  task: {
+    flexDirection: 'row',
+    alignItems: 'center', // center image and text vertically
+    justifyContent: 'space-between', // space between text and image
+    marginBottom: 8,
   },
   titleWrapper: {
     marginTop: 20,
