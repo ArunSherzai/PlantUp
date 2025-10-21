@@ -1,36 +1,38 @@
-import { Nunito_400Regular, useFonts } from '@expo-google-fonts/nunito';
-import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigation } from '@react-navigation/native';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
   Image,
   TouchableOpacity,
-  Dimensions,
   SafeAreaView,
-  Animated,
-  FlatList,
-  Easing,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
-  Modal,
+  Dimensions,
+  ImageBackground,
+  ScrollView,
 } from 'react-native';
-import { ImageBackground } from 'react-native';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from '@react-navigation/native';
+import { useUnistyles } from 'react-native-unistyles';
 import { lightTheme } from 'theme';
+import { Nunito_400Regular, useFonts } from '@expo-google-fonts/nunito';
 import FilledButton from '~/features/auth/components/FilledButton';
 import Feather from '@expo/vector-icons/Feather';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { ScrollView } from 'react-native-gesture-handler';
+import Carousel, { ICarouselInstance, Pagination } from 'react-native-reanimated-carousel';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  useDerivedValue,
+  interpolate,
+  Extrapolate,
+  withTiming,
+} from 'react-native-reanimated';
 import Constants from 'expo-constants';
+import { StyleSheet } from 'react-native';
 
-const width = Dimensions.get('window').width;
-const ITEM_WIDTH = width;
-const BASE_CARD_WIDTH = ITEM_WIDTH * 0.8;
-const CAROUSEL_SLOT_WIDTH = ITEM_WIDTH * 0.5;
-const SCALE_FOCUSED = 1.0;
-const SCALE_NORMAL = 0.8;
+const { width } = Dimensions.get('window');
+const BASE_CARD_WIDTH = width * 0.8;
+const SCALE_FOCUSED = 1.1;
+const SCALE_NORMAL = 0.9;
 
 const customGradients: [string, string][] = [
   ['#ff7e5f', '#feb47b'],
@@ -56,7 +58,7 @@ const plants = [
     gradientColors: customGradients[1],
   },
   {
-    name: 'Lily Phillips',
+    name: 'Lily',
     points: 780000,
     type: 'Indoor',
     image: require('../../../assets/images/plant4.png'),
@@ -74,52 +76,34 @@ interface PlantItem {
 
 interface PlantCardProps {
   item: PlantItem;
-  isFocused: boolean;
+  index: number;
+  focusIndex: Animated.SharedValue<number>; // animated index that snaps
   onActionPress: () => void;
   showActionText: boolean;
 }
 
-const PlantCard = ({ item, isFocused, onActionPress, showActionText }: PlantCardProps) => {
-  const scaleAnim = useRef(new Animated.Value(SCALE_NORMAL)).current;
+const PlantCard = ({ item, index, focusIndex, onActionPress, showActionText }: PlantCardProps) => {
+  // Scale animates AFTER snap: distance is computed from animated snapped index
+  const animatedStyle = useAnimatedStyle(() => {
+    const distance = Math.abs(focusIndex.value - index); // 0 when centered
+    const scale = interpolate(distance, [0, 1], [SCALE_FOCUSED, SCALE_NORMAL], Extrapolate.CLAMP);
 
-  const handleDelete = () => {
-    console.log('Delete plant');
-  };
+    return {
+      transform: [{ scale }],
+      zIndex: distance < 0.5 ? 1 : 0,
+    };
+  });
 
-  const handleUpdate = () => {
-    console.log('Update plant');
-  };
-
-  useEffect(() => {
-    Animated.spring(scaleAnim, {
-      toValue: isFocused ? SCALE_FOCUSED : SCALE_NORMAL,
-      friction: 7,
-      tension: 40,
-      useNativeDriver: true,
-    }).start();
-  }, [isFocused, scaleAnim]);
+  const handleDelete = () => console.log('Delete plant');
+  const handleUpdate = () => console.log('Update plant');
 
   return (
-    <Animated.View
-      style={[
-        localstyles.plantCard,
-        {
-          transform: [{ scale: scaleAnim }],
-          zIndex: isFocused ? 1 : 0,
-        },
-      ]}>
+    <Animated.View style={[localstyles.plantCard, animatedStyle]}>
       <LinearGradient
         colors={item.gradientColors || lightTheme.colors.gradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={{
-          flex: 1,
-          borderRadius: 20,
-          padding: 20,
-          flexDirection: 'row',
-          alignItems: 'center',
-          position: 'relative',
-        }}>
+        style={localstyles.gradient}>
         <Image source={item.image} style={localstyles.image} />
         <View style={localstyles.infoColumn}>
           <Text style={localstyles.name}>{item.name}</Text>
@@ -127,28 +111,17 @@ const PlantCard = ({ item, isFocused, onActionPress, showActionText }: PlantCard
         </View>
         <Text style={localstyles.type}>{item.type}</Text>
 
-        {showActionText ? (
+        {showActionText && (
           <View style={localstyles.menu}>
             <TouchableOpacity onPress={handleUpdate} style={localstyles.update}>
-              <Text
-                style={{
-                  color: 'green',
-                }}>
-                Update
-              </Text>
+              <Text style={{ color: 'white' }}>Update</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={handleDelete} style={localstyles.delete}>
-              <Text
-                style={{
-                  color: 'red',
-                }}>
-                Delete
-              </Text>
+              <Text style={{ color: 'white' }}>Delete</Text>
             </TouchableOpacity>
           </View>
-        ) : (
-          <View></View>
         )}
+
         <TouchableOpacity
           style={localstyles.plantCardActionButton}
           onPress={onActionPress}
@@ -160,83 +133,30 @@ const PlantCard = ({ item, isFocused, onActionPress, showActionText }: PlantCard
   );
 };
 
-interface PageIndicatorProps {
-  count: number;
-  activeIndex: number;
-}
-
-const PageIndicator = ({ count, activeIndex }: PageIndicatorProps) => (
-  <View style={localstyles.pageIndicatorContainer}>
-    {Array.from({ length: count }).map((_, index) => (
-      <View
-        key={index}
-        style={[
-          localstyles.pageIndicatorDot,
-          index === activeIndex ? localstyles.pageIndicatorDotActive : {},
-        ]}
-      />
-    ))}
-  </View>
-);
-
 function AddPlant() {
   const navigation = useNavigation<any>();
   const { theme } = useUnistyles();
   const [fontsLoaded] = useFonts({ Nunito_400Regular });
-  const [focusedIndex, setFocusedIndex] = useState<number>(0);
   const [actionMenuIndex, setActionMenuIndex] = useState<number | null>(null);
 
-  const onViewRef = useRef((viewableItems: { viewableItems: Array<{ index: number | null }> }) => {
-    const currentIndex = viewableItems?.viewableItems[0]?.index ?? null;
-    if (currentIndex !== null) {
-      setFocusedIndex(currentIndex);
-    }
-  });
+  // Used ONLY for pagination dots; we round it so dots don't show transition
+  const progress = useSharedValue<number>(0);
+  const roundedProgress = useDerivedValue(() => Math.round(progress.value));
 
-  const viewConfigRef = useRef({ viewAreaCoveragePercentThreshold: 50 });
+  // Used for the zoom animation: we animate this to the snapped index
+  const currentIndexSV = useSharedValue<number>(0);
 
-  const handleScroll = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const scrollX = event.nativeEvent.contentOffset.x;
-      const viewportCenter = scrollX + ITEM_WIDTH / 2;
+  const ref = useRef<ICarouselInstance>(null);
 
-      let closestIndex = 0;
-      let minDistance = Infinity;
-
-      plants.forEach((_, index) => {
-        const itemSlotCenter = index * CAROUSEL_SLOT_WIDTH + CAROUSEL_SLOT_WIDTH / 2;
-        const distance = Math.abs(viewportCenter - itemSlotCenter);
-        if (distance < minDistance) {
-          minDistance = distance;
-          closestIndex = index;
-        }
-      });
-
-      if (focusedIndex !== closestIndex) {
-        setFocusedIndex(closestIndex);
-      }
-    },
-    [focusedIndex]
-  );
-
-  const renderNewCarouselItem = ({ item, index }: { item: PlantItem; index: number }) => {
-    const isFocused = index === focusedIndex;
-    return (
-      <View style={localstyles.itemContainer}>
-        <PlantCard
-          item={item}
-          isFocused={isFocused}
-          onActionPress={() => setActionMenuIndex(index)}
-          showActionText={actionMenuIndex === index}
-        />
-      </View>
-    );
+  const onPressPagination = (index: number) => {
+    ref.current?.scrollTo({
+      count: index - roundedProgress.value, // use rounded so it jumps to the nearest
+      animated: true,
+    });
   };
 
   const handleAddPlant = () => {
-    navigation.navigate('TabNavigator', {
-      screen: 'Add a Plant',
-    });
+    navigation.navigate('TabNavigator', { screen: 'Add a Plant' });
   };
 
   if (!fontsLoaded) {
@@ -255,6 +175,7 @@ function AddPlant() {
         <View style={localstyles.arrowIcon}>
           <Feather name="arrow-left" size={24} color="white" />
         </View>
+
         <View style={localstyles.headerContainer}>
           <Text style={localstyles.headerTitle}>View</Text>
           <Text style={localstyles.headerTitle}>your</Text>
@@ -263,30 +184,43 @@ function AddPlant() {
 
         <ScrollView style={localstyles.contentContainer}>
           <View style={localstyles.carouselContainer}>
-            <Animated.FlatList
+            <Carousel
+              ref={ref}
+              width={width}
+              height={250}
               data={plants}
-              horizontal
-              contentContainerStyle={{
-                paddingTop: Constants.statusBarHeight / 2,
-                paddingHorizontal: (ITEM_WIDTH - CAROUSEL_SLOT_WIDTH) / 2,
+              loop={false}
+              pagingEnabled
+              snapEnabled
+              scrollAnimationDuration={180}
+              onProgressChange={progress}
+              onSnapToItem={(idx) => {
+                // animate to the snapped index so the zoom finishes AFTER the snap
+                currentIndexSV.value = withTiming(idx, { duration: 150 });
               }}
-              onScroll={handleScroll}
-              scrollEventThrottle={16}
-              onViewableItemsChanged={onViewRef.current}
-              viewabilityConfig={viewConfigRef.current}
-              renderItem={renderNewCarouselItem}
-              keyExtractor={(item, index) => item.name + index}
-              showsHorizontalScrollIndicator={false}
-              snapToInterval={CAROUSEL_SLOT_WIDTH}
-              decelerationRate="fast"
-              getItemLayout={(data, index) => ({
-                length: CAROUSEL_SLOT_WIDTH,
-                offset: CAROUSEL_SLOT_WIDTH * index,
-                index,
-              })}
+              renderItem={({ item, index }) => (
+                <View style={localstyles.itemContainer}>
+                  <PlantCard
+                    item={item}
+                    index={index}
+                    focusIndex={currentIndexSV}
+                    onActionPress={() => setActionMenuIndex(index)}
+                    showActionText={actionMenuIndex === index}
+                  />
+                </View>
+              )}
+            />
+
+            {/* Built-in pagination with no transition (rounded) */}
+            <Pagination.Basic
+              progress={roundedProgress}
+              data={plants}
+              dotStyle={{ backgroundColor: 'rgba(0,0,0,0.25)', borderRadius: 50 }}
+              activeDotStyle={{ backgroundColor: '#000000' }}
+              containerStyle={{ gap: 6, marginTop: 10 }}
+              onPress={onPressPagination}
             />
           </View>
-          <PageIndicator count={plants.length} activeIndex={focusedIndex} />
         </ScrollView>
       </ImageBackground>
 
@@ -309,7 +243,7 @@ const localstyles = StyleSheet.create({
     right: '2%',
     padding: 5,
     zIndex: 2,
-    backgroundColor: 'white',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     borderRadius: 10,
   },
   update: {
@@ -318,17 +252,27 @@ const localstyles = StyleSheet.create({
     justifyContent: 'flex-start',
     marginBottom: 5,
     borderRadius: 7,
+    padding: 4,
   },
   delete: {
     backgroundColor: 'red',
     alignItems: 'flex-start',
     justifyContent: 'flex-start',
     borderRadius: 7,
+    padding: 4,
+  },
+  gradient: {
+    flex: 1,
+    borderRadius: 20,
+    padding: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'relative',
   },
   carouselContainer: {
     paddingTop: 30,
-    height: 200 * SCALE_FOCUSED + 10 * 2 + 40,
     zIndex: 1,
+    alignItems: 'center',
   },
   contentContainer: {
     backgroundColor: 'white',
@@ -354,11 +298,13 @@ const localstyles = StyleSheet.create({
     margin: 5,
   },
   plantCard: {
+    marginTop: 30,
     width: BASE_CARD_WIDTH,
     height: 200,
     borderRadius: 20,
     backgroundColor: 'transparent',
     overflow: 'visible',
+    // no static transform here; Animated style provides scale
   },
   image: {
     width: 100,
@@ -398,52 +344,13 @@ const localstyles = StyleSheet.create({
     zIndex: 2,
   },
   itemContainer: {
-    width: CAROUSEL_SLOT_WIDTH,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
-  },
-  pageIndicatorContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    paddingVertical: 15,
-    marginTop: 5,
-  },
-  pageIndicatorDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#E0E0E0',
-    marginHorizontal: 5,
-  },
-  pageIndicatorDotActive: {
-    backgroundColor: '#616161',
-    width: 9,
-    height: 9,
-    borderRadius: 4.5,
   },
   backgroundImage: {
     flex: 1,
     width: '100%',
     justifyContent: 'flex-end',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  actionMenu: {
-    width: 200,
-    backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 10,
-    alignItems: 'center',
-  },
-  actionText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginVertical: 10,
-    color: 'white',
   },
 });
