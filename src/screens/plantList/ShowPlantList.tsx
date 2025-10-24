@@ -31,8 +31,8 @@ import { StyleSheet } from 'react-native';
 
 const { width } = Dimensions.get('window');
 const BASE_CARD_WIDTH = width * 0.8;
-const SCALE_FOCUSED = 1.1;
-const SCALE_NORMAL = 0.9;
+const SCALE_FOCUSED = 1;
+const SCALE_NORMAL = 0.8;
 
 const customGradients: [string, string][] = [
   ['#ff7e5f', '#feb47b'],
@@ -82,56 +82,47 @@ interface PlantCardProps {
   showActionText: boolean;
 }
 
-const PlantCard = ({ item, index, focusIndex, onActionPress, showActionText }: PlantCardProps) => {
-  // Scale animates AFTER snap: distance is computed from animated snapped index
-  const animatedStyle = useAnimatedStyle(() => {
-    const distance = Math.abs(focusIndex.value - index); // 0 when centered
-    const scale = interpolate(distance, [0, 1], [SCALE_FOCUSED, SCALE_NORMAL], Extrapolate.CLAMP);
+const PlantCard = React.memo(
+  ({ item, index, focusIndex, onActionPress, showActionText }: PlantCardProps) => {
+    const handleDelete = () => console.log('Delete plant');
+    const handleUpdate = () => console.log('Update plant');
 
-    return {
-      transform: [{ scale }],
-      zIndex: distance < 0.5 ? 1 : 0,
-    };
-  });
-
-  const handleDelete = () => console.log('Delete plant');
-  const handleUpdate = () => console.log('Update plant');
-
-  return (
-    <Animated.View style={[localstyles.plantCard, animatedStyle]}>
-      <LinearGradient
-        colors={item.gradientColors || lightTheme.colors.gradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={localstyles.gradient}>
-        <Image source={item.image} style={localstyles.image} />
-        <View style={localstyles.infoColumn}>
-          <Text style={localstyles.name}>{item.name}</Text>
-          <Text style={localstyles.points}>PTS {item.points}</Text>
-        </View>
-        <Text style={localstyles.type}>{item.type}</Text>
-
-        {showActionText && (
-          <View style={localstyles.menu}>
-            <TouchableOpacity onPress={handleUpdate} style={localstyles.update}>
-              <Text style={{ color: 'white' }}>Update</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={handleDelete} style={localstyles.delete}>
-              <Text style={{ color: 'white' }}>Delete</Text>
-            </TouchableOpacity>
+    return (
+      <View style={[localstyles.plantCard]}>
+        <LinearGradient
+          colors={item.gradientColors || lightTheme.colors.gradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={localstyles.gradient}>
+          <Image source={item.image} style={localstyles.image} />
+          <View style={localstyles.infoColumn}>
+            <Text style={localstyles.name}>{item.name}</Text>
+            <Text style={localstyles.points}>PTS {item.points}</Text>
           </View>
-        )}
+          <Text style={localstyles.type}>{item.type}</Text>
 
-        <TouchableOpacity
-          style={localstyles.plantCardActionButton}
-          onPress={onActionPress}
-          activeOpacity={0.7}>
-          <FontAwesome name="ellipsis-h" size={24} color="white" />
-        </TouchableOpacity>
-      </LinearGradient>
-    </Animated.View>
-  );
-};
+          {showActionText && (
+            <View style={localstyles.menu}>
+              <TouchableOpacity onPress={handleUpdate} style={localstyles.update}>
+                <Text style={{ color: 'white' }}>Update</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleDelete} style={localstyles.delete}>
+                <Text style={{ color: 'white' }}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          <TouchableOpacity
+            style={localstyles.plantCardActionButton}
+            onPress={onActionPress}
+            activeOpacity={0.7}>
+            <FontAwesome name="ellipsis-h" size={24} color="white" />
+          </TouchableOpacity>
+        </LinearGradient>
+      </View>
+    );
+  }
+);
 
 function AddPlant() {
   const navigation = useNavigation<any>();
@@ -190,14 +181,8 @@ function AddPlant() {
               height={250}
               data={plants}
               loop={false}
-              pagingEnabled
               snapEnabled
-              scrollAnimationDuration={180}
               onProgressChange={progress}
-              onSnapToItem={(idx) => {
-                // animate to the snapped index so the zoom finishes AFTER the snap
-                currentIndexSV.value = withTiming(idx, { duration: 150 });
-              }}
               renderItem={({ item, index }) => (
                 <View style={localstyles.itemContainer}>
                   <PlantCard
