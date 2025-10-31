@@ -37,10 +37,10 @@ export default function TabLayout({ navigation }: Props) {
       }}
       tabBar={(props) => <NavigationBar {...props} />}>
       <Tab.Screen
-        name="One"
-        component={One}
+        name="PlantStats"
+        component={PlantStatsScreen}
         options={{
-          title: 'Tab One',
+          title: 'Plant States',
           tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
           headerRight: () => <HeaderButton onPress={() => navigation.navigate('Modal')} />,
         }}
