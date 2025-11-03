@@ -11,28 +11,18 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
-import { useUnistyles } from 'react-native-unistyles';
 import { lightTheme } from 'theme';
 import { Nunito_400Regular, useFonts } from '@expo-google-fonts/nunito';
 import FilledButton from '~/features/auth/components/FilledButton';
 import Feather from '@expo/vector-icons/Feather';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import Carousel, { ICarouselInstance, Pagination } from 'react-native-reanimated-carousel';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  useDerivedValue,
-  interpolate,
-  Extrapolate,
-  withTiming,
-} from 'react-native-reanimated';
-import Constants from 'expo-constants';
-import { StyleSheet } from 'react-native';
+import Animated, { useSharedValue, useDerivedValue } from 'react-native-reanimated';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
-const { width } = Dimensions.get('window');
-const BASE_CARD_WIDTH = width * 0.8;
-const SCALE_FOCUSED = 1;
-const SCALE_NORMAL = 0.8;
+const { width, height } = Dimensions.get('window');
+const vw = width / 100;
+const vh = height / 100;
 
 const customGradients: [string, string][] = [
   ['#ff7e5f', '#feb47b'],
@@ -77,74 +67,54 @@ interface PlantItem {
 interface PlantCardProps {
   item: PlantItem;
   index: number;
-  focusIndex: Animated.SharedValue<number>; // animated index that snaps
   onActionPress: () => void;
   showActionText: boolean;
 }
 
-const PlantCard = React.memo(
-  ({ item, index, focusIndex, onActionPress, showActionText }: PlantCardProps) => {
-    const handleDelete = () => console.log('Delete plant');
-    const handleUpdate = () => console.log('Update plant');
+const PlantCard = React.memo(({ item, onActionPress, showActionText }: PlantCardProps) => {
+  const handleDelete = () => console.log('Delete plant');
+  const handleUpdate = () => console.log('Update plant');
 
-    return (
-      <View style={[localstyles.plantCard]}>
-        <LinearGradient
-          colors={item.gradientColors || lightTheme.colors.gradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={localstyles.gradient}>
-          <Image source={item.image} style={localstyles.image} />
-          <View style={localstyles.infoColumn}>
-            <Text style={localstyles.name}>{item.name}</Text>
-            <Text style={localstyles.points}>PTS {item.points}</Text>
+  return (
+    <View style={[localstyles.plantCard]} renderToHardwareTextureAndroid shouldRasterizeIOS>
+      <LinearGradient
+        colors={item.gradientColors || lightTheme.colors.gradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={localstyles.gradient}>
+        <Image source={item.image} style={localstyles.image} />
+        <View style={localstyles.infoColumn}>
+          <Text style={localstyles.name}>{item.name}</Text>
+          <Text style={localstyles.points}>PTS {item.points}</Text>
+        </View>
+        <Text style={localstyles.type}>{item.type}</Text>
+
+        {showActionText && (
+          <View style={localstyles.menu}>
+            <TouchableOpacity onPress={handleUpdate} style={localstyles.update}>
+              <Text style={{ color: 'white' }}>Update</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleDelete} style={localstyles.delete}>
+              <Text style={{ color: 'white' }}>Delete</Text>
+            </TouchableOpacity>
           </View>
-          <Text style={localstyles.type}>{item.type}</Text>
+        )}
 
-          {showActionText && (
-            <View style={localstyles.menu}>
-              <TouchableOpacity onPress={handleUpdate} style={localstyles.update}>
-                <Text style={{ color: 'white' }}>Update</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleDelete} style={localstyles.delete}>
-                <Text style={{ color: 'white' }}>Delete</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          <TouchableOpacity
-            style={localstyles.plantCardActionButton}
-            onPress={onActionPress}
-            activeOpacity={0.7}>
-            <FontAwesome name="ellipsis-h" size={24} color="white" />
-          </TouchableOpacity>
-        </LinearGradient>
-      </View>
-    );
-  }
-);
+        <TouchableOpacity
+          style={localstyles.plantCardActionButton}
+          onPress={onActionPress}
+          activeOpacity={0.7}>
+          <FontAwesome name="ellipsis-h" size={24} color="white" />
+        </TouchableOpacity>
+      </LinearGradient>
+    </View>
+  );
+});
 
 function AddPlant() {
   const navigation = useNavigation<any>();
-  const { theme } = useUnistyles();
   const [fontsLoaded] = useFonts({ Nunito_400Regular });
   const [actionMenuIndex, setActionMenuIndex] = useState<number | null>(null);
-
-  // Used ONLY for pagination dots; we round it so dots don't show transition
-  const progress = useSharedValue<number>(0);
-  const roundedProgress = useDerivedValue(() => Math.round(progress.value));
-
-  // Used for the zoom animation: we animate this to the snapped index
-  const currentIndexSV = useSharedValue<number>(0);
-
-  const ref = useRef<ICarouselInstance>(null);
-
-  const onPressPagination = (index: number) => {
-    ref.current?.scrollTo({
-      count: index - roundedProgress.value, // use rounded so it jumps to the nearest
-      animated: true,
-    });
-  };
 
   const handleAddPlant = () => {
     navigation.navigate('TabNavigator', { screen: 'Add a Plant' });
@@ -173,44 +143,48 @@ function AddPlant() {
           <Text style={localstyles.headerTitle}>Plants!</Text>
         </View>
 
-        <ScrollView style={localstyles.contentContainer}>
-          <View style={localstyles.carouselContainer}>
-            <Carousel
-              ref={ref}
-              width={width}
-              height={250}
-              data={plants}
-              loop={false}
-              snapEnabled
-              onProgressChange={progress}
-              renderItem={({ item, index }) => (
-                <View style={localstyles.itemContainer}>
+        <View style={localstyles.contentContainer}>
+          <View
+            style={localstyles.carouselContainer}
+            renderToHardwareTextureAndroid
+            shouldRasterizeIOS>
+            <View
+              style={{
+                width: '100%',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+              <Carousel
+                width={vw * 90} // 👈 match card width
+                height={vh * 30}
+                data={plants}
+                loop={false}
+                snapEnabled
+                scrollAnimationDuration={350}
+                pagingEnabled
+                mode="parallax"
+                modeConfig={{
+                  parallaxScrollingOffset: 0, // 👈 center perfectly (was causing left shift)
+                }}
+                renderItem={({ item, index }) => (
                   <PlantCard
                     item={item}
                     index={index}
-                    focusIndex={currentIndexSV}
-                    onActionPress={() => setActionMenuIndex(index)}
+                    onActionPress={() =>
+                      setActionMenuIndex((prev) => (prev === index ? null : index))
+                    }
                     showActionText={actionMenuIndex === index}
                   />
-                </View>
-              )}
-            />
-
-            {/* Built-in pagination with no transition (rounded) */}
-            <Pagination.Basic
-              progress={roundedProgress}
-              data={plants}
-              dotStyle={{ backgroundColor: 'rgba(0,0,0,0.25)', borderRadius: 50 }}
-              activeDotStyle={{ backgroundColor: '#000000' }}
-              containerStyle={{ gap: 6, marginTop: 10 }}
-              onPress={onPressPagination}
-            />
+                )}
+              />
+            </View>
           </View>
-        </ScrollView>
+          {/* Built-in pagination with no transition (rounded) */}
+        </View>
       </ImageBackground>
 
       <FilledButton
-        style={{ marginBottom: 15 }}
+        style={{ marginBottom: 30 }}
         text="+ Add Plant"
         onPress={handleAddPlant}
         testID="AddPlant"
@@ -221,121 +195,143 @@ function AddPlant() {
 
 export default AddPlant;
 
-const localstyles = StyleSheet.create({
+export const localstyles = StyleSheet.create((theme) => ({
+  /* === Menu Overlay === */
   menu: {
     position: 'absolute',
     top: '20%',
-    right: '2%',
-    padding: 5,
+    right: '4%',
+    padding: vw * 1.5,
     zIndex: 2,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 10,
+    backgroundColor: theme.colors.background,
+    borderRadius: vw * 3,
   },
   update: {
     backgroundColor: 'green',
     alignItems: 'flex-start',
     justifyContent: 'flex-start',
-    marginBottom: 5,
-    borderRadius: 7,
-    padding: 4,
+    marginBottom: vh * 0.5,
+    borderRadius: vw * 2,
+    paddingVertical: vh * 0.6,
+    paddingHorizontal: vw * 2,
   },
   delete: {
     backgroundColor: 'red',
     alignItems: 'flex-start',
     justifyContent: 'flex-start',
-    borderRadius: 7,
-    padding: 4,
+    borderRadius: vw * 2,
+    paddingVertical: vh * 0.6,
+    paddingHorizontal: vw * 2,
+  },
+
+  /* === Plant Card === */
+  plantCard: {
+    marginTop: 0,
+    width: vw * 94,
+    height: vh * 29, // scales with screen height
+    borderRadius: vw * 6,
+    backgroundColor: 'transparent',
+    overflow: 'visible',
   },
   gradient: {
     flex: 1,
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: vw * 6,
+    padding: vw * 5,
     flexDirection: 'row',
     alignItems: 'center',
     position: 'relative',
   },
-  carouselContainer: {
-    paddingTop: 30,
-    zIndex: 1,
-    alignItems: 'center',
-  },
-  contentContainer: {
-    backgroundColor: 'white',
-    borderTopLeftRadius: 25,
-    borderTopRightRadius: 25,
-    minHeight: 350,
-  },
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    justifyContent: 'space-between',
-  },
-  headerTitle: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  headerContainer: {
-    paddingLeft: 20,
-    marginTop: 150,
-  },
-  arrowIcon: {
-    margin: 5,
-  },
-  plantCard: {
-    marginTop: 30,
-    width: BASE_CARD_WIDTH,
-    height: 200,
-    borderRadius: 20,
-    backgroundColor: 'transparent',
-    overflow: 'visible',
-    // no static transform here; Animated style provides scale
-  },
   image: {
-    width: 100,
-    height: 100,
-    marginRight: 15,
+    width: vw * 26,
+    height: vw * 26,
+    marginRight: vw * 5,
+    resizeMode: 'contain',
   },
   infoColumn: {
     flex: 1,
     justifyContent: 'center',
   },
   name: {
-    fontSize: 28,
+    fontSize: vw * 7,
     fontWeight: 'bold',
-    color: '#fff',
+    color: theme.colors.background,
     fontFamily: 'Nunito_400Regular',
-    marginBottom: 4,
+    marginBottom: vh * 0.5,
   },
   points: {
-    fontSize: 14,
-    color: '#fff',
-    marginTop: 5,
+    fontSize: vw * 3.5,
+    color: theme.colors.background,
+    marginTop: vh * 0.5,
     fontFamily: 'Nunito_400Regular',
   },
   type: {
     position: 'absolute',
-    bottom: 10,
-    right: 20,
-    fontSize: 12,
-    color: '#fff',
+    bottom: vh * 1.2,
+    right: vw * 4,
+    fontSize: vw * 3.2,
+    color: theme.colors.background,
     fontFamily: 'Nunito_400Regular',
   },
   plantCardActionButton: {
     position: 'absolute',
-    top: 10,
-    right: 10,
-    padding: 5,
-    zIndex: 2,
+    top: vh * 1.2,
+    right: vw * 3,
+    padding: vw * 2,
+    zIndex: 3,
   },
-  itemContainer: {
+
+  /* === Carousel & Content === */
+  carouselContainer: {
+    paddingTop: vh * 2,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
+    display: 'flex',
+  },
+  contentContainer: {
+    backgroundColor: theme.colors.background,
+    borderTopLeftRadius: vw * 6,
+    borderTopRightRadius: vw * 6,
+    minHeight: vh * 40,
+    paddingBottom: 0,
+  },
+
+  /* === Screen Container === */
+  container: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+    justifyContent: 'space-between',
   },
   backgroundImage: {
     flex: 1,
     width: '100%',
     justifyContent: 'flex-end',
   },
-});
+
+  /* === Header === */
+  headerContainer: {
+    paddingLeft: vw * 5,
+    marginTop: vh * 18,
+  },
+  headerTitle: {
+    fontSize: vw * 11,
+    fontWeight: 'bold',
+    color: '#ffffff',
+  },
+  arrowIcon: {
+    margin: vw * 1.5,
+  },
+
+  /* === Pagination Dots === */
+  dotStyle: {
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    borderRadius: vw * 3,
+    width: vw * 2.5,
+    height: vw * 2.5,
+  },
+  activedotStyle: {
+    backgroundColor: theme.colors.text,
+    width: vw * 2.5,
+    height: vw * 2.5,
+    borderRadius: vw * 3,
+  },
+}));
