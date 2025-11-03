@@ -5,8 +5,6 @@ import { useUnistyles } from 'react-native-unistyles';
 import { RootStackParamList } from './Root';
 import { HeaderButton } from '../components/HeaderButton';
 import { TabBarIcon } from '../components/TabBarIcon';
-import One from '../screens/one';
-import Two from '../screens/two';
 import AddPlantScreen from '../screens/addPlant/addPlant';
 import HomeScreen from '~/screens/homeScreen/homeScreen';
 import ShowPlantListScreen from '~/screens/plantList/ShowPlantList';

@@ -1,15 +1,9 @@
 import { View, Text, TextInput, TouchableOpacity, Image, FlatList } from 'react-native';
 import { useUnistyles, StyleSheet } from 'react-native-unistyles';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { useState } from 'react';
-import { AntDesign } from '@expo/vector-icons';
-import { ScrollView } from 'react-native-gesture-handler';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { ImageBackground } from 'react-native';
-import Feather from '@expo/vector-icons/Feather';
-import FilledButton from '~/features/auth/components/FilledButton';
 
 function TaskCard({
   tag,
@@ -79,6 +73,7 @@ export default function HomeScreen() {
 
         <View style={styles.taskContainer}>
           <FlatList
+            overScrollMode="never"
             data={tasks}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (

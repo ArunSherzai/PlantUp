@@ -1,27 +1,15 @@
-import { View, Text, TextInput, TouchableOpacity, Image, FlatList } from 'react-native';
+import { View, Text, TouchableOpacity, Image } from 'react-native';
 import { useUnistyles, StyleSheet } from 'react-native-unistyles';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { useState } from 'react';
-import { ScrollView } from 'react-native-gesture-handler';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { ImageBackground } from 'react-native';
 import { Dimensions } from 'react-native';
 import MaskedView from '@react-native-masked-view/masked-view';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
-function InfoCard({
-  name,
-  iconName,
-  content,
-}: {
-  name: string;
-  iconName: string;
-  content: string;
-}) {
+function InfoCard({ name, iconName, content }: { name: string; iconName: any; content: string }) {
   const { theme } = useUnistyles();
 
   return (

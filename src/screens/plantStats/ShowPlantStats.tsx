@@ -194,6 +194,7 @@ export default function ShowPlantStats() {
       </View>
 
       <ScrollView
+        overScrollMode="never"
         style={styles.formContainer}
         contentContainerStyle={{ paddingBottom: 40 }}
         keyboardShouldPersistTaps="handled">

@@ -4,7 +4,6 @@ import { useUnistyles } from 'react-native-unistyles';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import TabNavigator from './tab-navigator';
-import Modal from '../screens/modal';
 import AuthStack from './auth';
 import { useEffect } from 'react';
 
@@ -31,7 +30,6 @@ const linking = {
           ResetPass: 'reset-password',
         },
       },
-      Modal: 'modal',
       TabNavigator: {
         path: 'app',
         // add tabs if needed
@@ -60,11 +58,6 @@ export default function RootStack() {
           name="TabNavigator"
           component={TabNavigator}
           options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="Modal"
-          component={Modal}
-          options={{ presentation: 'modal', headerLeft: () => null }}
         />
 
         <Stack.Screen name="Auth" component={AuthStack} options={{ headerShown: false }} />

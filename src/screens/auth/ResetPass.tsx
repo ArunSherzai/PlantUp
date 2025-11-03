@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Linking from 'expo-linking';
 import * as QueryParams from 'expo-auth-session/build/QueryParams';
-import { supabase } from '~/utils/supabase';
+import { db } from '~/utils/supabase';
 import FilledButton from '~/features/auth/components/FilledButton';
 import GradientInput from '~/features/auth/components/GradientInput';
 
@@ -22,7 +22,7 @@ export default function ResetPass() {
         const { access_token, refresh_token } = params;
 
         if (access_token && refresh_token) {
-          const { error } = await supabase.auth.setSession({
+          const { error } = await db.public.auth.setSession({
             access_token,
             refresh_token,
           });
@@ -47,7 +47,7 @@ export default function ResetPass() {
 
     setError('');
 
-    const { error: updateError } = await supabase.auth.updateUser({
+    const { error: updateError } = await db.public.auth.updateUser({
       password,
     });
 

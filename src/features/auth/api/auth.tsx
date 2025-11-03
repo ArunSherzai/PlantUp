@@ -1,11 +1,11 @@
-import { supabase } from '~/utils/supabase';
+import { db } from '~/utils/supabase';
 import { Alert } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
 import * as QueryParams from 'expo-auth-session/build/QueryParams';
 
 export const signUp = async (email: string, password: string, username: string) => {
-  const { data, error } = await supabase.auth.signUp({ email, password });
+  const { data, error } = await db.public.auth.signUp({ email, password });
   console.log('Signup Response:', data, error);
 
   if (error) {
@@ -23,10 +23,7 @@ export const signUp = async (email: string, password: string, username: string) 
   }
 
   // ✅ Insert into your custom Users table
-  const { error: insertError } = await supabase
-    .schema('user_schema')
-    .from('Users')
-    .insert([{ id: user.id, username }]); // `id` should match auth.users.id
+  const { error: insertError } = await db.user.from('Users').insert([{ id: user.id, username }]); // `id` should match auth.users.id
 
   if (insertError) {
     console.log(insertError);
@@ -38,7 +35,7 @@ export const signUp = async (email: string, password: string, username: string) 
 };
 
 export const signIn = async (email: string, password: string) => {
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await db.public.auth.signInWithPassword({ email, password });
 
   if (error) {
     console.log(error);
@@ -50,7 +47,7 @@ export const signIn = async (email: string, password: string) => {
 };
 
 export const signOut = async () => {
-  const { error } = await supabase.auth.signOut();
+  const { error } = await db.public.auth.signOut();
   if (error) {
     console.error('Abmeldung fehlgeschlagen:', error.message);
   }
@@ -62,7 +59,7 @@ export const LoginViaGoogle = async () => {
     path: 'auth/reset-password',
     isTripleSlashed: false,
   });
-  const { data, error } = await supabase.auth.signInWithOAuth({
+  const { data, error } = await db.public.auth.signInWithOAuth({
     provider: 'google',
     options: {
       redirectTo,
@@ -82,7 +79,7 @@ export const LoginViaGoogle = async () => {
     const { access_token, refresh_token } = params;
 
     if (access_token && refresh_token) {
-      const { error: sessionError } = await supabase.auth.setSession({
+      const { error: sessionError } = await db.public.auth.setSession({
         access_token,
         refresh_token,
       });
@@ -99,7 +96,7 @@ export const LoginViaGoogle = async () => {
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await db.public.auth.getUser();
 
   return user;
 };
@@ -110,7 +107,7 @@ export const ForgotPassword = async (email: string) => {
     isTripleSlashed: false,
   });
   console.log(redirectTo);
-  const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+  const { data, error } = await db.public.auth.resetPasswordForEmail(email, {
     redirectTo: redirectTo,
   });
 
@@ -125,7 +122,7 @@ export const ForgotPassword = async (email: string) => {
 export const checkSession = async () => {
   const {
     data: { session },
-  } = await supabase.auth.getSession();
+  } = await db.public.auth.getSession();
 
   return session?.user;
 };

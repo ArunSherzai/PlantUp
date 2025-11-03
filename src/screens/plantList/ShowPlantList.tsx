@@ -115,7 +115,8 @@ function AddPlant() {
   const navigation = useNavigation<any>();
   const [fontsLoaded] = useFonts({ Nunito_400Regular });
   const [actionMenuIndex, setActionMenuIndex] = useState<number | null>(null);
-
+  const progress = useSharedValue<number>(0);
+  const roundedProgress = useDerivedValue(() => Math.round(progress.value));
   const handleAddPlant = () => {
     navigation.navigate('TabNavigator', { screen: 'Add a Plant' });
   };
@@ -165,7 +166,9 @@ function AddPlant() {
                 mode="parallax"
                 modeConfig={{
                   parallaxScrollingOffset: 0, // 👈 center perfectly (was causing left shift)
-                  parallaxAdjacentItemScale: 0.4,
+                }}
+                onProgressChange={(_, absProgress) => {
+                  progress.value = absProgress;
                 }}
                 renderItem={({ item, index }) => (
                   <PlantCard
@@ -177,6 +180,17 @@ function AddPlant() {
                     showActionText={actionMenuIndex === index}
                   />
                 )}
+              />
+              <Pagination.Basic
+                progress={roundedProgress}
+                data={plants}
+                dotStyle={localstyles.dotStyle}
+                activeDotStyle={localstyles.activedotStyle}
+                containerStyle={{
+                  marginTop: vh * 1.5,
+                  gap: vw * 1.5,
+                  alignSelf: 'center',
+                }}
               />
             </View>
           </View>
@@ -293,7 +307,6 @@ export const localstyles = StyleSheet.create((theme) => ({
     borderTopLeftRadius: vw * 6,
     borderTopRightRadius: vw * 6,
     height: '45%',
-    paddingBottom: 0,
   },
 
   /* === Screen Container === */
@@ -328,6 +341,7 @@ export const localstyles = StyleSheet.create((theme) => ({
     borderRadius: vw * 3,
     width: vw * 2.5,
     height: vw * 2.5,
+    marginTop: -20,
   },
   activedotStyle: {
     backgroundColor: theme.colors.text,
