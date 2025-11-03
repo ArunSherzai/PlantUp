@@ -165,6 +165,7 @@ function AddPlant() {
                 mode="parallax"
                 modeConfig={{
                   parallaxScrollingOffset: 0, // 👈 center perfectly (was causing left shift)
+                  parallaxAdjacentItemScale: 0.4,
                 }}
                 renderItem={({ item, index }) => (
                   <PlantCard
