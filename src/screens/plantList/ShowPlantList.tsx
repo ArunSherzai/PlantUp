@@ -160,7 +160,7 @@ function AddPlant() {
                 data={plants}
                 loop={false}
                 snapEnabled
-                scrollAnimationDuration={350}
+                scrollAnimationDuration={250}
                 pagingEnabled
                 mode="parallax"
                 modeConfig={{
@@ -291,7 +291,7 @@ export const localstyles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.background,
     borderTopLeftRadius: vw * 6,
     borderTopRightRadius: vw * 6,
-    minHeight: vh * 40,
+    height: '45%',
     paddingBottom: 0,
   },
 
