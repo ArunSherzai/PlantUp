@@ -181,7 +181,7 @@ const PlantCard = React.memo(({ item, onActionPress, showActionText }: PlantCard
   );
 });
 
-function AddPlant() {
+function ShowPlantList() {
   const navigation = useNavigation<any>();
   const [fontsLoaded] = useFonts({ Nunito_400Regular });
   const [actionMenuIndex, setActionMenuIndex] = useState<number | null>(null);
@@ -235,7 +235,7 @@ function AddPlant() {
   );
 }
 
-export default AddPlant;
+export default ShowPlantList;
 
 /* === Styles === */
 export const localstyles = StyleSheet.create((theme) => ({
