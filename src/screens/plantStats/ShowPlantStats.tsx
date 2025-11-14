@@ -1,361 +1,449 @@
-import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  Image,
+  ActivityIndicator,
   TouchableOpacity,
-  SafeAreaView,
-  Dimensions,
   ImageBackground,
-  TextInput,
+  ScrollView,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation } from '@react-navigation/native';
-import { lightTheme } from 'theme';
-import { Nunito_400Regular, useFonts } from '@expo-google-fonts/nunito';
-import FilledButton from '~/features/auth/components/FilledButton';
+import { useUnistyles, StyleSheet } from 'react-native-unistyles';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useState, useEffect, useCallback } from 'react';
 import Feather from '@expo/vector-icons/Feather';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import Animated, {
-  useSharedValue,
-  withTiming,
-  interpolate,
-  useAnimatedStyle,
-  Easing,
-} from 'react-native-reanimated';
-import { StyleSheet } from 'react-native-unistyles';
+import { BarChart } from 'react-native-gifted-charts';
+import * as Location from 'expo-location';
+import { db } from '../../utils/supabase';
 
-const { width, height } = Dimensions.get('window');
-export const vw = width / 100;
-export const vh = height / 100;
+export default function ShowPlantStats() {
+  const { theme } = useUnistyles();
+  const navigation = useNavigation<any>();
 
-const customGradients: [string, string][] = [
-  ['#ff7e5f', '#feb47b'],
-  ['#00c6ff', '#0072ff'],
-  ['#8e2de2', '#4a00e0'],
-  ['#a8e063', '#56ab2f'],
-  ['#ff9a9e', '#fad0c4'],
-];
+  // --- States ---
+  const [name, setName] = useState('--');
+  const [temperature, setTemperature] = useState('—');
+  const [humidity, setHumidity] = useState('—');
+  const [plants, setPlants] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isDropdownVisible, setDropdownVisible] = useState(false);
+  const [selectedOptionLabel, setSelectedOptionLabel] = useState<
+    'Temperature' | 'Humidity' | 'Soil Moisture' | 'Light' | 'EC'
+  >('Temperature');
+  const [barColor, setBarColor] = useState('#fdae11');
+  const [plantsList, setPlantsList] = useState<any[]>([]);
+  const [selectedPlant, setSelectedPlant] = useState<any>(null);
+  const [isPlantDropdownVisible, setPlantDropdownVisible] = useState(false);
 
-const plants = [
-  {
-    name: 'Fernando',
-    points: 850000,
-    type: 'Outdoor',
-    image: require('../../../assets/images/plant4.png'),
-    gradientColors: customGradients[0],
-  },
-];
-
-interface PlantItem {
-  name: string;
-  points: number;
-  type: string;
-  image: number;
-  gradientColors?: [string, string];
-}
-
-interface PlantCardProps {
-  item: PlantItem;
-  index: number;
-  onActionPress: () => void;
-  showActionText: boolean;
-}
-
-/* === Animated PlantCard === */
-const PlantCard = React.memo(({ item, onActionPress, showActionText }: PlantCardProps) => {
-  const flip = useSharedValue(showActionText ? 1 : 0);
-  const [editedName, setEditedName] = useState(item.name);
-  const [editedType, setEditedType] = useState(item.type);
+  // Refresh on focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchUserPlants();
+      return () => {};
+    }, [])
+  );
 
   useEffect(() => {
-    flip.value = withTiming(showActionText ? 1 : 0, {
-      duration: 700,
-      easing: Easing.out(Easing.cubic),
+    (async () => {
+      try {
+        await fetchUserPlants();
+
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          console.warn('Location permission not granted');
+          return;
+        }
+
+        const location = await Location.getCurrentPositionAsync({});
+        const { latitude, longitude } = location.coords;
+
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&hourly=relative_humidity_2m`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        const temp = data?.current_weather?.temperature;
+        setTemperature(`${temp?.toFixed(1)}°`);
+
+        const humidityData = data?.hourly?.relative_humidity_2m?.[0];
+        if (humidityData) setHumidity(`${humidityData}%`);
+      } catch (err) {
+        console.error('Error fetching weather data:', err);
+      }
+    })();
+  }, []);
+
+  // --- Fetch Plant + Sensor Data ---
+  async function fetchUserPlants() {
+    setLoading(true);
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await db.public.auth.getUser();
+
+      if (userError || !user) throw userError ?? new Error('No user logged in');
+
+      const { data: plantsData, error: plantsError } = await db.social
+        .from('Plants')
+        .select('id, nickname')
+        .eq('user_id', user.id);
+
+      if (plantsError) throw plantsError;
+
+      setPlantsList(plantsData ?? []);
+      if (plantsData && plantsData.length > 0) {
+        setSelectedPlant(plantsData[0]);
+        setName(plantsData[0].nickname);
+        await fetchPlantControllers(plantsData[0].id);
+      } else {
+        setName('--');
+      }
+    } catch (err) {
+      console.error('Error fetching user plants:', err);
+      setPlants([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function fetchPlantControllers(plantId: string) {
+    try {
+      const { data, error } = await db.micro
+        .from('Controllers')
+        .select('temperature, humidity, soil_moisture, light, electrical_conductivity, created_at')
+        .eq('plant_id', plantId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      setPlants(data ?? []);
+    } catch (err) {
+      console.error('Error fetching controller data:', err);
+      setPlants([]);
+    }
+  }
+
+  const getChartData = () => {
+    if (!plants.length) return [];
+
+    return plants.map((p) => {
+      const timeLabel = new Date(p.created_at).toISOString().slice(11, 16);
+
+      let value = 0;
+      if (selectedOptionLabel === 'Temperature') value = p.temperature ?? 0;
+      if (selectedOptionLabel === 'Humidity') value = p.humidity ?? 0;
+      if (selectedOptionLabel === 'Soil Moisture') value = p.soil_moisture ?? 0;
+      if (selectedOptionLabel === 'Light') value = p.light ?? 0;
+      if (selectedOptionLabel === 'EC') value = p.electrical_conductivity ?? 0;
+
+      return {
+        value,
+        label: timeLabel,
+        frontColor: barColor,
+      };
     });
-  }, [showActionText]);
-
-  // front animation
-  const frontStyle = useAnimatedStyle(() => ({
-    transform: [
-      { perspective: 1000 },
-      { rotateX: `${interpolate(flip.value, [0, 1], [0, 180])}deg` },
-    ],
-    backfaceVisibility: 'hidden',
-    position: 'absolute',
-    inset: 0,
-    zIndex: flip.value < 0.5 ? 2 : 0,
-  }));
-
-  // back animation
-  const backStyle = useAnimatedStyle(() => ({
-    transform: [
-      { perspective: 1000 },
-      { rotateX: `${interpolate(flip.value, [0, 1], [180, 360])}deg` },
-      { scale: interpolate(flip.value, [0, 1], [1, 0.96]) }, // subtle scale for smoothness
-    ],
-    backfaceVisibility: 'hidden',
-    position: 'absolute',
-    inset: 0,
-    zIndex: flip.value > 0.5 ? 2 : 0,
-  }));
-
-  return (
-    <View style={localstyles.plantCard}>
-      {/* === FRONT SIDE === */}
-      <Animated.View style={[frontStyle]} pointerEvents={showActionText ? 'none' : 'auto'}>
-        <LinearGradient
-          colors={item.gradientColors || lightTheme.colors.gradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={localstyles.gradient}>
-          <Image source={item.image} style={localstyles.image} />
-          <View style={localstyles.infoColumn}>
-            <Text style={localstyles.name}>{item.name}</Text>
-            <Text style={localstyles.points}>PTS {item.points}</Text>
-          </View>
-          <Text style={localstyles.type}>{item.type}</Text>
-
-          {/* ... Action button */}
-          <TouchableOpacity
-            style={localstyles.plantCardActionButton}
-            onPress={onActionPress}
-            activeOpacity={0.7}>
-            <FontAwesome name="ellipsis-h" size={24} color="white" />
-          </TouchableOpacity>
-        </LinearGradient>
-      </Animated.View>
-
-      {/* === BACK SIDE === */}
-      <Animated.View style={[backStyle]} pointerEvents={showActionText ? 'auto' : 'none'}>
-        <LinearGradient
-          colors={item.gradientColors || lightTheme.colors.gradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={localstyles.backGradient}>
-          <View style={localstyles.backContent}>
-            <Text style={localstyles.backTitle}>Edit Plant</Text>
-
-            <View style={localstyles.field}>
-              <Text style={localstyles.label}>Name</Text>
-              <TextInput
-                style={localstyles.input}
-                value={editedName}
-                onChangeText={setEditedName}
-                placeholder="Enter name"
-                placeholderTextColor="rgba(255,255,255,0.5)"
-              />
-            </View>
-
-            <View style={localstyles.field}>
-              <Text style={localstyles.label}>Type</Text>
-              <TextInput
-                style={localstyles.input}
-                value={editedType}
-                onChangeText={setEditedType}
-                placeholder="Enter type"
-                placeholderTextColor="rgba(255,255,255,0.5)"
-              />
-            </View>
-
-            <View style={localstyles.buttonRow}>
-              <TouchableOpacity style={localstyles.saveButton}>
-                <Text style={{ color: 'white', fontWeight: 'bold' }}>Save</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={localstyles.cancelButton} onPress={onActionPress}>
-                <Text style={{ color: 'white', fontWeight: 'bold' }}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* ... Action button on back too */}
-          <TouchableOpacity
-            style={[localstyles.plantCardActionButton, { top: vh * 1.2, right: vw * 3 }]}
-            onPress={onActionPress}
-            activeOpacity={0.7}>
-            <FontAwesome name="ellipsis-h" size={24} color="white" />
-          </TouchableOpacity>
-        </LinearGradient>
-      </Animated.View>
-    </View>
-  );
-});
-
-function AddPlant() {
-  const navigation = useNavigation<any>();
-  const [fontsLoaded] = useFonts({ Nunito_400Regular });
-  const [actionMenuIndex, setActionMenuIndex] = useState<number | null>(null);
-
-  const handleAddPlant = () => {
-    navigation.navigate('TabNavigator', { screen: 'Add a Plant' });
   };
 
-  if (!fontsLoaded) {
+  const giftedBarData = getChartData();
+  const maxY = giftedBarData.length > 0 ? Math.max(...giftedBarData.map((d) => d.value)) : 0;
+
+  if (loading) {
     return (
-      <View style={[localstyles.container, { justifyContent: 'center' }]}>
-        <Text>Loading...</Text>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#4CAF50" />
+        <Text>Loading your plant data...</Text>
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={localstyles.container}>
-      <ImageBackground
-        source={require('../../../assets/images/PlantViewBackground.png')}
-        style={localstyles.backgroundImage}>
-        <View style={localstyles.arrowIcon}>
+    <ImageBackground
+      source={require('../../../assets/images/statsBackground.png')}
+      style={styles.backgroundImage}>
+      <View style={styles.topHeader}>
+        <TouchableOpacity style={styles.arrowIcon} onPress={() => navigation.goBack()}>
           <Feather name="arrow-left" size={24} color="white" />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.plantDropdownButton}
+          onPress={() => setPlantDropdownVisible(!isPlantDropdownVisible)}>
+          <Text style={styles.plantDropdownText}>{selectedPlant?.nickname ?? 'Select plant'}</Text>
+          <Feather name="chevron-down" size={18} color="white" />
+        </TouchableOpacity>
+
+        {isPlantDropdownVisible && (
+          <View style={styles.plantDropdownMenu}>
+            {plantsList.map((plant) => (
+              <TouchableOpacity
+                key={plant.id}
+                style={styles.plantDropdownItem}
+                onPress={async () => {
+                  setSelectedPlant(plant);
+                  setPlantDropdownVisible(false);
+                  setName(plant.nickname);
+                  await fetchPlantControllers(plant.id);
+                }}>
+                <Text style={styles.plantDropdownItemText}>{plant.nickname}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+      </View>
+
+      <View style={styles.headerContainer}>
+        <Text style={styles.headerTitle}>How's</Text>
+        <Text style={styles.headerTitle}>{name}?</Text>
+      </View>
+
+      <ScrollView
+        overScrollMode="never"
+        style={styles.formContainer}
+        contentContainerStyle={{ paddingBottom: 40 }}
+        keyboardShouldPersistTaps="handled">
+        {/* Weather Cards */}
+        <View style={styles.card}>
+          <View style={styles.cardTopRow}>
+            <Text style={styles.cardValueText}>{temperature}</Text>
+            <Feather name="sun" size={36} color="#FFD700" />
+          </View>
+          <View style={styles.cardSeparator} />
+          <Text style={styles.cardLabelText}>Today's weather</Text>
         </View>
 
-        <View style={localstyles.headerContainer}>
-          <Text style={localstyles.headerTitle}>View</Text>
-          <Text style={localstyles.headerTitle}>your</Text>
-          <Text style={localstyles.headerTitle}>Plants!</Text>
+        <View style={styles.card}>
+          <View style={styles.cardTopRow}>
+            <Text style={styles.cardValueText}>{humidity}</Text>
+            <Feather name="droplet" size={36} color="#1E90FF" />
+          </View>
+          <View style={styles.cardSeparator} />
+          <Text style={styles.cardLabelText}>Today's humidity</Text>
         </View>
 
-        <View style={localstyles.contentContainer}>
-          <View style={localstyles.carouselContainer}>
-            <PlantCard
-              item={plants[0]}
-              index={0}
-              onActionPress={() => setActionMenuIndex((prev) => (prev === 0 ? null : 0))}
-              showActionText={actionMenuIndex === 0}
+        {/* Chart Card */}
+        <View style={styles.chartCard}>
+          <Text style={styles.chartCardTitle}>Today's Stats</Text>
+
+          <TouchableOpacity
+            style={styles.dropdownIconContainer}
+            onPress={() => setDropdownVisible(!isDropdownVisible)}>
+            <Text style={styles.selectedOptionText}>{selectedOptionLabel}</Text>
+            <Feather
+              name="chevron-down"
+              size={20}
+              color={theme.colors.text}
+              style={{ marginLeft: 5 }}
+            />
+          </TouchableOpacity>
+
+          <View style={{ marginTop: 55 }}>
+            <BarChart
+              data={giftedBarData}
+              height={200}
+              barWidth={25}
+              width={250}
+              initialSpacing={10}
+              xAxisThickness={1}
+              yAxisThickness={1}
+              xAxisColor={theme.colors.greyedOut}
+              yAxisColor={theme.colors.greyedOut}
+              xAxisLabelTextStyle={{ color: theme.colors.text, fontSize: 10 }}
+              yAxisTextStyle={{ color: theme.colors.text }}
+              noOfSections={4}
+              maxValue={maxY + 5}
+              barBorderRadius={4}
+              hideRules
             />
           </View>
-        </View>
-      </ImageBackground>
 
-      <FilledButton
-        style={{ marginBottom: 30 }}
-        text="+ Add Plant"
-        onPress={handleAddPlant}
-        testID="AddPlant"
-      />
-    </SafeAreaView>
+          {isDropdownVisible && (
+            <View style={styles.dropdownMenu}>
+              {[
+                { label: 'Temperature', color: '#fdae11' },
+                { label: 'Humidity', color: '#329d9c' },
+                { label: 'Soil Moisture', color: '#22b261' },
+                { label: 'Light', color: '#ffd700' },
+                { label: 'EC', color: '#9b59b6' },
+              ].map((option, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.dropdownItem}
+                  onPress={() => {
+                    setBarColor(option.color);
+                    setSelectedOptionLabel(option.label as any);
+                    setDropdownVisible(false);
+                  }}>
+                  <Text style={styles.dropdownItemText}>{option.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+      </ScrollView>
+    </ImageBackground>
   );
 }
 
-export default AddPlant;
-
-/* === Styles === */
-export const localstyles = StyleSheet.create((theme) => ({
-  plantCard: {
-    width: vw * 94,
-    height: vh * 29,
-    borderRadius: vw * 6,
-    backgroundColor: 'transparent',
-    overflow: 'visible',
+// --- Styles ---
+const styles = StyleSheet.create((theme) => ({
+  card: {
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+    width: '100%',
+    marginBottom: 20,
+    padding: 20,
   },
-  gradient: {
+  chartCard: {
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+    width: '100%',
+    marginBottom: 20,
+    padding: 5,
+    paddingRight: 10,
+  },
+  cardTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  cardValueText: {
+    fontSize: 48,
+    fontWeight: '300',
+    color: theme.colors.text,
+  },
+  cardSeparator: {
+    height: 1,
+    backgroundColor: theme.colors.greyedOut || '#E0E0E0',
+    marginBottom: 10,
+  },
+  cardLabelText: {
+    fontSize: 14,
+    color: theme.colors.greyedOut || '#757575',
+    fontFamily: theme.fonts.regular,
+  },
+  backgroundImage: {
     flex: 1,
-    borderRadius: vw * 6,
-    padding: vw * 5,
+    justifyContent: 'flex-end',
+  },
+  topHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginTop: 40,
+  },
+  arrowIcon: {
+    margin: 5,
+  },
+  plantDropdownButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    position: 'relative',
-  },
-  backGradient: {
-    flex: 1,
-    borderRadius: vw * 6,
-    padding: vw * 5,
-    justifyContent: 'center',
-  },
-  image: {
-    width: vw * 26,
-    height: vw * 26,
-    marginRight: vw * 5,
-    resizeMode: 'contain',
-  },
-  infoColumn: { flex: 1, justifyContent: 'center' },
-  name: {
-    fontSize: vw * 7,
-    fontWeight: 'bold',
-    color: theme.colors.background,
-    fontFamily: 'Nunito_400Regular',
-  },
-  points: {
-    fontSize: vw * 3.5,
-    color: theme.colors.background,
-    marginTop: vh * 0.5,
-  },
-  type: {
-    position: 'absolute',
-    bottom: vh * 1.2,
-    right: vw * 4,
-    fontSize: vw * 3.2,
-    color: theme.colors.background,
-  },
-  plantCardActionButton: {
-    position: 'absolute',
-    top: vh * 1.2,
-    right: vw * 3,
-    padding: vw * 2,
-    zIndex: 10,
-  },
-
-  /* Back content modern UI */
-  backContent: {
-    flex: 1,
-    justifyContent: 'center',
-    transform: [{ scale: 0.9 }], // smaller back card visual
-  },
-  backTitle: {
-    fontSize: vw * 6,
-    fontWeight: 'bold',
-    color: 'white',
-    marginBottom: vh * 2,
-  },
-  field: { marginBottom: vh * 1.5 },
-  label: {
-    color: 'rgba(255,255,255,0.85)',
-    marginBottom: 6,
-    fontSize: vw * 3.5,
-  },
-  input: {
     backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: vw * 2,
-    paddingVertical: vh * 1,
-    paddingHorizontal: vw * 3,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  plantDropdownText: {
     color: 'white',
-    fontSize: vw * 4,
+    fontSize: 16,
+    marginRight: 6,
   },
-  buttonRow: {
+  plantDropdownMenu: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    backgroundColor: 'white',
+    borderRadius: 10,
+    paddingVertical: 5,
+    elevation: 5,
+    zIndex: 10,
+    minWidth: 140,
+  },
+  plantDropdownItem: {
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+  },
+  plantDropdownItemText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  headerContainer: {
+    paddingLeft: 20,
+    marginTop: 30,
+  },
+  headerTitle: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  formContainer: {
+    backgroundColor: 'white',
+    borderTopLeftRadius: 25,
+    borderTopRightRadius: 25,
+    padding: 20,
+  },
+  dropdownIconContainer: {
+    position: 'absolute',
+    top: 15,
+    right: 15,
+    zIndex: 10,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: vh * 2,
-  },
-  saveButton: {
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    borderRadius: vw * 3,
-    paddingVertical: vh * 1,
-    paddingHorizontal: vw * 6,
-  },
-  cancelButton: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: vw * 3,
-    paddingVertical: vh * 1,
-    paddingHorizontal: vw * 6,
-  },
-
-  /* Layout */
-  carouselContainer: {
-    paddingTop: vh * 2,
     alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: theme.colors.surface || '#EFEFEF',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  contentContainer: {
+  selectedOptionText: {
+    fontSize: 16,
+    color: theme.colors.text,
+    fontFamily: theme.fonts.regular,
+    marginRight: 3,
+  },
+  dropdownMenu: {
+    position: 'absolute',
+    top: 45,
+    right: 15,
     backgroundColor: theme.colors.background,
-    borderTopLeftRadius: vw * 6,
-    borderTopRightRadius: vw * 6,
-    height: '45%',
+    borderRadius: 15,
+    paddingVertical: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    zIndex: 20,
+    minWidth: 140,
   },
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-    justifyContent: 'space-between',
+  dropdownItem: {
+    paddingHorizontal: 15,
+    paddingVertical: 10,
   },
-  backgroundImage: { flex: 1, width: '100%', justifyContent: 'flex-end' },
-  headerContainer: { paddingLeft: vw * 5, marginTop: vh * 18 },
-  headerTitle: { fontSize: vw * 11, fontWeight: 'bold', color: '#ffffff' },
-  arrowIcon: { margin: vw * 1.5 },
+  dropdownItemText: {
+    fontSize: 16,
+    color: theme.colors.text,
+    fontFamily: theme.fonts.regular,
+  },
+  chartCardTitle: {
+    position: 'absolute',
+    top: 15,
+    left: 15,
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+    zIndex: 5,
+  },
 }));
