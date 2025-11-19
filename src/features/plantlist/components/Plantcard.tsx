@@ -8,6 +8,7 @@ import Animated, {
   useAnimatedStyle,
   Easing,
 } from 'react-native-reanimated';
+import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { db } from '../../../utils/supabase';
 import { styles, vw, vh } from '../styles/plantStyles';
@@ -46,6 +47,18 @@ export const PlantCard = React.memo(
           description: editedDescription,
         })
         .eq('id', item.id);
+
+      if (error) {
+        console.log('Update error:', error);
+        return;
+      }
+
+      await refreshPlants();
+      onActionPress();
+    };
+
+    const handleDelete = async () => {
+      const { error } = await db.social.from('Plants').delete().eq('id', item.id);
 
       if (error) {
         console.log('Update error:', error);
@@ -107,9 +120,19 @@ export const PlantCard = React.memo(
                 <Text style={styles.name}>{item.name}</Text>
                 <Text style={styles.points}>{item.description}</Text>
               </View>
-              <TouchableOpacity style={styles.plantCardActionButton} onPress={onActionPress}>
-                <FontAwesome6 name="repeat" size={20} color="white" />
-              </TouchableOpacity>
+              <View
+                style={{
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  height: '100%',
+                }}>
+                <TouchableOpacity onPress={onActionPress}>
+                  <FontAwesome6 name="repeat" size={20} color="white" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleDelete}>
+                  <FontAwesome5 name="trash-alt" size={24} color="white" />
+                </TouchableOpacity>
+              </View>
             </LinearGradient>
           </Animated.View>
         </TouchableOpacity>

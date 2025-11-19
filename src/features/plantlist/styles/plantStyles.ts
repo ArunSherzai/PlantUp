@@ -18,7 +18,6 @@ export const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.background,
     justifyContent: 'space-between',
   },
-
   center: {
     flex: 1,
     justifyContent: 'center',
@@ -170,5 +169,10 @@ export const styles = StyleSheet.create((theme) => ({
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: vw * 2,
+  },
+  iconsView: {
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+    height: '100%',
   },
 }));
