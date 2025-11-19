@@ -7,8 +7,8 @@ import {
   ScrollView,
 } from 'react-native';
 import { useUnistyles, StyleSheet } from 'react-native-unistyles';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { useState, useEffect, useCallback } from 'react';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { useState, useEffect } from 'react';
 import Feather from '@expo/vector-icons/Feather';
 import { BarChart } from 'react-native-gifted-charts';
 import * as Location from 'expo-location';
@@ -17,90 +17,34 @@ import { db } from '../../utils/supabase';
 export default function ShowPlantStats() {
   const { theme } = useUnistyles();
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+  const { plantId: initialPlantId } = route.params || {};
 
-  // --- States ---
   const [name, setName] = useState('--');
   const [temperature, setTemperature] = useState('—');
   const [humidity, setHumidity] = useState('—');
   const [plants, setPlants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isDropdownVisible, setDropdownVisible] = useState(false);
+
   const [selectedOptionLabel, setSelectedOptionLabel] = useState<
     'Temperature' | 'Humidity' | 'Soil Moisture' | 'Light' | 'EC'
   >('Temperature');
   const [barColor, setBarColor] = useState('#fdae11');
-  const [plantsList, setPlantsList] = useState<any[]>([]);
-  const [selectedPlant, setSelectedPlant] = useState<any>(null);
-  const [isPlantDropdownVisible, setPlantDropdownVisible] = useState(false);
+  const [isDropdownVisible, setDropdownVisible] = useState(false);
 
-  // Refresh on focus
-  useFocusEffect(
-    useCallback(() => {
-      fetchUserPlants();
-      return () => {};
-    }, [])
-  );
-
-  useEffect(() => {
-    (async () => {
-      try {
-        await fetchUserPlants();
-
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          console.warn('Location permission not granted');
-          return;
-        }
-
-        const location = await Location.getCurrentPositionAsync({});
-        const { latitude, longitude } = location.coords;
-
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&hourly=relative_humidity_2m`;
-        const res = await fetch(url);
-        const data = await res.json();
-
-        const temp = data?.current_weather?.temperature;
-        setTemperature(`${temp?.toFixed(1)}°`);
-
-        const humidityData = data?.hourly?.relative_humidity_2m?.[0];
-        if (humidityData) setHumidity(`${humidityData}%`);
-      } catch (err) {
-        console.error('Error fetching weather data:', err);
-      }
-    })();
-  }, []);
-
-  // --- Fetch Plant + Sensor Data ---
-  async function fetchUserPlants() {
-    setLoading(true);
+  async function fetchPlantById(id: string) {
     try {
-      const {
-        data: { user },
-        error: userError,
-      } = await db.public.auth.getUser();
-
-      if (userError || !user) throw userError ?? new Error('No user logged in');
-
-      const { data: plantsData, error: plantsError } = await db.social
+      const { data, error } = await db.social
         .from('Plants')
         .select('id, nickname')
-        .eq('user_id', user.id);
+        .eq('id', id)
+        .single();
 
-      if (plantsError) throw plantsError;
-
-      setPlantsList(plantsData ?? []);
-      if (plantsData && plantsData.length > 0) {
-        setSelectedPlant(plantsData[0]);
-        setName(plantsData[0].nickname);
-        await fetchPlantControllers(plantsData[0].id);
-      } else {
-        setName('--');
-      }
+      if (error) throw error;
+      return data;
     } catch (err) {
-      console.error('Error fetching user plants:', err);
-      setPlants([]);
-    } finally {
-      setLoading(false);
+      console.error('Error loading plant:', err);
+      return null;
     }
   }
 
@@ -119,6 +63,44 @@ export default function ShowPlantStats() {
       setPlants([]);
     }
   }
+
+  useEffect(() => {
+    (async () => {
+      if (!initialPlantId) {
+        console.error('No plantId passed to ShowPlantStats');
+        setLoading(false);
+        return;
+      }
+      const plant = await fetchPlantById(initialPlantId);
+      if (plant) {
+        setName(plant.nickname);
+      }
+
+      // Load sensor data
+      await fetchPlantControllers(initialPlantId);
+
+      // Load local weather
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const location = await Location.getCurrentPositionAsync({});
+          const url = `https://api.open-meteo.com/v1/forecast?latitude=${location.coords.latitude}&longitude=${location.coords.longitude}&current_weather=true&hourly=relative_humidity_2m`;
+
+          const res = await fetch(url);
+          const data = await res.json();
+          const temp = data.current_weather?.temperature;
+          const hum = data.hourly?.relative_humidity_2m?.[0];
+
+          if (temp !== undefined) setTemperature(`${temp.toFixed(1)}°`);
+          if (hum !== undefined) setHumidity(`${hum}%`);
+        }
+      } catch (err) {
+        console.error('Weather fetch error:', err);
+      }
+
+      setLoading(false);
+    })();
+  }, [initialPlantId]);
 
   const getChartData = () => {
     if (!plants.length) return [];
@@ -148,7 +130,7 @@ export default function ShowPlantStats() {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color="#4CAF50" />
-        <Text>Loading your plant data...</Text>
+        <Text>Loading plant stats...</Text>
       </View>
     );
   }
@@ -157,35 +139,13 @@ export default function ShowPlantStats() {
     <ImageBackground
       source={require('../../../assets/images/statsBackground.png')}
       style={styles.backgroundImage}>
+      {/* Header */}
       <View style={styles.topHeader}>
         <TouchableOpacity style={styles.arrowIcon} onPress={() => navigation.goBack()}>
           <Feather name="arrow-left" size={24} color="white" />
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.plantDropdownButton}
-          onPress={() => setPlantDropdownVisible(!isPlantDropdownVisible)}>
-          <Text style={styles.plantDropdownText}>{selectedPlant?.nickname ?? 'Select plant'}</Text>
-          <Feather name="chevron-down" size={18} color="white" />
-        </TouchableOpacity>
-
-        {isPlantDropdownVisible && (
-          <View style={styles.plantDropdownMenu}>
-            {plantsList.map((plant) => (
-              <TouchableOpacity
-                key={plant.id}
-                style={styles.plantDropdownItem}
-                onPress={async () => {
-                  setSelectedPlant(plant);
-                  setPlantDropdownVisible(false);
-                  setName(plant.nickname);
-                  await fetchPlantControllers(plant.id);
-                }}>
-                <Text style={styles.plantDropdownItemText}>{plant.nickname}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
+        <View style={{ width: 24 }} />
       </View>
 
       <View style={styles.headerContainer}>
@@ -198,7 +158,7 @@ export default function ShowPlantStats() {
         style={styles.formContainer}
         contentContainerStyle={{ paddingBottom: 40 }}
         keyboardShouldPersistTaps="handled">
-        {/* Weather Cards */}
+        {/* Temperature Card */}
         <View style={styles.card}>
           <View style={styles.cardTopRow}>
             <Text style={styles.cardValueText}>{temperature}</Text>
@@ -208,6 +168,7 @@ export default function ShowPlantStats() {
           <Text style={styles.cardLabelText}>Today's weather</Text>
         </View>
 
+        {/* Humidity Card */}
         <View style={styles.card}>
           <View style={styles.cardTopRow}>
             <Text style={styles.cardValueText}>{humidity}</Text>
@@ -217,7 +178,7 @@ export default function ShowPlantStats() {
           <Text style={styles.cardLabelText}>Today's humidity</Text>
         </View>
 
-        {/* Chart Card */}
+        {/* Chart */}
         <View style={styles.chartCard}>
           <Text style={styles.chartCardTitle}>Today's Stats</Text>
 
@@ -225,12 +186,7 @@ export default function ShowPlantStats() {
             style={styles.dropdownIconContainer}
             onPress={() => setDropdownVisible(!isDropdownVisible)}>
             <Text style={styles.selectedOptionText}>{selectedOptionLabel}</Text>
-            <Feather
-              name="chevron-down"
-              size={20}
-              color={theme.colors.text}
-              style={{ marginLeft: 5 }}
-            />
+            <Feather name="chevron-down" size={20} color={theme.colors.text} />
           </TouchableOpacity>
 
           <View style={{ marginTop: 55 }}>
@@ -281,7 +237,6 @@ export default function ShowPlantStats() {
   );
 }
 
-// --- Styles ---
 const styles = StyleSheet.create((theme) => ({
   card: {
     borderRadius: 20,
@@ -321,12 +276,12 @@ const styles = StyleSheet.create((theme) => ({
   },
   cardSeparator: {
     height: 1,
-    backgroundColor: theme.colors.greyedOut || '#E0E0E0',
+    backgroundColor: theme.colors.greyedOut,
     marginBottom: 10,
   },
   cardLabelText: {
     fontSize: 14,
-    color: theme.colors.greyedOut || '#757575',
+    color: theme.colors.greyedOut,
     fontFamily: theme.fonts.regular,
   },
   backgroundImage: {
@@ -343,37 +298,10 @@ const styles = StyleSheet.create((theme) => ({
   arrowIcon: {
     margin: 5,
   },
-  plantDropdownButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  plantDropdownText: {
+  headerPlantName: {
     color: 'white',
-    fontSize: 16,
-    marginRight: 6,
-  },
-  plantDropdownMenu: {
-    position: 'absolute',
-    top: 50,
-    right: 20,
-    backgroundColor: 'white',
-    borderRadius: 10,
-    paddingVertical: 5,
-    elevation: 5,
-    zIndex: 10,
-    minWidth: 140,
-  },
-  plantDropdownItem: {
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-  },
-  plantDropdownItemText: {
-    fontSize: 16,
-    color: '#333',
+    fontSize: 20,
+    fontWeight: '600',
   },
   headerContainer: {
     paddingLeft: 20,
@@ -397,21 +325,16 @@ const styles = StyleSheet.create((theme) => ({
     zIndex: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.surface || '#EFEFEF',
+    backgroundColor: theme.colors.surface,
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
     elevation: 2,
   },
   selectedOptionText: {
     fontSize: 16,
     color: theme.colors.text,
     fontFamily: theme.fonts.regular,
-    marginRight: 3,
   },
   dropdownMenu: {
     position: 'absolute',
@@ -420,10 +343,6 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.background,
     borderRadius: 15,
     paddingVertical: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
     elevation: 5,
     zIndex: 20,
     minWidth: 140,

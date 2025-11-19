@@ -7,7 +7,7 @@ import { HeaderButton } from '../components/HeaderButton';
 import { TabBarIcon } from '../components/TabBarIcon';
 import AddPlantScreen from '../screens/addPlant/addPlant';
 import HomeScreen from '~/screens/homeScreen/homeScreen';
-import ShowPlantListScreen from '~/screens/plantList/ShowPlantList';
+import PlantListScreen from '../screens/plantList/PlantListScreen';
 import PlantStatsScreen from '~/screens/plantStats/ShowPlantStats';
 import NavigationBar from '~/components/NavigationBar';
 import ProfileScreen from '~/screens/profileScreen/profileScreen';
@@ -73,7 +73,7 @@ export default function TabLayout({ navigation }: Props) {
 
       <Tab.Screen
         name="Show Plants"
-        component={ShowPlantListScreen}
+        component={PlantListScreen}
         options={{
           title: 'Show Plant List',
           headerShown: false,
