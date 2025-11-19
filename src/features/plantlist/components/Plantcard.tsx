@@ -127,7 +127,7 @@ export const PlantCard = React.memo(
                   height: '100%',
                 }}>
                 <TouchableOpacity onPress={onActionPress}>
-                  <FontAwesome6 name="repeat" size={20} color="white" />
+                  <FontAwesome6 name="repeat" size={24} color="white" />
                 </TouchableOpacity>
                 <TouchableOpacity onPress={handleDelete}>
                   <FontAwesome5 name="trash-alt" size={24} color="white" />
@@ -192,7 +192,7 @@ export const PlantCard = React.memo(
             </View>
 
             <TouchableOpacity style={styles.plantCardActionButton} onPress={onActionPress}>
-              <FontAwesome6 name="repeat" size={20} color="white" />
+              <FontAwesome6 name="repeat" size={24} color="white" />
             </TouchableOpacity>
           </LinearGradient>
         </Animated.View>
