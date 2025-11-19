@@ -107,7 +107,6 @@ export const PlantCard = React.memo(
                 <Text style={styles.name}>{item.name}</Text>
                 <Text style={styles.points}>{item.description}</Text>
               </View>
-
               <TouchableOpacity style={styles.plantCardActionButton} onPress={onActionPress}>
                 <FontAwesome6 name="repeat" size={20} color="white" />
               </TouchableOpacity>
@@ -155,7 +154,7 @@ export const PlantCard = React.memo(
                       onChangeText={setEditedType}
                     />
                   </View>
-
+                  <Text style={styles.label}></Text>
                   <View style={styles.buttonRow}>
                     <TouchableOpacity style={styles.input} onPress={handleSave}>
                       <Text style={styles.saveText}>Save</Text>
