@@ -8,7 +8,7 @@ import { useFonts, Nunito_400Regular } from '@expo-google-fonts/nunito';
 
 import { PlantCard } from '../../features/plantlist/components/Plantcard';
 import { usePlants } from '../../features/plantlist/hooks/usePlants';
-import { styles, vw } from '../../features/plantlist/styles/plantStyles';
+import { styles, vw, vh } from '../../features/plantlist/styles/plantStyles';
 
 export default function PlantListScreen() {
   const navigation = useNavigation<any>();
@@ -54,7 +54,29 @@ export default function PlantListScreen() {
               pagingEnabled
               showsHorizontalScrollIndicator={false}
               ItemSeparatorComponent={() => <View style={{ width: vw * 8 }} />}
-              contentContainerStyle={{ paddingHorizontal: vw * 4 }}
+              contentContainerStyle={{
+                paddingHorizontal: vw * 4,
+              }}
+              ListEmptyComponent={() => (
+                <View
+                  style={{
+                    flex: 1,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    width: vw * 88,
+                    height: vh * 29,
+                  }}>
+                  <Text
+                    style={{
+                      fontSize: 18,
+                      color: 'black',
+                      textAlign: 'center',
+                      fontFamily: 'Inter-SemiBold',
+                    }}>
+                    You have no plants!
+                  </Text>
+                </View>
+              )}
               renderItem={({ item, index }) => (
                 <PlantCard
                   item={item}
