@@ -12,7 +12,12 @@ export const styles = StyleSheet.create((theme) => ({
     right: 0,
     bottom: 0,
   },
-
+  paginationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 20,
+  },
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
@@ -174,5 +179,41 @@ export const styles = StyleSheet.create((theme) => ({
     flexDirection: 'column',
     justifyContent: 'space-between',
     height: '100%',
+  },
+  emptyListContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: vw * 88,
+    height: vh * 29,
+  },
+
+  emptyListText: {
+    fontSize: 18,
+    color: 'black',
+    textAlign: 'center',
+    fontFamily: 'Inter-SemiBold',
+  },
+
+  dotsWrapper: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 20,
+  },
+
+  dotSmall: {
+    width: 6,
+    height: 6,
+    borderRadius: 5,
+    backgroundColor: theme.colors.greyedOut,
+    marginHorizontal: 6,
+  },
+
+  dotSmallActive: {
+    width: 8,
+    height: 8,
+    borderRadius: 6,
+    backgroundColor: 'black',
   },
 }));

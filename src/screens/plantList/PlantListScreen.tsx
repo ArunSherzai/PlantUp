@@ -13,6 +13,7 @@ import { styles, vw, vh } from '../../features/plantlist/styles/plantStyles';
 export default function PlantListScreen() {
   const navigation = useNavigation<any>();
   const [actionMenuIndex, setActionMenuIndex] = useState<number | null>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
 
   const { plants, refreshPlants } = usePlants();
 
@@ -48,33 +49,22 @@ export default function PlantListScreen() {
         <View style={styles.contentContainer}>
           <View style={styles.carouselContainer}>
             <FlatList
+              onMomentumScrollEnd={(event) => {
+                const index = Math.round(
+                  event.nativeEvent.contentOffset.x / event.nativeEvent.layoutMeasurement.width
+                );
+                setActiveIndex(index);
+              }}
               data={plants}
               keyExtractor={(item) => item.id}
               horizontal
               pagingEnabled
               showsHorizontalScrollIndicator={false}
               ItemSeparatorComponent={() => <View style={{ width: vw * 8 }} />}
-              contentContainerStyle={{
-                paddingHorizontal: vw * 4,
-              }}
+              contentContainerStyle={{ paddingHorizontal: vw * 4 }}
               ListEmptyComponent={() => (
-                <View
-                  style={{
-                    flex: 1,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    width: vw * 88,
-                    height: vh * 29,
-                  }}>
-                  <Text
-                    style={{
-                      fontSize: 18,
-                      color: 'black',
-                      textAlign: 'center',
-                      fontFamily: 'Inter-SemiBold',
-                    }}>
-                    You have no plants!
-                  </Text>
+                <View style={styles.emptyListContainer}>
+                  <Text style={styles.emptyListText}>You have no plants!</Text>
                 </View>
               )}
               renderItem={({ item, index }) => (
@@ -89,6 +79,17 @@ export default function PlantListScreen() {
                 />
               )}
             />
+
+            {plants.length > 0 && (
+              <View style={styles.paginationContainer}>
+                {plants.map((_, i) => (
+                  <View
+                    key={i}
+                    style={[styles.dotSmall, activeIndex === i && styles.dotSmallActive]}
+                  />
+                ))}
+              </View>
+            )}
           </View>
         </View>
       </ImageBackground>
