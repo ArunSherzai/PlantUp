@@ -50,10 +50,18 @@ export default function ShowPlantStats() {
 
   async function fetchPlantControllers(plantId: string) {
     try {
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+
+      const endOfDay = new Date();
+      endOfDay.setHours(23, 59, 59, 999);
+
       const { data, error } = await db.micro
         .from('Controllers')
         .select('temperature, humidity, soil_moisture, light, electrical_conductivity, created_at')
         .eq('plant_id', plantId)
+        .gte('created_at', startOfDay.toISOString())
+        .lt('created_at', endOfDay.toISOString())
         .order('created_at', { ascending: true });
 
       if (error) throw error;
