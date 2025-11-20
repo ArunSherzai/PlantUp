@@ -22,6 +22,7 @@ export const db = {
   user: supabase.schema('user_schema'),
   social: supabase.schema('social_media_schema'),
   webshop: supabase.schema('webshop_schema'),
+  gamification: supabase.schema('gamification'),
 };
 
 console.log('Supabase URL:', SUPABASE_URL);

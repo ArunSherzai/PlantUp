@@ -1,7 +1,7 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StackScreenProps } from '@react-navigation/stack';
 import { useUnistyles } from 'react-native-unistyles';
-
+import ShowMissionsScreen from '../screens/showMissionsScreen/showMissionsScreen';
 import { RootStackParamList } from './Root';
 import { HeaderButton } from '../components/HeaderButton';
 import { TabBarIcon } from '../components/TabBarIcon';
@@ -61,13 +61,24 @@ export default function TabLayout({ navigation }: Props) {
           tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
         }}
       />
-      <Tab.Screen
+      {/*
+        <Tab.Screen
         name="Homescreen"
         component={HomeScreen}
         options={{
           title: 'Home',
           headerShown: false,
           tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
+        }}
+      />
+      */}
+      <Tab.Screen
+        name="Missions"
+        component={ShowMissionsScreen}
+        options={{
+          title: 'Missions',
+          headerShown: false,
+          tabBarIcon: ({ color }) => <TabBarIcon name="check-square" color={color} />,
         }}
       />
 
