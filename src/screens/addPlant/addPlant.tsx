@@ -104,11 +104,11 @@ export default function AddPlantScreen() {
       setIsLoading(true);
       
       // Get the current session
-      const { data: { session }, error: sessionError } = await db.public.auth.getSession();
+      const { data: { user }, error: sessionError } = await db.public.auth.getUser();
       
       console.log('Auth session:', {
-        hasUser: !!session?.user,
-        userId: session?.user?.id
+        hasUser: !!user,
+        userId: user?.id
       });
 
       if (sessionError) {
@@ -116,22 +116,22 @@ export default function AddPlantScreen() {
         throw new Error('Failed to verify authentication. Please log in again.');
       }
 
-      if (!session?.user) {
+      if (!user) {
         console.error('No authenticated user found in session');
         throw new Error('No active session. Please log in again.');
       }
 
-      const userId = session.user.id;
+      const userId = user.id;
       console.log('Using user ID from auth session:', userId);
 
-      if (!session.user) {
+      if (!user) {
         console.error('User not found in database. User ID:', userId);
         throw new Error('User account not found. Please sign up first.');
       }
 
       console.log('User verified:', {
-        userId: session.user.id,
-        email: session.user.email
+        userId: user.id,
+        email: user.email
       });
       
       // Get the selected plant data
@@ -149,7 +149,7 @@ export default function AddPlantScreen() {
             nickname: nickname.trim(),
             description: description.trim() || null,
             plant_data_id: plantDataId,
-            user_id: session.user.id,
+            user_id: user.id,
             daily_streak: 0,
           }
         ])
