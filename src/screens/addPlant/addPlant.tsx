@@ -1,29 +1,178 @@
-import { View, Text, TextInput, TouchableOpacity, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, Image, ActivityIndicator } from 'react-native';
 import { useUnistyles, StyleSheet } from 'react-native-unistyles';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { useState } from 'react';
-import { AntDesign } from '@expo/vector-icons';
+import { useState, useEffect } from 'react';
 import { ScrollView } from 'react-native-gesture-handler';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { ImageBackground } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
 import FilledButton from '~/features/auth/components/FilledButton';
+import { db } from '~/utils/supabase';
+import { useUserStore } from '~/stores/UserStore';
+
+type PlantData = {
+  id: number;
+  name: string;
+  common_name: string;
+  scientific_name: string;
+  description?: string;
+  optimal_temperature?: string;
+  optimal_humidity?: string;
+  image_url?: string;
+  water_frequency?: string;
+  sunlight_requirements?: string;
+};
 
 export default function AddPlantScreen() {
   const { theme } = useUnistyles();
   const navigation = useNavigation<any>();
-  const [name, setName] = useState('Franz');
-  const [direction, setDirection] = useState('In');
-  const [location, setLocation] = useState('');
-  const [sensor, setSensor] = useState('Sensor AH5GT');
-  const [sensorImageURL, setSensorImageURL] = useState(
-    require('../../../assets/images/sensor.png')
-  );
+  const { user } = useUserStore();
+  const [nickname, setNickname] = useState('');
+  const [description, setDescription] = useState('');
+  const [plantDataId, setPlantDataId] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isDropdownVisible, setDropdownVisible] = useState(false);
+  const [plantDataList, setPlantDataList] = useState<PlantData[]>([]);
+  const [isLoadingPlants, setIsLoadingPlants] = useState(true);
 
-  const handleSave = () => {
-    console.log({ name, direction, location, sensor });
-    navigation.goBack();
+  // Fetch plant data from the database
+  useEffect(() => {
+    const fetchPlantData = async () => {
+      try {
+        setIsLoadingPlants(true);
+        const { data, error } = await db.social
+          .from('Plant_data')
+          .select('*')
+          .order('common_name', { ascending: true });
+
+        if (error) {
+          console.error('Database error:', error);
+          throw new Error('Failed to load plant data');
+        }
+
+        if (!data || data.length === 0) {
+          console.log('No plant data found');
+          return;
+        }
+
+
+        console.log(data);
+        // Ensure the data is properly typed as PlantData[]
+        const typedData: PlantData[] = data.map(item => ({
+          id: item.id,
+          name: item.name || item.common_name || 'Unnamed Plant',
+          common_name: item.common_name || item.name || 'Unnamed Plant',
+          scientific_name: item.scientific_name || '',
+          description: item.description,
+          optimal_temperature: item.optimal_temperature,
+          optimal_humidity: item.optimal_humidity,
+          image_url: item.image_url,
+          water_frequency: item.water_frequency,
+          sunlight_requirements: item.sunlight_requirements
+        }));
+        setPlantDataList(typedData);
+      } catch (error) {
+        console.error('Error in fetchPlantData:', error);
+        Alert.alert(
+          'Error',
+          error instanceof Error ? error.message : 'Failed to load plant data'
+        );
+      } finally {
+        setIsLoadingPlants(false);
+      }
+    };
+
+    fetchPlantData();
+  }, []);
+
+  const toggleDropdown = () => {
+    setDropdownVisible(!isDropdownVisible);
+  };
+
+  const handleSave = async () => {
+    if (!nickname.trim()) {
+      Alert.alert('Error', 'Please enter a nickname for your plant');
+      return;
+    }
+
+    if (!plantDataId) {
+      Alert.alert('Error', 'Please select a plant type');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      
+      // Get the current session
+      const { data: { session }, error: sessionError } = await db.public.auth.getSession();
+      
+      console.log('Auth session:', {
+        hasUser: !!session?.user,
+        userId: session?.user?.id
+      });
+
+      if (sessionError) {
+        console.error('Error getting auth session:', sessionError);
+        throw new Error('Failed to verify authentication. Please log in again.');
+      }
+
+      if (!session?.user) {
+        console.error('No authenticated user found in session');
+        throw new Error('No active session. Please log in again.');
+      }
+
+      const userId = session.user.id;
+      console.log('Using user ID from auth session:', userId);
+
+      if (!session.user) {
+        console.error('User not found in database. User ID:', userId);
+        throw new Error('User account not found. Please sign up first.');
+      }
+
+      console.log('User verified:', {
+        userId: session.user.id,
+        email: session.user.email
+      });
+      
+      // Get the selected plant data
+      const selectedPlant = plantDataList.find(plant => plant.id === plantDataId);
+      
+      if (!selectedPlant) {
+        throw new Error('Selected plant data not found');
+      }
+      
+      // Insert the new plant into the Plants table
+      const { data, error } = await db.social
+        .from('Plants')
+        .insert([
+          {
+            nickname: nickname.trim(),
+            description: description.trim() || null,
+            plant_data_id: plantDataId,
+            user_id: session.user.id,
+            daily_streak: 0,
+          }
+        ])
+        .select();
+
+      if (error) {
+        console.error('Database error details:', error);
+        throw new Error('Failed to add plant. Please try again.');
+      }
+      
+      navigation.goBack();
+    } catch (error) {
+      console.error('Error in handleSave:', {
+        error,
+        timestamp: new Date().toISOString()
+      });
+      Alert.alert(
+        'Error',
+        error instanceof Error ? error.message : 'An unknown error occurred'
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -45,60 +194,118 @@ export default function AddPlantScreen() {
         contentContainerStyle={{ paddingBottom: 40 }}
         keyboardShouldPersistTaps="handled">
         <View style={styles.inputContainer}>
-          <Text style={styles.label}>Name*</Text>
+          <Text style={styles.label}>Nickname*</Text>
           <TextInput
             style={styles.input}
-            value={name}
-            onChangeText={setName}
-            placeholder="Enter name"
+            value={nickname}
+            onChangeText={setNickname}
+            placeholder="Enter plant nickname"
             placeholderTextColor={theme.colors.text}
+            maxLength={50}
           />
         </View>
 
         <View style={styles.inputContainer}>
-          <Text style={styles.label}>Out/In*</Text>
-          <View style={styles.radioContainer}>
-            <TouchableOpacity
-              style={[styles.radioButton, direction === 'Out' && styles.radioButtonSelected]}
-              onPress={() => setDirection('Out')}>
-              <Text style={direction === 'Out' ? styles.radioTextSelected : styles.radioText}>
-                Out
+          <Text style={styles.label}>Plant Type*</Text>
+          <TouchableOpacity 
+            style={styles.dropdownButton} 
+            onPress={toggleDropdown}
+            activeOpacity={0.8}
+          >
+            <View style={styles.selectedPlantContainer}>
+              {plantDataId && plantDataList.find(p => p.id === plantDataId)?.image_url && (
+                <Image 
+                  source={{ uri: plantDataList.find(p => p.id === plantDataId)?.image_url }} 
+                  style={styles.selectedPlantImage}
+                  resizeMode="cover"
+                />
+              )}
+              <Text style={styles.dropdownButtonText}>
+                {plantDataId 
+                  ? plantDataList.find(p => p.id === plantDataId)?.name || 'Select plant type'
+                  : 'Select plant type'}
               </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.radioButton, direction === 'In' && styles.radioButtonSelected]}
-              onPress={() => setDirection('In')}>
-              <Text style={direction === 'In' ? styles.radioTextSelected : styles.radioText}>
-                In
-              </Text>
-            </TouchableOpacity>
-          </View>
+            </View>
+            <Feather 
+              name={isDropdownVisible ? 'chevron-up' : 'chevron-down'} 
+              size={20} 
+              color={theme.colors.text} 
+            />
+          </TouchableOpacity>
+          
+          {isDropdownVisible && (
+            <View style={styles.dropdownContainer}>
+              <ScrollView 
+                style={styles.dropdownScrollView}
+                keyboardShouldPersistTaps="handled"
+              >
+                {isLoadingPlants ? (
+                  <View style={styles.dropdownItem}>
+                    <ActivityIndicator size="small" color={theme.colors.primary} />
+                    <Text style={[styles.dropdownItemText, { marginLeft: 10 }]}>
+                      Loading plants...
+                    </Text>
+                  </View>
+                ) : plantDataList.length > 0 ? (
+                  plantDataList.map((plant) => (
+                    <TouchableOpacity
+                      key={plant.id}
+                      style={styles.dropdownItem}
+                      onPress={() => {
+                        setPlantDataId(plant.id);
+                        setDropdownVisible(false);
+                      }}
+                    >
+                      <View style={styles.plantItem}>
+                        {plant.image_url && (
+                          <Image 
+                            source={{ uri: plant.image_url }} 
+                            style={styles.plantImage}
+                            resizeMode="cover"
+                          />
+                        )}
+                        <View style={styles.plantInfo}>
+                          <Text style={styles.dropdownItemText}>
+                            {plant.common_name}
+                          </Text>
+                          {plant.scientific_name && (
+                            <Text style={styles.dropdownItemScientific}>
+                              {plant.scientific_name}
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  ))
+                ) : (
+                  <Text style={styles.dropdownItem}>
+                    No plant types available. Please try again later.
+                  </Text>
+                )}
+              </ScrollView>
+            </View>
+          )}
         </View>
 
         <View style={styles.inputContainer}>
-          <Text style={styles.label}>Location</Text>
+          <Text style={styles.label}>Description</Text>
           <TextInput
-            style={styles.input}
-            value={location}
-            onChangeText={setLocation}
-            placeholder="Enter location"
+            style={[styles.input, { minHeight: 100, textAlignVertical: 'top' }]}
+            value={description}
+            onChangeText={setDescription}
+            placeholder="Tell us about your plant..."
             placeholderTextColor={theme.colors.text}
+            multiline
+            numberOfLines={4}
+            maxLength={500}
           />
         </View>
 
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Sensor</Text>
-          <View style={{ justifyContent: 'center', alignItems: 'center' }}>
-            <Image source={sensorImageURL} style={{ width: 50, height: 50 }}></Image>
-          </View>
-          <FilledButton text="+ Link Device"></FilledButton>
-        </View>
-
-        <View style={styles.imagePlaceholder}>
-          <Feather name="image" size={32} color="gray" />
-        </View>
-
-        <FilledButton text="Save" onPress={handleSave}></FilledButton>
+        <FilledButton 
+          text={isLoading ? 'Saving...' : 'Save Plant'} 
+          onPress={handleSave}
+          disabled={isLoading}
+        />
       </ScrollView>
     </ImageBackground>
   );
@@ -130,6 +337,7 @@ const styles = StyleSheet.create((theme) => ({
     borderTopLeftRadius: 25,
     borderTopRightRadius: 25,
     padding: 20,
+    marginTop: 100,
   },
 
   container: {
@@ -170,31 +378,75 @@ const styles = StyleSheet.create((theme) => ({
     padding: 12,
     fontSize: 16,
     color: theme.colors.text,
+    backgroundColor: theme.colors.background,
   },
-  radioContainer: {
+  dropdownButton: {
     flexDirection: 'row',
-    gap: 15,
-  },
-  radioButton: {
+    justifyContent: 'space-between',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: theme.colors.greyedOut,
     borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+    padding: 12,
+    backgroundColor: theme.colors.background,
+  },
+  dropdownButtonText: {
+    fontSize: 16,
+    color: theme.colors.text,
+  },
+  dropdownContainer: {
+    maxHeight: 200,
+    borderWidth: 1,
+    borderColor: theme.colors.greyedOut,
+    borderRadius: 8,
+    marginTop: 5,
+    backgroundColor: theme.colors.background,
+    elevation: 3,
+    zIndex: 1000,
+  },
+  dropdownScrollView: {
+    maxHeight: 196,
+  },
+  dropdownItem: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.greyedOut,
+    backgroundColor: theme.colors.background,
+  },
+  selectedPlantContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     flex: 1,
+  },
+  selectedPlantImage: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    marginRight: 10,
+  },
+  plantItem: {
+    flexDirection: 'row',
     alignItems: 'center',
   },
-  radioButtonSelected: {
-    borderColor: theme.colors.primary,
-    backgroundColor: theme.colors.primary,
+  plantImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
   },
-  radioText: {
-    fontSize: 16,
-    color: theme.colors.textDark,
+  plantInfo: {
+    flex: 1,
   },
-  radioTextSelected: {
+  dropdownItemText: {
     fontSize: 16,
-    color: theme.colors.background,
+    color: theme.colors.text,
+    fontWeight: '500',
+  },
+  dropdownItemScientific: {
+    fontSize: 14,
+    color: theme.colors.greyedOut,
+    marginTop: 2,
+    fontStyle: 'italic',
   },
   sensorText: {
     fontSize: 16,
