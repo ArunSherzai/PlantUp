@@ -46,7 +46,6 @@ export default function PlantListScreen() {
     );
   }
 
-  // 🔥 NEW: show loading every time screen opens
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>

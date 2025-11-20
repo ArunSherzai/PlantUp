@@ -66,7 +66,6 @@ export const PlantCard = React.memo(
       }
 
       await refreshPlants();
-      onActionPress();
     };
 
     const handleCardPress = () => {
