@@ -98,6 +98,33 @@ export const LoginViaGoogle = async () => {
     data: { user },
   } = await db.public.auth.getUser();
 
+  const { data: existingUser, error: selectError } = await db.user
+    .from('Users')
+    .select('id')
+    .eq('id', user?.id)
+    .maybeSingle(); // ← returns data: null when no row found (no error!)
+
+  if (selectError) {
+    console.warn('Failed to check if user exists:', selectError);
+    return null;
+  }
+
+  // 2️⃣ User already exists → skip inserting
+  if (existingUser) {
+    console.log('User already exists:', existingUser.id);
+    return existingUser;
+  }
+
+  // 3️⃣ Insert new user
+  const { error: insertError } = await db.user
+    .from('Users')
+    .insert([{ id: user?.id, username: user?.email }]);
+
+  if (insertError) {
+    console.warn('Failed to insert user:', insertError);
+    return null;
+  }
+
   return user;
 };
 export const ForgotPassword = async (email: string) => {
