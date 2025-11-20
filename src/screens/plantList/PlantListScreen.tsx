@@ -1,5 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, SafeAreaView, ImageBackground, FlatList } from 'react-native';
+import {
+  View,
+  Text,
+  SafeAreaView,
+  ImageBackground,
+  FlatList,
+  ActivityIndicator,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import FilledButton from '~/features/auth/components/FilledButton';
 import Feather from '@expo/vector-icons/Feather';
@@ -19,11 +26,34 @@ export default function PlantListScreen() {
 
   const [fontsLoaded] = useFonts({ Nunito_400Regular });
 
+  // 🔥 NEW: own loading state
+  const [isLoading, setIsLoading] = useState(true);
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 1000); // 1 second
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  // font loading
   if (!fontsLoaded) {
     return (
       <View style={styles.center}>
         <Text>Loading...</Text>
       </View>
+    );
+  }
+
+  // 🔥 NEW: show loading every time screen opens
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color="black" />
+        </View>
+      </SafeAreaView>
     );
   }
 
