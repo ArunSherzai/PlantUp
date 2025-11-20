@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -26,16 +27,20 @@ export default function PlantListScreen() {
 
   const [fontsLoaded] = useFonts({ Nunito_400Regular });
 
-  // 🔥 NEW: own loading state
   const [isLoading, setIsLoading] = useState(true);
+  useFocusEffect(
+    React.useCallback(() => {
+      setIsLoading(true);
 
-  React.useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1000); // 1 second
+      const timer = setTimeout(() => {
+        setIsLoading(false);
+      }, 500);
 
-    return () => clearTimeout(timer);
-  }, []);
+      refreshPlants();
+
+      return () => clearTimeout(timer);
+    }, [])
+  );
 
   // font loading
   if (!fontsLoaded) {
