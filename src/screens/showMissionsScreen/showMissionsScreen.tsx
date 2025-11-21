@@ -18,9 +18,11 @@ import { db } from '../../utils/supabase';
 
 const { height, width } = Dimensions.get('window');
 
+// --- TYPES ---
 type QuestData = {
   id: number;
   title: string;
+  description: string; // Muss im Type definiert sein
   xp_reward: number;
   target_count: number;
   type: 'daily' | 'weekly' | 'conditional' | 'milestone';
@@ -31,6 +33,7 @@ type UserQuest = {
   status: 'active' | 'completed' | 'claimed';
   progress: number;
   plant_id: number | null;
+  Plants: { nickname: string } | null;
   Quests: QuestData;
 };
 
@@ -40,6 +43,7 @@ export default function ShowMissionsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // --- FETCH DATA ---
   const fetchQuests = useCallback(async () => {
     try {
       const {
@@ -47,21 +51,36 @@ export default function ShowMissionsScreen() {
       } = await db.public.auth.getUser();
       if (!user) return;
 
+      // Wir fragen jetzt die VIEW ab, nicht mehr die Tabelle!
       const { data, error } = await db.gamification
-        .from('User_quests')
-        .select(
-          `
-          id, status, progress, plant_id,
-          Quests (id, title, xp_reward, target_count, type)
-        `
-        )
+        .from('active_quests_with_plants') // <--- Der Name unserer View
+        .select('*') // <--- Einfach alles holen!
         .eq('user_id', user.id)
         .order('status', { ascending: true });
 
       if (error) throw error;
-      setQuests(data as any);
+
+      // Wir müssen die Datenstruktur leicht anpassen für dein altes State-Format
+      // Hier mappen wir es schnell passend für deinen existierenden Code:
+      const formattedData = data.map((item) => ({
+        id: item.id,
+        status: item.status,
+        progress: item.progress,
+        plant_id: item.plant_id,
+        Plants: item.plant_name ? { nickname: item.plant_name } : null,
+        Quests: {
+          id: item.id, // Achtung: hier müsste man evtl quest_id in View holen
+          title: item.title,
+          description: item.description,
+          xp_reward: item.xp_reward,
+          target_count: item.target_count,
+          type: item.type,
+        },
+      }));
+
+      setQuests(formattedData as any);
     } catch (e) {
-      console.error('Error fetching quests:', e);
+      console.error(e);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -72,10 +91,10 @@ export default function ShowMissionsScreen() {
     fetchQuests();
   }, [fetchQuests]);
 
+  // --- CLAIM LOGIC ---
   const handleClaim = async (userQuestId: number) => {
     try {
       setLoading(true);
-
       // 1. Kurze künstliche Wartezeit (für das Feeling)
       await new Promise((resolve) => setTimeout(resolve, 500));
 
@@ -95,6 +114,7 @@ export default function ShowMissionsScreen() {
       );
     } catch (e) {
       console.error(e);
+      alert('Something went wrong while claiming.');
     } finally {
       setLoading(false);
     }
@@ -109,7 +129,7 @@ export default function ShowMissionsScreen() {
     <View style={{ flex: 1 }}>
       <StatusBar barStyle="light-content" />
 
-      {/* ================= HINTERGRUND  ================= */}
+      {/* HINTERGRUND */}
       <View style={styles.bgContainer}>
         <Image
           source={require('../../../assets/images/showDailyMissionsBackground.png')}
@@ -117,9 +137,8 @@ export default function ShowMissionsScreen() {
           resizeMode="cover"
         />
       </View>
-      {/* =================================================== */}
 
-      {/* HEADER CONTENT (Titel & Streak) */}
+      {/* HEADER */}
       <View style={styles.headerWrapper}>
         <View style={{ alignSelf: 'flex-start', marginBottom: 10 }}>
           <Text style={styles.brandText}>PlantUp</Text>
@@ -147,7 +166,7 @@ export default function ShowMissionsScreen() {
         </View>
       </View>
 
-      {/* WHITE BODY CONTAINER */}
+      {/* BODY */}
       <View style={[styles.taskContainer, { backgroundColor: theme.colors.background }]}>
         <ScrollView
           contentContainerStyle={{ paddingBottom: 40 }}
@@ -165,7 +184,7 @@ export default function ShowMissionsScreen() {
             <ActivityIndicator size="large" color={theme.colors.accent} style={{ marginTop: 20 }} />
           ) : (
             <>
-              {/* --- Daily Quests --- */}
+              {/* Daily Quests */}
               <View style={styles.sectionBlock}>
                 <Text style={styles.sectionTitle}>Daily Quests</Text>
                 <View style={styles.mintQuestContainer}>
@@ -184,7 +203,7 @@ export default function ShowMissionsScreen() {
                 </View>
               </View>
 
-              {/* --- Weekly Quests --- */}
+              {/* Weekly Quests */}
               <View style={styles.sectionBlock}>
                 <Text style={styles.sectionTitle}>Weekly Quests</Text>
                 <View style={styles.mintQuestContainer}>
@@ -210,7 +229,7 @@ export default function ShowMissionsScreen() {
   );
 }
 
-// --- Sub Component ---
+// --- QUEST CARD (SICHERE VERSION) ---
 function QuestCard({
   quest,
   onClaim,
@@ -220,14 +239,19 @@ function QuestCard({
   onClaim: () => void;
   isLast: boolean;
 }) {
-  const { theme } = useUnistyles();
   const target = quest.Quests.target_count || 1;
   const percentage = Math.min(quest.progress / target, 1) * 100;
 
-  // LOGIK WIEDER VEREINFACHT:
-  // Wir vertrauen der Datenbank. Wenn da 'completed' steht, darf man claimen.
   const canClaim = quest.status === 'completed';
   const isClaimed = quest.status === 'claimed';
+
+  const plantName = quest.Plants?.nickname || 'your plant';
+
+  // --- SICHERHEITS-CHECK ---
+  // 1. Falls description null/undefined ist (z.B. Netzwerkfehler), nimm leeren String ''
+  // 2. Führe dann erst .replace aus
+  const rawDesc = quest.Quests.description || '';
+  const safeDescription = rawDesc.replace('{{plant_name}}', plantName);
 
   return (
     <View style={[styles.card, isLast && { marginBottom: 0 }, isClaimed && { opacity: 0.6 }]}>
@@ -236,16 +260,19 @@ function QuestCard({
           flexDirection: 'row',
           justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: 12,
+          marginBottom: 8,
         }}>
-        {/* Titel */}
         <View style={{ flex: 1, paddingRight: 10 }}>
-          <Text style={styles.questTitle} numberOfLines={2}>
+          <Text style={styles.questTitle} numberOfLines={1}>
             {quest.Quests.title}
+          </Text>
+
+          {/* Hier nutzen wir jetzt den sicheren Text */}
+          <Text style={styles.questDescription} numberOfLines={2}>
+            {safeDescription}
           </Text>
         </View>
 
-        {/* Button oder XP Badge */}
         {canClaim ? (
           <TouchableOpacity onPress={onClaim} disabled={isClaimed}>
             <View style={styles.claimButtonStyled}>
@@ -259,7 +286,6 @@ function QuestCard({
             </View>
           </TouchableOpacity>
         ) : (
-          // Wenn Status 'active' oder 'claimed' ist, zeigen wir die XP (oder nichts bei claimed)
           !isClaimed && (
             <View style={styles.xpContainer}>
               <FontAwesome6
@@ -274,11 +300,10 @@ function QuestCard({
           )
         )}
 
-        {/* Optional: Wenn claimed, zeigen wir ein kleines Häkchen statt dem Button */}
         {isClaimed && <FontAwesome6 name="check" size={20} color="#329D9C" />}
       </View>
 
-      <View>
+      <View style={{ marginTop: 5 }}>
         <View style={styles.progressBarBg}>
           <LinearGradient
             colors={['#329D9C', '#8bdcbd']}
@@ -298,8 +323,8 @@ function QuestCard({
   );
 }
 
+// --- STYLES ---
 const styles = StyleSheet.create((theme) => ({
-  // === HINTERGRUND & LAYOUT ===
   bgContainer: {
     position: 'absolute',
     top: 0,
@@ -323,7 +348,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   taskContainer: {
     position: 'absolute',
-    top: '45%', // Weißer Bereich startet hier
+    top: '45%',
     left: 0,
     right: 0,
     bottom: 0,
@@ -333,8 +358,6 @@ const styles = StyleSheet.create((theme) => ({
     padding: 20,
     paddingTop: 25,
   },
-
-  // === HEADER TEXTE ===
   brandText: {
     color: 'rgba(255,255,255,0.9)',
     fontWeight: '600',
@@ -363,8 +386,6 @@ const styles = StyleSheet.create((theme) => ({
     fontWeight: 'bold',
     fontSize: 16,
   },
-
-  // === SECTIONS (DAILY/WEEKLY) ===
   sectionBlock: { marginBottom: 25 },
   sectionTitle: {
     fontSize: 18,
@@ -374,30 +395,35 @@ const styles = StyleSheet.create((theme) => ({
     textAlign: 'center',
   },
   mintQuestContainer: {
-    backgroundColor: '#E0F7FA', // Helles Mint/Türkis
+    backgroundColor: '#E0F7FA',
     borderRadius: 20,
     padding: 15,
     borderWidth: 2,
     borderColor: '#B2EBF2',
   },
   emptyText: { textAlign: 'center', color: '#888', fontStyle: 'italic', padding: 10 },
-
-  // === QUEST CARD ===
   card: {
     backgroundColor: '#fff',
     borderRadius: 15,
     padding: 15,
     marginBottom: 12,
-    // Kleiner Schatten
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
   },
-  questTitle: { fontSize: 15, fontWeight: '600', color: '#333' },
-
-  // --- NEU: XP Badge (statt schwarzer Boxen) ---
+  questTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#333',
+  },
+  questDescription: {
+    fontSize: 12,
+    color: '#777',
+    marginTop: 2,
+    lineHeight: 16,
+  },
   xpContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -413,8 +439,6 @@ const styles = StyleSheet.create((theme) => ({
     fontWeight: '700',
     color: '#00796B',
   },
-
-  // --- NEU: Claim Button (Grüner Style) ---
   claimButtonStyled: {
     width: 70,
     height: 32,
@@ -434,8 +458,6 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: 11,
     letterSpacing: 0.5,
   },
-
-  // --- PROGRESS BAR ---
   progressBarBg: {
     height: 10,
     backgroundColor: '#E0E0E0',
@@ -444,8 +466,6 @@ const styles = StyleSheet.create((theme) => ({
     marginTop: 5,
   },
   progressBarFill: { height: '100%', borderRadius: 5 },
-
-  // Text unter der Bar (statt darin)
   progressTextSubtle: {
     fontSize: 11,
     color: '#888',
