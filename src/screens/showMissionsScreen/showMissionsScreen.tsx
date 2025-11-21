@@ -97,9 +97,6 @@ export default function ShowMissionsScreen() {
       setLoading(true);
       // 1. Kurze künstliche Wartezeit (für das Feeling)
       await new Promise((resolve) => setTimeout(resolve, 500));
-
-      alert(`🎉 Quest complete! XP earned! (Simulation)`);
-
       // 2. WICHTIG: Wir updaten den State LOKAL
       // Wir gehen durch die Liste der Quests, suchen die richtige ID
       // und ändern ihren Status manuell auf 'claimed'.

@@ -12,13 +12,16 @@ import { useState, useEffect } from 'react';
 import Feather from '@expo/vector-icons/Feather';
 import { BarChart } from 'react-native-gifted-charts';
 import * as Location from 'expo-location';
-import { db } from '../../utils/supabase';
+import { db } from '../../utils/supabase'; // Assuming 'db' is your initialized Supabase client
 
 export default function ShowPlantStats() {
   const { theme } = useUnistyles();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { plantId: initialPlantId } = route.params || {};
+
+  // State to hold the current user
+  const [userId, setUserId] = useState<string | null>(null);
 
   const [name, setName] = useState('--');
   const [temperature, setTemperature] = useState('—');
@@ -72,13 +75,77 @@ export default function ShowPlantStats() {
     }
   }
 
+  // MODIFIED: Accepts userId as an argument
+  async function triggerCheckStatusQuest(currentUserId: string) {
+    try {
+      if (!currentUserId) return; // Guard against null user ID
+
+      // Load all active quests for the user
+      const { data: quests, error } = await db.gamification
+        .from('User_quests')
+        .select(
+          `
+          id,
+          progress,
+          status,
+          quest:Quests (
+            action_code,
+            target_count
+          )
+        `
+        )
+        // FIX: Use currentUserId instead of the undefined 'user?.id'
+        .eq('user_id', currentUserId)
+        .neq('status', 'completed');
+
+      if (error) {
+        console.log('CHECK_STATUS quest fetch error:', error);
+        return;
+      }
+
+      if (!quests?.length) return;
+
+      // Update all CHECK_STATUS quests
+      for (const uq of quests) {
+        if (uq.quest?.action_code === 'CHECK_STATUS') {
+          const newProgress = (uq.progress ?? 0) + 1;
+
+          await db.gamification
+            .from('User_quests')
+            .update({
+              progress: newProgress,
+              status: newProgress >= uq.quest.target_count ? 'completed' : 'in_progress',
+              completed_at: newProgress >= uq.quest.target_count ? new Date().toISOString() : null,
+            })
+            .eq('id', uq.id);
+        }
+      }
+    } catch (err) {
+      console.error('CHECK_STATUS error:', err);
+    }
+  }
+
   useEffect(() => {
     (async () => {
+      setLoading(true);
+
       if (!initialPlantId) {
         console.error('No plantId passed to ShowPlantStats');
         setLoading(false);
         return;
       }
+
+      // --- FIX: Fetch the authenticated user's ID first ---
+      const {
+        data: { user },
+      } = await db.public.auth.getUser();
+      if (user) {
+        setUserId(user.id);
+        // Trigger quest with the retrieved user ID
+        await triggerCheckStatusQuest(user.id);
+      }
+      // ---------------------------------------------------
+
       const plant = await fetchPlantById(initialPlantId);
       if (plant) {
         setName(plant.nickname);
@@ -108,7 +175,7 @@ export default function ShowPlantStats() {
 
       setLoading(false);
     })();
-  }, [initialPlantId]);
+  }, [initialPlantId]); // Added userId to dependencies if we were relying on it, but fetching it in useEffect is safer.
 
   const getChartData = () => {
     if (!plants.length) return [];

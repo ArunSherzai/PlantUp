@@ -44,7 +44,7 @@ export default function RootStack() {
   return (
     <NavigationContainer linking={linking}>
       <Stack.Navigator
-        initialRouteName="Auth"
+        initialRouteName="TabNavigator"
         screenOptions={{
           headerStyle: {
             backgroundColor: theme.colors.background,
