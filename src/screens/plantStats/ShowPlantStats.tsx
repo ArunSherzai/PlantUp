@@ -1,449 +1,1077 @@
-import {
-  View,
-  Text,
-  ActivityIndicator,
-  TouchableOpacity,
-  ImageBackground,
-  ScrollView,
-} from 'react-native';
-import { useUnistyles, StyleSheet } from 'react-native-unistyles';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { useState, useEffect, useCallback } from 'react';
-import Feather from '@expo/vector-icons/Feather';
-import { BarChart } from 'react-native-gifted-charts';
+// import {
+//   View,
+//   Text,
+//   ActivityIndicator,
+//   TouchableOpacity,
+//   ImageBackground,
+//   ScrollView,
+// } from 'react-native';
+// import { useUnistyles, StyleSheet } from 'react-native-unistyles';
+// import { useFocusEffect, useNavigation } from '@react-navigation/native';
+// import { useState, useEffect, useCallback } from 'react';
+// import Feather from '@expo/vector-icons/Feather';
+// import { BarChart } from 'react-native-gifted-charts';
+// import * as Location from 'expo-location';
+// import { db } from '../../utils/supabase';
+
+// // === HEALTH SCORE HELPER ================================================
+// function calculateHealth(r: any): number {
+//   if (!r) return 0;
+
+//   const ranges = {
+//     temperature: { min: 18, max: 30 },
+//     humidity: { min: 40, max: 70 },
+//     soil_moisture: { min: 30, max: 70 },
+//     light: { min: 500, max: 20000 },
+//     electrical_conductivity: { min: 0.5, max: 3 },
+//   };
+
+//   let score = 100;
+//   const apply = (v: any, k: keyof typeof ranges, w = 15) => {
+//     if (v == null) return;
+//     if (v < ranges[k].min || v > ranges[k].max) score -= w;
+//   };
+
+//   apply(r.temperature, 'temperature');
+//   apply(r.humidity, 'humidity');
+//   apply(r.soil_moisture, 'soil_moisture');
+//   apply(r.light, 'light');
+//   apply(r.electrical_conductivity, 'electrical_conductivity', 20);
+
+//   return Math.max(0, Math.min(score, 100));
+// }
+
+// export default function ShowPlantStats() {
+//   const { theme } = useUnistyles();
+//   const navigation = useNavigation<any>();
+
+//   // === STATE ============================================================
+//   const [name, setName] = useState('--');
+//   const [temperature, setTemperature] = useState('—');
+//   const [humidity, setHumidity] = useState('—');
+//   const [plants, setPlants] = useState<any[]>([]);
+//   const [loading, setLoading] = useState(true);
+
+//   const [selectedOptionLabel, setSelectedOptionLabel] = useState<
+//     'Temperature' | 'Humidity' | 'Soil Moisture' | 'Light' | 'EC'
+//   >('Temperature');
+
+//   const [barColor, setBarColor] = useState('#fdae11');
+
+//   const [isDropdownVisible, setDropdownVisible] = useState(false);
+//   const [plantsList, setPlantsList] = useState<any[]>([]);
+//   const [selectedPlant, setSelectedPlant] = useState<any>(null);
+//   const [isPlantDropdownVisible, setPlantDropdownVisible] = useState(false);
+
+//   // === REFRESH ON SCREEN FOCUS ==========================================
+//   useFocusEffect(
+//     useCallback(() => {
+//       fetchUserPlants();
+//     }, [])
+//   );
+
+//   // === WEATHER FETCH ====================================================
+//   useEffect(() => {
+//     (async () => {
+//       try {
+//         await fetchUserPlants();
+
+//         const { status } = await Location.requestForegroundPermissionsAsync();
+//         if (status !== 'granted') return;
+
+//         const loc = await Location.getCurrentPositionAsync({});
+//         const url = `https://api.open-meteo.com/v1/forecast?latitude=${loc.coords.latitude}&longitude=${loc.coords.longitude}&current_weather=true&hourly=relative_humidity_2m`;
+
+//         const res = await fetch(url);
+//         const data = await res.json();
+
+//         const t = data?.current_weather?.temperature;
+//         if (t != null) setTemperature(`${t.toFixed(1)}°`);
+
+//         const h = data?.hourly?.relative_humidity_2m?.[0];
+//         if (h != null) setHumidity(`${h}%`);
+//       } catch (e) {
+//         console.error(e);
+//       }
+//     })();
+//   }, []);
+
+//   // === SUPABASE: GET USER PLANTS ========================================
+//   async function fetchUserPlants() {
+//     setLoading(true);
+
+//     try {
+//       const {
+//         data: { user },
+//       } = await db.public.auth.getUser();
+
+//       if (!user) throw new Error('No user');
+
+//       const { data } = await db.social.from('Plants').select('id, nickname').eq('user_id', user.id);
+
+//       setPlantsList(data ?? []);
+
+//       if (data?.length) {
+//         setSelectedPlant(data[0]);
+//         setName(data[0].nickname);
+//         await fetchPlantControllers(data[0].id);
+//       } else {
+//         setName('--');
+//       }
+//     } catch (e) {
+//       console.error('fetchUserPlants error:', e);
+//     } finally {
+//       setLoading(false);
+//     }
+//   }
+
+//   // === SUPABASE: GET SENSOR DATA ========================================
+//   async function fetchPlantControllers(plantId: string) {
+//     try {
+//       const { data } = await db.micro
+//         .from('Controllers')
+//         .select('temperature, humidity, soil_moisture, light, electrical_conductivity, created_at')
+//         .eq('plant_id', plantId)
+//         .order('created_at', { ascending: true });
+
+//       setPlants(data ?? []);
+//     } catch (e) {
+//       console.error(e);
+//       setPlants([]);
+//     }
+//   }
+
+//   // === CHART DATA BUILDER ===============================================
+//   const chartData = () => {
+//     if (!plants.length) return [];
+
+//     return plants.map((p) => {
+//       const label = new Date(p.created_at).toISOString().slice(11, 16);
+
+//       const value =
+//         selectedOptionLabel === 'Temperature'
+//           ? p.temperature
+//           : selectedOptionLabel === 'Humidity'
+//             ? p.humidity
+//             : selectedOptionLabel === 'Soil Moisture'
+//               ? p.soil_moisture
+//               : selectedOptionLabel === 'Light'
+//                 ? p.light
+//                 : p.electrical_conductivity;
+
+//       return {
+//         value: value ?? 0,
+//         label,
+//         frontColor: barColor,
+//       };
+//     });
+//   };
+
+//   const barData = chartData();
+//   const maxY = barData.length ? Math.max(...barData.map((d) => d.value)) : 0;
+
+//   const latest = plants.length ? plants[plants.length - 1] : null;
+//   const health = latest ? calculateHealth(latest) : null;
+
+//   // --- HISTORY PROCESSOR HELPERS -----------------------------------------
+//   function calculateAverages(data: any[]) {
+//     if (!data.length) return null;
+
+//     const avg = (arr: number[]) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0);
+
+//     return {
+//       temperature: avg(data.map((d) => d.temperature ?? 0)),
+//       soil_moisture: avg(data.map((d) => d.soil_moisture ?? 0)),
+//       ec: avg(data.map((d) => d.electrical_conductivity ?? 0)),
+//       light: avg(data.map((d) => d.light ?? 0)),
+//     };
+//   }
+
+//   function lastXdays(plants: any[], days: number) {
+//     const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+//     return plants.filter((p) => new Date(p.created_at).getTime() >= cutoff);
+//   }
+
+//   if (loading)
+//     return (
+//       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+//         <ActivityIndicator size="large" color={theme.colors.primary} />
+//         <Text style={{ marginTop: 8, color: theme.colors.text }}>Loading your plant data...</Text>
+//       </View>
+//     );
+//   return (
+//     <ImageBackground
+//       source={require('../../../assets/images/statsBackground.png')}
+//       style={styles.backgroundImage}>
+//       {/* === TOP HEADER ================================================== */}
+//       <View style={styles.topHeader}>
+//         <TouchableOpacity style={styles.arrowIcon} onPress={() => navigation.goBack()}>
+//           <Feather name="arrow-left" size={24} color="white" />
+//         </TouchableOpacity>
+
+//         {/* Plant selector */}
+//         <TouchableOpacity
+//           style={styles.plantDropdownButton}
+//           onPress={() => setPlantDropdownVisible(!isPlantDropdownVisible)}>
+//           <Text style={styles.plantDropdownText}>{selectedPlant?.nickname ?? 'Select plant'}</Text>
+//           <Feather name="chevron-down" size={18} color="white" />
+//         </TouchableOpacity>
+
+//         {isPlantDropdownVisible && (
+//           <View style={styles.plantDropdownMenu}>
+//             {plantsList.map((plant) => (
+//               <TouchableOpacity
+//                 key={plant.id}
+//                 style={styles.plantDropdownItem}
+//                 onPress={async () => {
+//                   setSelectedPlant(plant);
+//                   setPlantDropdownVisible(false);
+//                   setName(plant.nickname);
+//                   await fetchPlantControllers(plant.id);
+//                 }}>
+//                 <Text style={styles.plantDropdownItemText}>{plant.nickname}</Text>
+//               </TouchableOpacity>
+//             ))}
+//           </View>
+//         )}
+//       </View>
+
+//       {/* === HEADER TITLE =============================================== */}
+//       <View style={styles.headerContainer}>
+//         <Text style={styles.headerTitle}>How's</Text>
+//         <Text style={styles.headerTitle}>{name}?</Text>
+//       </View>
+
+//       {/* === MAIN CONTENT (BOTTOM SHEET) ================================ */}
+//       <ScrollView
+//         overScrollMode="never"
+//         style={styles.formContainer}
+//         contentContainerStyle={{ paddingBottom: 40 }}
+//         keyboardShouldPersistTaps="handled">
+//         {/* === HEALTH + LIVE STATS CARD ================================= */}
+//         <View style={styles.overviewCard}>
+//           <View style={styles.overviewLeft}>
+//             <Text style={styles.overviewTitle}>Current health</Text>
+//             <Text style={styles.overviewSubtitle}>
+//               {latest ? 'Live sensor snapshot' : 'No sensor data yet'}
+//             </Text>
+
+//             {/* Mini-stat chips */}
+//             <View style={styles.overviewBadgesRow}>
+//               {/* Soil Moisture */}
+//               <View style={styles.chip}>
+//                 <Feather name="droplet" size={14} color={theme.colors.accent} />
+//                 <Text style={styles.chipText}>
+//                   {latest?.soil_moisture ?? '--'}
+//                   <Text style={styles.chipLabel}> soil</Text>
+//                 </Text>
+//               </View>
+
+//               {/* EC */}
+//               <View style={styles.chip}>
+//                 <Feather name="zap" size={14} color={theme.colors.primary} />
+//                 <Text style={styles.chipText}>
+//                   {latest?.electrical_conductivity?.toFixed(2) ?? '--'}
+//                   <Text style={styles.chipLabel}> EC</Text>
+//                 </Text>
+//               </View>
+
+//               {/* Light */}
+//               <View style={styles.chip}>
+//                 <Feather name="sun" size={14} color={theme.colors.accent} />
+//                 <Text style={styles.chipText}>
+//                   {latest?.light ?? '--'}
+//                   <Text style={styles.chipLabel}> lux</Text>
+//                 </Text>
+//               </View>
+//             </View>
+//           </View>
+
+//           {/* Circle health meter */}
+//           <View style={styles.healthCircleOuter}>
+//             <View style={styles.healthCircleInner}>
+//               <Text style={styles.healthValueText}>{health != null ? `${health}%` : '--'}</Text>
+//               <Text style={styles.healthLabelText}>HEALTH</Text>
+//             </View>
+//           </View>
+//         </View>
+
+//         {/* === WEATHER CARDS ROW ======================================== */}
+//         <View style={styles.row}>
+//           {/* Temperature card */}
+//           <View style={styles.cardSmall}>
+//             <View style={styles.cardTopRow}>
+//               <Text style={styles.cardValueText}>{temperature}</Text>
+//               <Feather name="sun" size={32} color={theme.colors.accent} />
+//             </View>
+//             <Text style={styles.cardLabelText}>Today's weather</Text>
+//           </View>
+
+//           {/* Humidity card */}
+//           <View style={styles.cardSmall}>
+//             <View style={styles.cardTopRow}>
+//               <Text style={styles.cardValueText}>{humidity}</Text>
+//               <Feather name="droplet" size={32} color={theme.colors.accent} />
+//             </View>
+//             <Text style={styles.cardLabelText}>Today's humidity</Text>
+//           </View>
+//         </View>
+
+//         {/* === TREND CHART CARD ========================================= */}
+//         <View style={styles.chartCard}>
+//           <View style={styles.chartHeaderRow}>
+//             <View>
+//               <Text style={styles.chartCardTitle}>Today's stats</Text>
+//               <Text style={styles.chartCardSubtitle}>
+//                 {selectedOptionLabel} • {barData.length} points
+//               </Text>
+//             </View>
+
+//             {/* Dropdown button */}
+//             <TouchableOpacity
+//               style={styles.dropdownIconContainer}
+//               onPress={() => setDropdownVisible(!isDropdownVisible)}>
+//               <Text style={styles.selectedOptionText}>{selectedOptionLabel}</Text>
+//               <Feather name="chevron-down" size={18} color={theme.colors.text} />
+//             </TouchableOpacity>
+//           </View>
+
+//           {/* Chart */}
+//           <View style={{ marginTop: 10 }}>
+//             <BarChart
+//               data={barData}
+//               height={200}
+//               barWidth={22}
+//               width={260}
+//               initialSpacing={10}
+//               xAxisThickness={0}
+//               yAxisThickness={0}
+//               xAxisLabelTextStyle={{ color: theme.colors.greyedOut, fontSize: 10 }}
+//               yAxisTextStyle={{ color: theme.colors.greyedOut }}
+//               noOfSections={4}
+//               maxValue={maxY + 5}
+//               barBorderRadius={8}
+//               hideRules
+//               spacing={14}
+//             />
+//           </View>
+
+//           {/* Dropdown items */}
+//           {isDropdownVisible && (
+//             <View style={styles.dropdownMenu}>
+//               {[
+//                 { label: 'Temperature', color: '#fdae11' },
+//                 { label: 'Humidity', color: '#329d9c' },
+//                 { label: 'Soil Moisture', color: '#22b261' },
+//                 { label: 'Light', color: '#ffd700' },
+//                 { label: 'EC', color: '#9b59b6' },
+//               ].map((opt, idx) => (
+//                 <TouchableOpacity
+//                   key={idx}
+//                   style={styles.dropdownItem}
+//                   onPress={() => {
+//                     setSelectedOptionLabel(opt.label as any);
+//                     setBarColor(opt.color);
+//                     setDropdownVisible(false);
+//                   }}>
+//                   <Text style={styles.dropdownItemText}>{opt.label}</Text>
+//                 </TouchableOpacity>
+//               ))}
+//             </View>
+//           )}
+//         </View>
+
+//         {/* === LAST UPDATED TEXT ======================================== */}
+//         {latest && (
+//           <Text style={styles.lastUpdatedText}>
+//             Last update:{' '}
+//             {new Date(latest.created_at).toLocaleTimeString([], {
+//               hour: '2-digit',
+//               minute: '2-digit',
+//             })}
+//           </Text>
+//         )}
+
+//         {/* === WEEK / MONTH SUMMARY ===================================== */}
+//         {plants.length > 0 && (
+//           <View style={styles.historyCard}>
+//             <Text style={styles.historyTitle}>Past Trends</Text>
+//             <Text style={styles.historySubtitle}>Weekly & Monthly Overview</Text>
+
+//             {/* Weekly Summary */}
+//             <View style={styles.historySection}>
+//               <Text style={styles.historySectionTitle}>This Week</Text>
+//               <View style={styles.historyRow}>
+//                 <View style={styles.historyMetric}>
+//                   <Text style={styles.historyMetricLabel}>Moisture</Text>
+//                   <Text style={styles.historyMetricValue}>
+//                     {Math.round(calculateAverages(lastXdays(plants, 7))?.soil_moisture ?? 0)}%
+//                   </Text>
+//                 </View>
+
+//                 <View style={styles.historyMetric}>
+//                   <Text style={styles.historyMetricLabel}>EC</Text>
+//                   <Text style={styles.historyMetricValue}>
+//                     {calculateAverages(lastXdays(plants, 7))?.ec?.toFixed(2) ?? '--'}
+//                   </Text>
+//                 </View>
+
+//                 <View style={styles.historyMetric}>
+//                   <Text style={styles.historyMetricLabel}>Light</Text>
+//                   <Text style={styles.historyMetricValue}>
+//                     {Math.round(calculateAverages(lastXdays(plants, 7))?.light ?? 0)}
+//                   </Text>
+//                 </View>
+//               </View>
+//             </View>
+
+//             {/* Monthly Summary */}
+//             <View style={styles.historySection}>
+//               <Text style={styles.historySectionTitle}>This Month</Text>
+
+//               {/* Sparkline */}
+//               <View style={styles.sparklineContainer}>
+//                 <BarChart
+//                   data={lastXdays(plants, 30).map((p) => ({
+//                     value: p.soil_moisture ?? 0,
+//                     frontColor: theme.colors.accent,
+//                   }))}
+//                   barWidth={4}
+//                   spacing={2}
+//                   initialSpacing={0}
+//                   height={60}
+//                   hideYAxisText
+//                   hideRules
+//                   isAnimated
+//                 />
+//               </View>
+
+//               <View style={styles.historyRow}>
+//                 <View style={styles.historyMetric}>
+//                   <Text style={styles.historyMetricLabel}>Avg Temp</Text>
+//                   <Text style={styles.historyMetricValue}>
+//                     {Math.round(calculateAverages(lastXdays(plants, 30))?.temperature ?? 0)}°
+//                   </Text>
+//                 </View>
+
+//                 <View style={styles.historyMetric}>
+//                   <Text style={styles.historyMetricLabel}>Avg Moist</Text>
+//                   <Text style={styles.historyMetricValue}>
+//                     {Math.round(calculateAverages(lastXdays(plants, 30))?.soil_moisture ?? 0)}%
+//                   </Text>
+//                 </View>
+
+//                 <View style={styles.historyMetric}>
+//                   <Text style={styles.historyMetricLabel}>Avg EC</Text>
+//                   <Text style={styles.historyMetricValue}>
+//                     {calculateAverages(lastXdays(plants, 30))?.ec?.toFixed(2) ?? '--'}
+//                   </Text>
+//                 </View>
+//               </View>
+//             </View>
+//           </View>
+//         )}
+//       </ScrollView>
+//     </ImageBackground>
+//   );
+// }
+// // --- Styles ---
+// const styles = StyleSheet.create((theme) => ({
+//   /* Background */
+//   backgroundImage: {
+//     flex: 1,
+//     justifyContent: 'flex-end',
+//   },
+
+//   /* Header */
+//   topHeader: {
+//     flexDirection: 'row',
+//     justifyContent: 'space-between',
+//     alignItems: 'center',
+//     paddingHorizontal: 20,
+//     marginTop: 40,
+//     zIndex: 30,
+//   },
+//   arrowIcon: {
+//     margin: 5,
+//   },
+
+//   /* Plant dropdown */
+//   plantDropdownButton: {
+//     flexDirection: 'row',
+//     alignItems: 'center',
+//     backgroundColor: 'rgba(0,0,0,0.25)',
+//     paddingHorizontal: 12,
+//     paddingVertical: 6,
+//     borderRadius: 12,
+//   },
+//   plantDropdownText: {
+//     color: 'white',
+//     fontSize: 16,
+//     marginRight: 6,
+//     fontFamily: theme.fonts.regular,
+//   },
+//   plantDropdownMenu: {
+//     position: 'absolute',
+//     top: 50,
+//     right: 20,
+//     backgroundColor: theme.colors.background,
+//     borderRadius: 12,
+//     paddingVertical: 5,
+//     elevation: 5,
+//     zIndex: 40,
+//     minWidth: 140,
+//   },
+//   plantDropdownItem: {
+//     paddingHorizontal: 15,
+//     paddingVertical: 10,
+//   },
+//   plantDropdownItemText: {
+//     fontSize: 16,
+//     color: theme.colors.text,
+//     fontFamily: theme.fonts.regular,
+//   },
+
+//   /* Big header text */
+//   headerContainer: {
+//     paddingLeft: 20,
+//     marginTop: 30,
+//   },
+//   headerTitle: {
+//     fontSize: 48,
+//     fontWeight: 'bold',
+//     color: 'white',
+//     fontFamily: theme.fonts.header,
+//   },
+
+//   /* Bottom sheet container */
+//   formContainer: {
+//     backgroundColor: theme.colors.background,
+//     borderTopLeftRadius: 25,
+//     borderTopRightRadius: 25,
+//     padding: 20,
+//   },
+
+//   /* Overview + Health card */
+//   overviewCard: {
+//     borderRadius: 20,
+//     backgroundColor: theme.colors.background,
+//     padding: 18,
+//     marginBottom: 20,
+//     flexDirection: 'row',
+//     alignItems: 'center',
+
+//     shadowColor: '#000',
+//     shadowOffset: { width: 0, height: 4 },
+//     shadowOpacity: 0.08,
+//     shadowRadius: 10,
+//     elevation: 5,
+//   },
+//   overviewLeft: {
+//     flex: 1,
+//     paddingRight: 12,
+//   },
+//   overviewTitle: {
+//     fontSize: 18,
+//     color: theme.colors.text,
+//     fontFamily: theme.fonts.regular,
+//   },
+//   overviewSubtitle: {
+//     fontSize: 13,
+//     color: theme.colors.greyedOut,
+//     marginTop: 4,
+//     marginBottom: 10,
+//     fontFamily: theme.fonts.regular,
+//   },
+
+//   /* Chips row */
+//   overviewBadgesRow: {
+//     flexDirection: 'row',
+//     flexWrap: 'wrap',
+//     gap: 8,
+//   },
+//   chip: {
+//     flexDirection: 'row',
+//     alignItems: 'center',
+//     backgroundColor: theme.colors.surface,
+//     paddingHorizontal: 10,
+//     paddingVertical: 4,
+//     borderRadius: 999,
+//   },
+//   chipText: {
+//     marginLeft: 6,
+//     fontSize: 13,
+//     color: theme.colors.text,
+//     fontFamily: theme.fonts.regular,
+//   },
+//   chipLabel: {
+//     fontSize: 11,
+//     color: theme.colors.greyedOut,
+//     fontFamily: theme.fonts.regular,
+//   },
+
+//   /* Circle health meter */
+//   healthCircleOuter: {
+//     width: 88,
+//     height: 88,
+//     borderRadius: 44,
+//     borderWidth: 4,
+//     borderColor: theme.colors.primary,
+//     alignItems: 'center',
+//     justifyContent: 'center',
+//     backgroundColor: theme.colors.surface,
+//   },
+//   healthCircleInner: {
+//     width: 70,
+//     height: 70,
+//     borderRadius: 35,
+//     backgroundColor: theme.colors.background,
+//     alignItems: 'center',
+//     justifyContent: 'center',
+//   },
+//   healthValueText: {
+//     fontSize: 20,
+//     color: theme.colors.text,
+//     fontFamily: theme.fonts.header,
+//   },
+//   healthLabelText: {
+//     fontSize: 11,
+//     color: theme.colors.greyedOut,
+//     marginTop: 2,
+//     letterSpacing: 0.7,
+//   },
+
+//   /* Weather row */
+//   row: {
+//     flexDirection: 'row',
+//     justifyContent: 'space-between',
+//     marginBottom: 20,
+//   },
+
+//   /* Small weather cards */
+//   cardSmall: {
+//     borderRadius: 18,
+//     backgroundColor: theme.colors.background,
+//     shadowColor: '#000',
+//     shadowOffset: { width: 0, height: 2 },
+//     shadowOpacity: 0.08,
+//     shadowRadius: 8,
+//     elevation: 4,
+//     width: '48%',
+//     padding: 16,
+//   },
+//   cardTopRow: {
+//     flexDirection: 'row',
+//     justifyContent: 'space-between',
+//     alignItems: 'center',
+//     marginBottom: 8,
+//   },
+//   cardValueText: {
+//     fontSize: 28,
+//     fontWeight: '600',
+//     color: theme.colors.text,
+//     fontFamily: theme.fonts.regular,
+//   },
+//   cardLabelText: {
+//     fontSize: 13,
+//     color: theme.colors.greyedOut,
+//     fontFamily: theme.fonts.regular,
+//   },
+
+//   /* Chart card */
+//   chartCard: {
+//     borderRadius: 20,
+//     backgroundColor: theme.colors.background,
+//     shadowColor: '#000',
+//     shadowOffset: { width: 0, height: 3 },
+//     shadowOpacity: 0.08,
+//     shadowRadius: 10,
+//     elevation: 4,
+//     width: '100%',
+//     paddingHorizontal: 16,
+//     paddingTop: 14,
+//     paddingBottom: 18,
+//     marginBottom: 10,
+//   },
+//   chartHeaderRow: {
+//     flexDirection: 'row',
+//     justifyContent: 'space-between',
+//     alignItems: 'center',
+//   },
+//   chartCardTitle: {
+//     fontSize: 18,
+//     fontWeight: 'bold',
+//     color: theme.colors.text,
+//     fontFamily: theme.fonts.regular,
+//   },
+//   chartCardSubtitle: {
+//     fontSize: 12,
+//     color: theme.colors.greyedOut,
+//     marginTop: 2,
+//     fontFamily: theme.fonts.regular,
+//   },
+
+//   /* Dropdown on chart card */
+//   dropdownIconContainer: {
+//     flexDirection: 'row',
+//     alignItems: 'center',
+//     backgroundColor: theme.colors.surface,
+//     paddingHorizontal: 10,
+//     paddingVertical: 6,
+//     borderRadius: 999,
+//   },
+//   selectedOptionText: {
+//     fontSize: 13,
+//     color: theme.colors.text,
+//     fontFamily: theme.fonts.regular,
+//     marginRight: 4,
+//   },
+//   dropdownMenu: {
+//     position: 'absolute',
+//     top: 44,
+//     right: 15,
+//     backgroundColor: theme.colors.background,
+//     borderRadius: 12,
+//     paddingVertical: 5,
+//     shadowColor: '#000',
+//     shadowOffset: { width: 0, height: 2 },
+//     shadowOpacity: 0.25,
+//     shadowRadius: 3.84,
+//     elevation: 5,
+//     zIndex: 20,
+//     minWidth: 140,
+//   },
+//   dropdownItem: {
+//     paddingHorizontal: 15,
+//     paddingVertical: 10,
+//   },
+//   dropdownItemText: {
+//     fontSize: 14,
+//     color: theme.colors.text,
+//     fontFamily: theme.fonts.regular,
+//   },
+
+//   /* Last updated */
+//   lastUpdatedText: {
+//     marginTop: 8,
+//     fontSize: 11,
+//     color: theme.colors.greyedOut,
+//     textAlign: 'center',
+//     fontFamily: theme.fonts.regular,
+//   },
+//   /* HISTORY CARD */
+//   historyCard: {
+//     backgroundColor: theme.colors.background,
+//     borderRadius: 20,
+//     padding: 18,
+//     marginBottom: 20,
+//     shadowColor: '#000',
+//     shadowOffset: { width: 0, height: 3 },
+//     shadowOpacity: 0.08,
+//     shadowRadius: 8,
+//     elevation: 4,
+//   },
+
+//   historyTitle: {
+//     fontSize: 20,
+//     color: theme.colors.text,
+//     fontFamily: theme.fonts.regular,
+//   },
+//   historySubtitle: {
+//     fontSize: 12,
+//     color: theme.colors.greyedOut,
+//     marginBottom: 12,
+//   },
+
+//   historySection: {
+//     marginBottom: 15,
+//   },
+//   historySectionTitle: {
+//     fontSize: 15,
+//     fontFamily: theme.fonts.regular,
+//     color: theme.colors.text,
+//     marginBottom: 6,
+//   },
+
+//   historyRow: {
+//     flexDirection: 'row',
+//     justifyContent: 'space-between',
+//   },
+
+//   historyMetric: {
+//     width: '30%',
+//   },
+//   historyMetricLabel: {
+//     fontSize: 12,
+//     color: theme.colors.greyedOut,
+//   },
+//   historyMetricValue: {
+//     fontSize: 16,
+//     fontFamily: theme.fonts.header,
+//     color: theme.colors.text,
+//   },
+
+//   /* Sparkline */
+//   sparklineContainer: {
+//     backgroundColor: theme.colors.surface,
+//     borderRadius: 12,
+//     paddingVertical: 6,
+//     marginBottom: 10,
+//   },
+// }));
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, ImageBackground, ScrollView, TouchableOpacity } from 'react-native';
+import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import * as Location from 'expo-location';
+import Feather from '@expo/vector-icons/Feather';
 import { db } from '../../utils/supabase';
 
-export default function ShowPlantStats() {
-  const { theme } = useUnistyles();
-  const navigation = useNavigation<any>();
+// --- COMPONENTS ---
+import Header from '~/features/plantstats/components/Header';
+import PlantSelector from '~/features/plantstats/components/PlantSelector';
+import LoadingScreen from '~/features/plantstats/components/LoadingScreen';
+import TrendChartCard from '~/features/plantstats/components/TrendChartCard';
+import WeatherRow from '~/features/plantstats/components/WeatherRow';
+import OverviewCard from '~/features/plantstats/components/OverviewCard';
+import HistoryCard from '~/features/plantstats/components/HistoryCard';
+import ChartTypePicker from '~/features/plantstats/components/Chartpicker';
 
-  // --- States ---
-  const [name, setName] = useState('--');
+// --- API HELPERS ---
+import { calculateAverages, lastXdays } from '~/features/plantstats/api/history';
+import { calculateHealth } from '~/features/plantstats/api/healthScore';
+import SnapshotBoxes from '~/features/plantstats/components/SnapShotBoxes';
+export default function ShowPlantStats() {
+  const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+  const { theme } = useUnistyles();
+  const [chartType, setChartType] = useState('bar');
+
+  const { plantId: initialPlantId, plantName: initialPlantName } = route.params ?? {};
+
+  // --- STATE ---
+  const [name, setName] = useState(initialPlantName || '--');
   const [temperature, setTemperature] = useState('—');
   const [humidity, setHumidity] = useState('—');
+
+  const [plantsList, setPlantsList] = useState<any[]>([]);
+  const [selectedPlant, setSelectedPlant] = useState<any>(null);
+
   const [plants, setPlants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // dropdowns
+  const [isPlantDropdownVisible, setPlantDropdownVisible] = useState(false);
   const [isDropdownVisible, setDropdownVisible] = useState(false);
+
+  // chart selector
   const [selectedOptionLabel, setSelectedOptionLabel] = useState<
     'Temperature' | 'Humidity' | 'Soil Moisture' | 'Light' | 'EC'
   >('Temperature');
-  const [barColor, setBarColor] = useState('#fdae11');
-  const [plantsList, setPlantsList] = useState<any[]>([]);
-  const [selectedPlant, setSelectedPlant] = useState<any>(null);
-  const [isPlantDropdownVisible, setPlantDropdownVisible] = useState(false);
 
-  // Refresh on focus
+  const [barColor, setBarColor] = useState('#fdae11');
+
+  // ---- FOCUS REFRESH ----
   useFocusEffect(
     useCallback(() => {
       fetchUserPlants();
-      return () => {};
     }, [])
   );
 
+  // ---- WEATHER FETCH ----
   useEffect(() => {
     (async () => {
       try {
         await fetchUserPlants();
 
         const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          console.warn('Location permission not granted');
-          return;
-        }
+        if (status !== 'granted') return;
 
-        const location = await Location.getCurrentPositionAsync({});
-        const { latitude, longitude } = location.coords;
+        const loc = await Location.getCurrentPositionAsync({});
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${loc.coords.latitude}&longitude=${loc.coords.longitude}&current_weather=true&hourly=relative_humidity_2m`;
 
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&hourly=relative_humidity_2m`;
         const res = await fetch(url);
         const data = await res.json();
 
-        const temp = data?.current_weather?.temperature;
-        setTemperature(`${temp?.toFixed(1)}°`);
+        const t = data?.current_weather?.temperature;
+        if (t != null) setTemperature(`${t.toFixed(1)}°`);
 
-        const humidityData = data?.hourly?.relative_humidity_2m?.[0];
-        if (humidityData) setHumidity(`${humidityData}%`);
+        const h = data?.hourly?.relative_humidity_2m?.[0];
+        if (h != null) setHumidity(`${h}%`);
       } catch (err) {
-        console.error('Error fetching weather data:', err);
+        console.error(err);
       }
     })();
   }, []);
 
-  // --- Fetch Plant + Sensor Data ---
+  // ---- SUPABASE FETCH: Plants ----
   async function fetchUserPlants() {
     setLoading(true);
     try {
-      const {
-        data: { user },
-        error: userError,
-      } = await db.public.auth.getUser();
+      const { data: auth } = await db.public.auth.getUser();
+      const user = auth?.user;
+      if (!user) throw new Error('No user logged in.');
 
-      if (userError || !user) throw userError ?? new Error('No user logged in');
+      const { data } = await db.social.from('Plants').select('id, nickname').eq('user_id', user.id);
 
-      const { data: plantsData, error: plantsError } = await db.social
-        .from('Plants')
-        .select('id, nickname')
-        .eq('user_id', user.id);
+      setPlantsList(data ?? []);
 
-      if (plantsError) throw plantsError;
-
-      setPlantsList(plantsData ?? []);
-      if (plantsData && plantsData.length > 0) {
-        setSelectedPlant(plantsData[0]);
-        setName(plantsData[0].nickname);
-        await fetchPlantControllers(plantsData[0].id);
-      } else {
-        setName('--');
+      if (data?.length) {
+        setSelectedPlant(data[0]);
+        setName(data[0].nickname);
+        await fetchPlantControllers(data[0].id);
       }
-    } catch (err) {
-      console.error('Error fetching user plants:', err);
-      setPlants([]);
+    } catch (e) {
+      console.error('fetchUserPlants error:', e);
     } finally {
       setLoading(false);
     }
   }
 
+  // ---- SUPABASE: Sensor Controllers ----
   async function fetchPlantControllers(plantId: string) {
     try {
-      const { data, error } = await db.micro
+      const { data } = await db.micro
         .from('Controllers')
         .select('temperature, humidity, soil_moisture, light, electrical_conductivity, created_at')
         .eq('plant_id', plantId)
         .order('created_at', { ascending: true });
 
-      if (error) throw error;
       setPlants(data ?? []);
     } catch (err) {
-      console.error('Error fetching controller data:', err);
+      console.error(err);
       setPlants([]);
     }
   }
 
-  const getChartData = () => {
+  // ---- CHART DATA ----
+  const chartData = () => {
     if (!plants.length) return [];
 
     return plants.map((p) => {
-      const timeLabel = new Date(p.created_at).toISOString().slice(11, 16);
+      const label = new Date(p.created_at).toISOString().slice(11, 16);
 
-      let value = 0;
-      if (selectedOptionLabel === 'Temperature') value = p.temperature ?? 0;
-      if (selectedOptionLabel === 'Humidity') value = p.humidity ?? 0;
-      if (selectedOptionLabel === 'Soil Moisture') value = p.soil_moisture ?? 0;
-      if (selectedOptionLabel === 'Light') value = p.light ?? 0;
-      if (selectedOptionLabel === 'EC') value = p.electrical_conductivity ?? 0;
+      const value =
+        selectedOptionLabel === 'Temperature'
+          ? p.temperature
+          : selectedOptionLabel === 'Humidity'
+            ? p.humidity
+            : selectedOptionLabel === 'Soil Moisture'
+              ? p.soil_moisture
+              : selectedOptionLabel === 'Light'
+                ? p.light
+                : p.electrical_conductivity;
 
       return {
-        value,
-        label: timeLabel,
+        value: value ?? 0,
+        label,
         frontColor: barColor,
       };
     });
   };
 
-  const giftedBarData = getChartData();
-  const maxY = giftedBarData.length > 0 ? Math.max(...giftedBarData.map((d) => d.value)) : 0;
+  const barData = chartData();
+  const maxY = barData.length ? Math.max(...barData.map((d) => d.value)) : 0;
 
-  if (loading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#4CAF50" />
-        <Text>Loading your plant data...</Text>
-      </View>
-    );
-  }
+  const latest = plants.length ? plants[plants.length - 1] : null;
+  const health = latest ? calculateHealth(latest) : null;
 
+  // ---- LOADING SCREEN ----
+  if (loading) return <LoadingScreen />;
+
+  // ---- MAIN UI ----
   return (
     <ImageBackground
       source={require('../../../assets/images/statsBackground.png')}
-      style={styles.backgroundImage}>
-      <View style={styles.topHeader}>
-        <TouchableOpacity style={styles.arrowIcon} onPress={() => navigation.goBack()}>
-          <Feather name="arrow-left" size={24} color="white" />
-        </TouchableOpacity>
+      style={styles.bg}>
+      {/* HEADER */}
+      <Header navigation={navigation}>
+        <PlantSelector
+          plantsList={plantsList}
+          selectedPlant={selectedPlant}
+          isVisible={isPlantDropdownVisible}
+          setVisible={setPlantDropdownVisible}
+          onSelectPlant={async (p: any) => {
+            setSelectedPlant(p);
+            setName(p.nickname);
+            setPlantDropdownVisible(false);
+            await fetchPlantControllers(p.id);
+          }}
+        />
+      </Header>
 
-        <TouchableOpacity
-          style={styles.plantDropdownButton}
-          onPress={() => setPlantDropdownVisible(!isPlantDropdownVisible)}>
-          <Text style={styles.plantDropdownText}>{selectedPlant?.nickname ?? 'Select plant'}</Text>
-          <Feather name="chevron-down" size={18} color="white" />
-        </TouchableOpacity>
-
-        {isPlantDropdownVisible && (
-          <View style={styles.plantDropdownMenu}>
-            {plantsList.map((plant) => (
-              <TouchableOpacity
-                key={plant.id}
-                style={styles.plantDropdownItem}
-                onPress={async () => {
-                  setSelectedPlant(plant);
-                  setPlantDropdownVisible(false);
-                  setName(plant.nickname);
-                  await fetchPlantControllers(plant.id);
-                }}>
-                <Text style={styles.plantDropdownItemText}>{plant.nickname}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-      </View>
-
+      {/* TITLE */}
       <View style={styles.headerContainer}>
-        <Text style={styles.headerTitle}>How's</Text>
-        <Text style={styles.headerTitle}>{name}?</Text>
+        <Text style={[styles.headerTitle, { color: 'white' }]}>How's</Text>
+        <Text style={[styles.headerTitle, { color: 'white' }]}>{name}?</Text>
       </View>
 
+      {/* CONTENT */}
       <ScrollView
         overScrollMode="never"
-        style={styles.formContainer}
-        contentContainerStyle={{ paddingBottom: 40 }}
-        keyboardShouldPersistTaps="handled">
-        {/* Weather Cards */}
-        <View style={styles.card}>
-          <View style={styles.cardTopRow}>
-            <Text style={styles.cardValueText}>{temperature}</Text>
-            <Feather name="sun" size={36} color="#FFD700" />
-          </View>
-          <View style={styles.cardSeparator} />
-          <Text style={styles.cardLabelText}>Today's weather</Text>
-        </View>
+        contentContainerStyle={{ paddingBottom: 50 }}
+        style={[styles.sheet, { backgroundColor: theme.colors.background }]}>
+        {/* OVERVIEW */}
+        <OverviewCard latest={latest} health={health} />
+        {/* Snapshots */}
+        <SnapshotBoxes latest={latest} />
+        {/* WEATHER */}
+        {/* <WeatherRow temperature={temperature} humidity={humidity} /> */}
+        {/* TREND */}
 
-        <View style={styles.card}>
-          <View style={styles.cardTopRow}>
-            <Text style={styles.cardValueText}>{humidity}</Text>
-            <Feather name="droplet" size={36} color="#1E90FF" />
-          </View>
-          <View style={styles.cardSeparator} />
-          <Text style={styles.cardLabelText}>Today's humidity</Text>
-        </View>
-
-        {/* Chart Card */}
-        <View style={styles.chartCard}>
-          <Text style={styles.chartCardTitle}>Today's Stats</Text>
-
-          <TouchableOpacity
-            style={styles.dropdownIconContainer}
-            onPress={() => setDropdownVisible(!isDropdownVisible)}>
-            <Text style={styles.selectedOptionText}>{selectedOptionLabel}</Text>
-            <Feather
-              name="chevron-down"
-              size={20}
-              color={theme.colors.text}
-              style={{ marginLeft: 5 }}
-            />
-          </TouchableOpacity>
-
-          <View style={{ marginTop: 55 }}>
-            <BarChart
-              data={giftedBarData}
-              height={200}
-              barWidth={25}
-              width={250}
-              initialSpacing={10}
-              xAxisThickness={1}
-              yAxisThickness={1}
-              xAxisColor={theme.colors.greyedOut}
-              yAxisColor={theme.colors.greyedOut}
-              xAxisLabelTextStyle={{ color: theme.colors.text, fontSize: 10 }}
-              yAxisTextStyle={{ color: theme.colors.text }}
-              noOfSections={4}
-              maxValue={maxY + 5}
-              barBorderRadius={4}
-              hideRules
-            />
-          </View>
-
-          {isDropdownVisible && (
-            <View style={styles.dropdownMenu}>
-              {[
-                { label: 'Temperature', color: '#fdae11' },
-                { label: 'Humidity', color: '#329d9c' },
-                { label: 'Soil Moisture', color: '#22b261' },
-                { label: 'Light', color: '#ffd700' },
-                { label: 'EC', color: '#9b59b6' },
-              ].map((option, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.dropdownItem}
-                  onPress={() => {
-                    setBarColor(option.color);
-                    setSelectedOptionLabel(option.label as any);
-                    setDropdownVisible(false);
-                  }}>
-                  <Text style={styles.dropdownItemText}>{option.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-        </View>
+        <ChartTypePicker chartType={chartType} setChartType={setChartType} />
+        <TrendChartCard
+          barData={barData}
+          maxY={maxY}
+          selectedOptionLabel={selectedOptionLabel}
+          setSelectedOptionLabel={setSelectedOptionLabel}
+          barColor={barColor}
+          setBarColor={setBarColor}
+          isDropdownVisible={isDropdownVisible}
+          setDropdownVisible={setDropdownVisible}
+        />
+        {/* LAST UPDATED */}
+        {latest && (
+          <Text style={[styles.lastUpdated, { color: theme.colors.greyedOut }]}>
+            Last update:{' '}
+            {new Date(latest.created_at).toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
+          </Text>
+        )}
+        {/* HISTORY (WEEK + MONTH) */}
+        <HistoryCard plants={plants} calculateAverages={calculateAverages} lastXdays={lastXdays} />
       </ScrollView>
     </ImageBackground>
   );
 }
 
-// --- Styles ---
+// ---- STYLES FOR THIS SCREEN ----
 const styles = StyleSheet.create((theme) => ({
-  card: {
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
-    width: '100%',
-    marginBottom: 20,
-    padding: 20,
-  },
-  chartCard: {
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
-    width: '100%',
-    marginBottom: 20,
-    padding: 5,
-    paddingRight: 10,
-  },
-  cardTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  cardValueText: {
-    fontSize: 48,
-    fontWeight: '300',
-    color: theme.colors.text,
-  },
-  cardSeparator: {
-    height: 1,
-    backgroundColor: theme.colors.greyedOut || '#E0E0E0',
-    marginBottom: 10,
-  },
-  cardLabelText: {
-    fontSize: 14,
-    color: theme.colors.greyedOut || '#757575',
-    fontFamily: theme.fonts.regular,
-  },
-  backgroundImage: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  topHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    marginTop: 40,
-  },
-  arrowIcon: {
-    margin: 5,
-  },
-  plantDropdownButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  plantDropdownText: {
-    color: 'white',
-    fontSize: 16,
-    marginRight: 6,
-  },
-  plantDropdownMenu: {
-    position: 'absolute',
-    top: 50,
-    right: 20,
-    backgroundColor: 'white',
-    borderRadius: 10,
-    paddingVertical: 5,
-    elevation: 5,
-    zIndex: 10,
-    minWidth: 140,
-  },
-  plantDropdownItem: {
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-  },
-  plantDropdownItemText: {
-    fontSize: 16,
-    color: '#333',
-  },
+  bg: { flex: 1, justifyContent: 'flex-end' },
+
   headerContainer: {
     paddingLeft: 20,
     marginTop: 30,
   },
   headerTitle: {
     fontSize: 48,
+    fontFamily: theme.fonts.header,
     fontWeight: 'bold',
-    color: 'white',
   },
-  formContainer: {
-    backgroundColor: 'white',
+
+  sheet: {
     borderTopLeftRadius: 25,
     borderTopRightRadius: 25,
     padding: 20,
+    marginTop: 20,
   },
-  dropdownIconContainer: {
-    position: 'absolute',
-    top: 15,
-    right: 15,
-    zIndex: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.surface || '#EFEFEF',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  selectedOptionText: {
-    fontSize: 16,
-    color: theme.colors.text,
+
+  lastUpdated: {
+    marginTop: 8,
+    fontSize: 11,
+    textAlign: 'center',
     fontFamily: theme.fonts.regular,
-    marginRight: 3,
-  },
-  dropdownMenu: {
-    position: 'absolute',
-    top: 45,
-    right: 15,
-    backgroundColor: theme.colors.background,
-    borderRadius: 15,
-    paddingVertical: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-    zIndex: 20,
-    minWidth: 140,
-  },
-  dropdownItem: {
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-  },
-  dropdownItemText: {
-    fontSize: 16,
-    color: theme.colors.text,
-    fontFamily: theme.fonts.regular,
-  },
-  chartCardTitle: {
-    position: 'absolute',
-    top: 15,
-    left: 15,
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-    zIndex: 5,
   },
 }));
