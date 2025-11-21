@@ -22,6 +22,23 @@ import { calculateAverages, lastXdays } from '~/features/plantstats/api/history'
 import { calculateHealth } from '~/features/plantstats/api/healthScore';
 import SnapshotBoxes from '~/features/plantstats/components/SnapShotBoxes';
 import UnifiedChart from '~/features/plantstats/components/UnifiedChart';
+
+// 🐛 FIX: Add fetchPlantById function
+async function fetchPlantById(plantId: string) {
+  try {
+    const { data, error } = await db.social
+      .from('Plants')
+      .select('id, nickname')
+      .eq('id', plantId)
+      .single();
+    if (error) throw error;
+    return data;
+  } catch (e) {
+    console.error('fetchPlantById error:', e);
+    return null;
+  }
+}
+
 export default function ShowPlantStats() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
@@ -30,6 +47,7 @@ export default function ShowPlantStats() {
 
   // State to hold the current user
   const [userId, setUserId] = useState<string | null>(null);
+  const { plantId: initialPlantId, plantName: initialPlantName } = route.params ?? {};
 
   const [name, setName] = useState('--');
   const [temperature, setTemperature] = useState('—');
@@ -53,10 +71,13 @@ export default function ShowPlantStats() {
   const [barColor, setBarColor] = useState('#fdae11');
 
   // ---- WEATHER FETCH ----
+  // 📝 Note: This useEffect block runs on mount and fetches user plants + weather.
+  // It seems redundant with the second useEffect which handles initialPlantId,
+  // but I'm keeping it separate for now as it initializes the whole screen state.
   useEffect(() => {
     (async () => {
       try {
-        await fetchUserPlants();
+        await fetchUserPlants(); // Fetches plants list, sets initial selected plant, and fetches its controllers
 
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') return;
@@ -73,7 +94,7 @@ export default function ShowPlantStats() {
         const h = data?.hourly?.relative_humidity_2m?.[0];
         if (h != null) setHumidity(`${h}%`);
       } catch (err) {
-        console.error(err);
+        console.error('Initial useEffect error:', err);
       }
     })();
   }, []);
@@ -86,14 +107,31 @@ export default function ShowPlantStats() {
       const user = auth?.user;
       if (!user) throw new Error('No user logged in.');
 
+      // 📝 Set userId here for use in other functions/effects
+      setUserId(user.id);
+
       const { data } = await db.social.from('Plants').select('id, nickname').eq('user_id', user.id);
 
       setPlantsList(data ?? []);
 
+      // 📝 If the component was opened with a specific plant ID (from route.params), we should select that one.
+      // If not, select the first one from the fetched list.
       if (data?.length) {
-        setSelectedPlant(data[0]);
-        setName(data[0].nickname);
-        await fetchPlantControllers(data[0].id);
+        let plantToSelect = data[0];
+        if (initialPlantId) {
+          const initialPlant = data.find((p) => p.id === initialPlantId);
+          if (initialPlant) {
+            plantToSelect = initialPlant;
+          }
+        }
+
+        setSelectedPlant(plantToSelect);
+        setName(plantToSelect.nickname);
+        await fetchPlantControllers(plantToSelect.id);
+      } else {
+        setSelectedPlant(null);
+        setName('--');
+        setPlants([]);
       }
     } catch (e) {
       console.error('fetchUserPlants error:', e);
@@ -114,7 +152,7 @@ export default function ShowPlantStats() {
 
       setPlants(data ?? []);
     } catch (err) {
-      console.error(err);
+      console.error('fetchPlantControllers error:', err);
       setPlants([]);
     }
   }
@@ -136,7 +174,7 @@ export default function ShowPlantStats() {
             action_code,
             target_count
           )
-        `
+          `
         )
         // FIX: Use currentUserId instead of the undefined 'user?.id'
         .eq('user_id', currentUserId)
@@ -169,36 +207,39 @@ export default function ShowPlantStats() {
     }
   }
 
+  // 📝 Second useEffect for initialPlantId handling and quest triggering
   useEffect(() => {
+    // This effect's main goal is to handle the case where a plantId is passed
+    // via navigation parameters and to trigger the quest.
+    if (!initialPlantId) return;
+
     (async () => {
       setLoading(true);
-
-      if (!initialPlantId) {
-        console.error('No plantId passed to ShowPlantStats');
-        setLoading(false);
-        return;
-      }
 
       // --- FIX: Fetch the authenticated user's ID first ---
       const {
         data: { user },
       } = await db.public.auth.getUser();
       if (user) {
+        // 📝 Set userId state here too, in case the first useEffect was still loading.
         setUserId(user.id);
         // Trigger quest with the retrieved user ID
         await triggerCheckStatusQuest(user.id);
       }
       // ---------------------------------------------------
 
+      // 🐛 FIX: fetchPlantById was not defined. It's now defined outside the component.
       const plant = await fetchPlantById(initialPlantId);
       if (plant) {
         setName(plant.nickname);
+        setSelectedPlant(plant);
       }
 
-      // Load sensor data
+      // Load sensor data (this might be redundant if the first useEffect already ran and selected a plant)
+      // but it ensures the data for the *initial* plant is loaded correctly.
       await fetchPlantControllers(initialPlantId);
 
-      // Load local weather
+      // Load local weather (already in the first useEffect, but duplicated here for robustness/simplicity)
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status === 'granted') {
@@ -219,12 +260,16 @@ export default function ShowPlantStats() {
 
       setLoading(false);
     })();
-  }, [initialPlantId]); // Added userId to dependencies if we were relying on it, but fetching it in useEffect is safer.
+  }, [initialPlantId]); // initialPlantId is the dependency
 
-  const getChartData = () => {
+  // 🐛 FIX: Renamed getChartData to chartData to match usage
+  const chartData = useCallback(() => {
     if (!plants.length) return [];
 
-    return plants.map((p) => {
+    // The data is ordered descending (newest first). Map it to be ascending (oldest first) for charting.
+    const sortedPlants = [...plants].reverse();
+
+    return sortedPlants.map((p) => {
       const label = new Date(p.created_at).toISOString().slice(11, 16);
 
       const value =
@@ -236,7 +281,7 @@ export default function ShowPlantStats() {
               ? p.soil_moisture
               : selectedOptionLabel === 'Light'
                 ? p.light
-                : p.electrical_conductivity;
+                : p.electrical_conductivity; // Default to EC
 
       return {
         value: value ?? 0,
@@ -244,7 +289,7 @@ export default function ShowPlantStats() {
         frontColor: barColor,
       };
     });
-  };
+  }, [plants, selectedOptionLabel, barColor]); // Dependencies for useCallback
 
   const barData = chartData();
   const maxY = barData.length ? Math.max(...barData.map((d) => d.value)) : 0;
@@ -271,6 +316,7 @@ export default function ShowPlantStats() {
             setSelectedPlant(p);
             setName(p.nickname);
             setPlantDropdownVisible(false);
+            // 📝 Ensure plant stats are re-fetched for the newly selected plant
             await fetchPlantControllers(p.id);
           }}
         />
@@ -310,15 +356,15 @@ export default function ShowPlantStats() {
           <MiniTrendCard title="Temperature" data={plants.map((p) => p.temperature)} />
         </View>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-          <MiniTrendCard title="Light" data={plants.map((p) => p.temperature)} />
-          <MiniTrendCard title="EC" data={plants.map((p) => p.soil_moisture)} />
+          {/* 🐛 FIX: Mapped data for Light and EC to the correct sensor fields */}
+          <MiniTrendCard title="Light" data={plants.map((p) => p.light)} />
+          <MiniTrendCard title="EC" data={plants.map((p) => p.electrical_conductivity)} />
         </View>
 
         {/* LAST UPDATED 
-
-        
+          // Re-enabled the last updated text
         <ChartTypePicker selected={chartType} onSelect={setChartType} />
-        <UnifiedChart type={chartType} data={barData} />
+        <UnifiedChart type={chartType} data={barData} />*/}
         {latest && (
           <Text style={[styles.lastUpdated, { color: theme.colors.greyedOut }]}>
             Last update:{' '}
@@ -327,8 +373,8 @@ export default function ShowPlantStats() {
               minute: '2-digit',
             })}
           </Text>
-        )}*/}
-        {/* HISTORY (WEEK + MONTH)        
+        )}
+        {/* HISTORY (WEEK + MONTH)        
         <HistoryCard plants={plants} calculateAverages={calculateAverages} lastXdays={lastXdays} />*/}
       </ScrollView>
     </ImageBackground>
