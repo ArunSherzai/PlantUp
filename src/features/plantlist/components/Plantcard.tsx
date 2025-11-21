@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Image, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, Image, TouchableOpacity, TextInput, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useSharedValue,
@@ -27,11 +27,15 @@ export const PlantCard = React.memo(
   ({ item, onActionPress, showActionText, refreshPlants }: Props) => {
     const navigation = useNavigation<any>();
     const flip = useSharedValue(showActionText ? 1 : 0);
+    const [typeDropdownOpen, setTypeDropdownOpen] = useState(false);
 
     const [editedName, setEditedName] = useState(item.name);
-    const [editedType, setEditedType] = useState(item.type ?? '');
+    const [editedType, setEditedType] = useState(item.type_id);
     const [editedDescription, setEditedDescription] = useState(item.description);
 
+    const [plantTypes, setPlantTypes] = useState<{ id: number; name: string }[]>([]);
+
+    // Flip animation
     useEffect(() => {
       flip.value = withTiming(showActionText ? 1 : 0, {
         duration: 700,
@@ -39,12 +43,30 @@ export const PlantCard = React.memo(
       });
     }, [showActionText]);
 
+    // Fetch plant types
+    useEffect(() => {
+      const fetchTypes = async () => {
+        const { data, error } = await db.social.from('Plant_data').select('id, common_name');
+
+        if (error) {
+          console.log('Error fetching plant types:', error);
+          return;
+        }
+
+        setPlantTypes(data.map((p) => ({ id: p.id, name: p.common_name })));
+      };
+
+      fetchTypes();
+    }, []);
+
+    // Save data
     const handleSave = async () => {
       const { error } = await db.social
         .from('Plants')
         .update({
           nickname: editedName,
           description: editedDescription,
+          plant_data_id: editedType,
         })
         .eq('id', item.id);
 
@@ -77,6 +99,7 @@ export const PlantCard = React.memo(
       }
     };
 
+    // FRONT ANIMATION STYLE
     const frontStyle = useAnimatedStyle(() => ({
       transform: [
         { perspective: 1000 },
@@ -88,6 +111,7 @@ export const PlantCard = React.memo(
       zIndex: flip.value < 0.5 ? 2 : 0,
     }));
 
+    // BACK ANIMATION STYLE
     const backStyle = useAnimatedStyle(() => ({
       transform: [
         { perspective: 1000 },
@@ -102,6 +126,7 @@ export const PlantCard = React.memo(
 
     return (
       <View style={styles.plantCard}>
+        {/* FRONT */}
         <TouchableOpacity
           style={styles.absoluteFill}
           onPress={handleCardPress}
@@ -119,6 +144,8 @@ export const PlantCard = React.memo(
                 <Text style={styles.name}>{item.name}</Text>
                 <Text style={styles.points}>{item.description}</Text>
               </View>
+
+              {/* RIGHT ICONS */}
               <View
                 style={{
                   flexDirection: 'column',
@@ -128,6 +155,7 @@ export const PlantCard = React.memo(
                 <TouchableOpacity onPress={onActionPress}>
                   <FontAwesome6 name="repeat" size={24} color="white" />
                 </TouchableOpacity>
+
                 <TouchableOpacity onPress={handleDelete}>
                   <FontAwesome5 name="trash-alt" size={24} color="white" />
                 </TouchableOpacity>
@@ -147,9 +175,11 @@ export const PlantCard = React.memo(
               <Text style={styles.backTitle}>Edit Plant</Text>
 
               <View style={styles.backRow}>
+                {/* LEFT SIDE */}
                 <View style={styles.column}>
                   <View style={styles.field}>
                     <Text style={styles.label}>Name</Text>
+
                     <TextInput
                       style={styles.input}
                       value={editedName}
@@ -167,16 +197,61 @@ export const PlantCard = React.memo(
                   </View>
                 </View>
 
+                {/* RIGHT SIDE */}
                 <View style={styles.column}>
                   <View style={styles.field}>
                     <Text style={styles.label}>Plant Type</Text>
-                    <TextInput
-                      style={styles.input}
-                      value={editedType}
-                      onChangeText={setEditedType}
-                    />
+
+                    <View style={{ width: '100%' }}>
+                      {/* DROPDOWN BUTTON */}
+                      <TouchableOpacity
+                        style={[
+                          styles.input,
+                          {
+                            flexDirection: 'row',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                          },
+                        ]}
+                        onPress={() => setTypeDropdownOpen((prev) => !prev)}>
+                        <Text style={{ color: 'white', flexShrink: 1 }} numberOfLines={1}>
+                          {plantTypes.find((t) => t.id === editedType)?.name || 'Select plant type'}
+                        </Text>
+
+                        <FontAwesome6 name="chevron-down" size={12} color="white" />
+                      </TouchableOpacity>
+
+                      {/* DROPDOWN LIST */}
+                      {typeDropdownOpen && (
+                        <View
+                          style={{
+                            backgroundColor: 'rgba(0,0,0,0.3)',
+                            borderRadius: 12,
+                            marginTop: 6,
+                            maxHeight: 75,
+                          }}>
+                          <ScrollView showsVerticalScrollIndicator={false}>
+                            {plantTypes.map((type) => (
+                              <TouchableOpacity
+                                key={type.id}
+                                style={{ paddingVertical: 10, paddingHorizontal: 12 }}
+                                onPress={() => {
+                                  setEditedType(type.id);
+                                  setTypeDropdownOpen(false);
+                                }}>
+                                <Text style={{ color: 'white' }} numberOfLines={1}>
+                                  {type.name}
+                                </Text>
+                              </TouchableOpacity>
+                            ))}
+                          </ScrollView>
+                        </View>
+                      )}
+                    </View>
                   </View>
+
                   <Text style={styles.label}></Text>
+
                   <View style={styles.buttonRow}>
                     <TouchableOpacity style={styles.input} onPress={handleSave}>
                       <Text style={styles.saveText}>Save</Text>
