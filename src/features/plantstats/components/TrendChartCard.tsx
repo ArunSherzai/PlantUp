@@ -3,6 +3,9 @@ import Feather from '@expo/vector-icons/Feather';
 import { BarChart } from 'react-native-gifted-charts';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
+// IMPORT SHARED OPTIONS
+import { trendOptions } from '../api/options';
+
 export default function TrendChartCard({
   barData,
   maxY,
@@ -10,74 +13,73 @@ export default function TrendChartCard({
   setSelectedOptionLabel,
   barColor,
   setBarColor,
-  isDropdownVisible,
-  setDropdownVisible,
 }: any) {
   const { theme } = useUnistyles();
 
-  const options = [
-    { label: 'Temperature', color: '#fdae11' },
-    { label: 'Humidity', color: '#329d9c' },
-    { label: 'Soil Moisture', color: '#22b261' },
-    { label: 'Light', color: '#ffd700' },
-    { label: 'EC', color: '#9b59b6' },
-  ];
+  // Find currently selected option
+  const current = trendOptions.find((o) => o.label === selectedOptionLabel);
+
+  const unit = current?.unit ?? '';
+  const iconColor = current?.color ?? barColor;
+
+  const BAR_WIDTH = 22;
+  const SPACING = 14;
 
   return (
     <View style={[styles.card, { backgroundColor: theme.colors.background }]}>
+      {/* HEADER */}
       <View style={styles.headerRow}>
-        <View>
-          <Text style={[styles.title, { color: theme.colors.text }]}>Today&apos;s stats</Text>
+        <Text style={[styles.title, { color: theme.colors.text }]}>Today's stats</Text>
 
-          <Text style={[styles.subtitle, { color: theme.colors.greyedOut }]}>
-            {selectedOptionLabel} • {barData.length} points
-          </Text>
-        </View>
-
-        <TouchableOpacity
-          style={[styles.dropdownButton, { backgroundColor: theme.colors.surface }]}
-          onPress={() => setDropdownVisible(!isDropdownVisible)}>
-          <Text style={[styles.selectedLabel, { color: theme.colors.text }]}>
-            {selectedOptionLabel}
-          </Text>
-          <Feather name="chevron-down" size={18} color={theme.colors.text} />
-        </TouchableOpacity>
+        <Text style={[styles.subtitle, { color: theme.colors.greyedOut }]}>
+          {selectedOptionLabel} {unit ? `(${unit})` : ''} • {barData.length} points
+        </Text>
       </View>
 
-      <View style={{ marginTop: 10 }}>
-        <BarChart
-          data={barData}
-          height={200}
-          barWidth={22}
-          width={260}
-          spacing={14}
-          initialSpacing={10}
-          maxValue={maxY + 5}
-          barBorderRadius={8}
-          hideRules
-          xAxisThickness={0}
-          yAxisThickness={0}
-          xAxisLabelTextStyle={{ color: theme.colors.greyedOut }}
-          yAxisTextStyle={{ color: theme.colors.greyedOut }}
-        />
+      {/* ICON SELECTOR ROW */}
+      <View style={styles.iconRow}>
+        {trendOptions.map((o, i) => (
+          <TouchableOpacity
+            key={i}
+            style={[
+              styles.iconButton,
+              {
+                backgroundColor:
+                  selectedOptionLabel === o.label ? theme.colors.surface : theme.colors.background,
+                borderColor: selectedOptionLabel === o.label ? o.color : theme.colors.greyedOut,
+              },
+            ]}
+            onPress={() => {
+              setSelectedOptionLabel(o.label);
+              setBarColor(o.color);
+            }}>
+            <Feather
+              name={o.icon as any}
+              size={20}
+              color={selectedOptionLabel === o.label ? o.color : theme.colors.greyedOut}
+            />
+          </TouchableOpacity>
+        ))}
       </View>
 
-      {isDropdownVisible && (
-        <View style={[styles.dropdownMenu, { backgroundColor: theme.colors.background }]}>
-          {options.map((o, i) => (
-            <TouchableOpacity
-              key={i}
-              style={styles.dropdownItem}
-              onPress={() => {
-                setSelectedOptionLabel(o.label);
-                setBarColor(o.color);
-                setDropdownVisible(false);
-              }}>
-              <Text style={[styles.dropdownText, { color: theme.colors.text }]}>{o.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
+      {/* CHART */}
+      <BarChart
+        data={barData.reverse().map((b: any) => ({
+          ...b,
+          frontColor: barColor,
+        }))}
+        height={200}
+        spacing={SPACING}
+        initialSpacing={10}
+        maxValue={maxY + 2}
+        barBorderRadius={8}
+        barWidth={30}
+        hideRules
+        xAxisThickness={0}
+        yAxisThickness={0}
+        xAxisLabelTextStyle={{ color: theme.colors.greyedOut }}
+        noOfSections={5}
+      />
     </View>
   );
 }
@@ -87,16 +89,12 @@ const styles = StyleSheet.create((theme) => ({
     borderRadius: 20,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
     elevation: 4,
+    width: '100%',
+    overflow: 'hidden',
   },
   headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    marginBottom: 4,
   },
   title: {
     fontSize: 18,
@@ -104,39 +102,24 @@ const styles = StyleSheet.create((theme) => ({
   },
   subtitle: {
     fontSize: 12,
-    marginTop: 2,
     fontFamily: theme.fonts.regular,
+    marginTop: -2,
   },
-  dropdownButton: {
+  iconRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginVertical: 10,
+    width: '100%',
+  },
+  iconButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-  selectedLabel: {
-    marginRight: 4,
-    fontSize: 13,
-    fontFamily: theme.fonts.regular,
-  },
-  dropdownMenu: {
-    position: 'absolute',
-    top: 48,
-    right: 16,
-    zIndex: 20,
-    borderRadius: 12,
-    paddingVertical: 5,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowOffset: { width: 0, height: 2 },
-  },
-  dropdownItem: {
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-  },
-  dropdownText: {
-    fontSize: 14,
-    fontFamily: theme.fonts.regular,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+    width: '16%',
+    justifyContent: 'center',
   },
 }));

@@ -1,13 +1,18 @@
 import { View, TouchableOpacity, Text } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
-const chartTypes = [
+export const chartTypes = [
   { key: 'bar', label: 'Bars' },
   { key: 'line', label: 'Line' },
   { key: 'area', label: 'Area' },
-  { key: 'dot', label: 'Dots' },
-];
+  { key: 'dot', label: 'Dots' }, // point-only line chart
 
+  // optional extra types:
+  { key: 'pie', label: 'Pie' },
+  { key: 'donut', label: 'Donut' },
+  { key: 'radar', label: 'Radar' },
+  { key: 'pyramid', label: 'Pyramid' },
+];
 export default function ChartTypePicker({ selected, onSelect }: any) {
   const { theme } = useUnistyles();
 
