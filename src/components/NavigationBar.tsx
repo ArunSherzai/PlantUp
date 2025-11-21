@@ -12,11 +12,11 @@ import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const iconMap: { [key: string]: keyof typeof FontAwesome6.glyphMap } = {
-  One: 'newspaper',
-  'Add a Plant': 'message',
-  Homescreen: 'house',
-  'Show Plants': 'seedling',
-  Profile: 'user-large',
+  PlantStats: 'chart-simple', // Vorher 'One'. Icon passend für Statistiken
+  'Add a Plant': 'circle-plus', // Vorher 'message'. 'circle-plus' passt besser zum Hinzufügen
+  Missions: 'list-check', // <--- DAS IST DAS WICHTIGE! Vorher 'Homescreen'
+  'Show Plants': 'seedling', // Passt perfekt
+  Profile: 'user-large', // Passt perfekt
 };
 
 export default function NavigationBar({ state, descriptors, navigation }: any) {

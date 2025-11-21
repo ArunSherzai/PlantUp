@@ -1,13 +1,13 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StackScreenProps } from '@react-navigation/stack';
 import { useUnistyles } from 'react-native-unistyles';
-
+import ShowMissionsScreen from '../screens/showMissionsScreen/showMissionsScreen';
 import { RootStackParamList } from './Root';
 import { HeaderButton } from '../components/HeaderButton';
 import { TabBarIcon } from '../components/TabBarIcon';
 import AddPlantScreen from '../screens/addPlant/addPlant';
 import HomeScreen from '~/screens/homeScreen/homeScreen';
-import ShowPlantListScreen from '~/screens/plantList/ShowPlantList';
+import PlantListScreen from '../screens/plantList/PlantListScreen';
 import PlantStatsScreen from '~/screens/plantStats/ShowPlantStats';
 import NavigationBar from '~/components/NavigationBar';
 import ProfileScreen from '~/screens/profileScreen/profileScreen';
@@ -61,7 +61,8 @@ export default function TabLayout({ navigation }: Props) {
           tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
         }}
       />
-      <Tab.Screen
+      {/*
+        <Tab.Screen
         name="Homescreen"
         component={HomeScreen}
         options={{
@@ -70,10 +71,20 @@ export default function TabLayout({ navigation }: Props) {
           tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
         }}
       />
+      */}
+      <Tab.Screen
+        name="Missions"
+        component={ShowMissionsScreen}
+        options={{
+          title: 'Missions',
+          headerShown: false,
+          tabBarIcon: ({ color }) => <TabBarIcon name="check-square" color={color} />,
+        }}
+      />
 
       <Tab.Screen
         name="Show Plants"
-        component={ShowPlantListScreen}
+        component={PlantListScreen}
         options={{
           title: 'Show Plant List',
           headerShown: false,
