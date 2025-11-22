@@ -42,6 +42,11 @@ export default function PlantListScreen() {
     }, [])
   );
 
+  // 📝 NEW HANDLER: Navigate to ShowPlantStats with the selected plant ID and a flag
+  const handleViewStats = (plantId: string) => {
+    navigation.navigate('ShowPlantStats', { plantId: plantId, onlyShowSelected: true });
+  };
+
   // font loading
   if (!fontsLoaded) {
     return (
@@ -105,6 +110,8 @@ export default function PlantListScreen() {
                 <PlantCard
                   item={item}
                   index={index}
+                  // 📝 UPDATED: Call handleViewStats when the card is pressed
+                  onPress={() => handleViewStats(item.id)}
                   onActionPress={() =>
                     setActionMenuIndex((prev) => (prev === index ? null : index))
                   }

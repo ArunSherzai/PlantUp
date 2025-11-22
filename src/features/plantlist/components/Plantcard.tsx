@@ -21,6 +21,7 @@ interface Props {
   onActionPress: () => void;
   showActionText: boolean;
   refreshPlants: () => void;
+  onPress: () => void;
 }
 
 export const PlantCard = React.memo(

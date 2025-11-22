@@ -1,346 +1,401 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { View, Text, ImageBackground, ScrollView, TouchableOpacity } from 'react-native';
 import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import * as Location from 'expo-location';
-import Feather from '@expo/vector-icons/Feather';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // 🟢 Added actual storage
 import { db } from '../../utils/supabase';
 
 // --- COMPONENTS ---
 import Header from '~/features/plantstats/components/Header';
-import PlantSelector from '~/features/plantstats/components/PlantSelector';
 import LoadingScreen from '~/features/plantstats/components/LoadingScreen';
 import TrendChartCard from '~/features/plantstats/components/TrendChartCard';
-import WeatherRow from '~/features/plantstats/components/WeatherRow';
 import OverviewCard from '~/features/plantstats/components/OverviewCard';
 import HistoryCard from '~/features/plantstats/components/HistoryCard';
-import ChartTypePicker from '~/features/plantstats/components/Chartpicker';
 import MiniTrendCard from '~/features/plantstats/components/MiniTrend';
+import SnapshotBoxes from '~/features/plantstats/components/SnapShotBoxes';
 
 // --- API HELPERS ---
 import { calculateAverages, lastXdays } from '~/features/plantstats/api/history';
 import { calculateHealth } from '~/features/plantstats/api/healthScore';
-import SnapshotBoxes from '~/features/plantstats/components/SnapShotBoxes';
-import UnifiedChart from '~/features/plantstats/components/UnifiedChart';
 
-// 🐛 FIX: Add fetchPlantById function
-async function fetchPlantById(plantId: string) {
+// --- CONSTANTS ---
+const CACHE_KEY_PREFIX = 'plant_history_';
+const TIME_RANGES = {
+  'Last 1 Hour (5 Recs)': 5,
+  'Last 24 Hours (50 Recs)': 50,
+  'Last Week (300 Recs)': 300,
+  'All Time (Max 1000 Recs)': 1000,
+};
+
+type TimeRangeKey = keyof typeof TIME_RANGES;
+
+interface PlantController {
+  id: string;
+  temperature: number | null;
+  humidity: number | null;
+  soil_moisture: number | null;
+  light: number | null;
+  electrical_conductivity: number | null;
+  created_at: string;
+}
+
+// ----------------------------------------------------------------------------
+// 🟢 OPTIMIZED DATA FETCHING FUNCTIONS
+// ----------------------------------------------------------------------------
+
+async function getCache(key: string) {
   try {
-    const { data, error } = await db.social
-      .from('Plants')
-      .select('id, nickname')
-      .eq('id', plantId)
-      .single();
-    if (error) throw error;
-    return data;
+    const data = await AsyncStorage.getItem(key);
+    return data ? JSON.parse(data) : null;
   } catch (e) {
-    console.error('fetchPlantById error:', e);
     return null;
   }
 }
+
+async function setCache(key: string, value: any) {
+  try {
+    await AsyncStorage.setItem(key, JSON.stringify(value));
+  } catch (e) {
+    console.error('Cache save failed', e);
+  }
+}
+
+// Fetch ONLY the latest row (very fast)
+async function fetchLatestController(plantId: string): Promise<PlantController | null> {
+  const { data, error } = await db.micro
+    .from('Controllers')
+    .select('id, temperature, humidity, soil_moisture, light, electrical_conductivity, created_at')
+    .eq('plant_id', plantId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle(); // maybeSingle is safer than single if no data exists
+
+  if (error) console.error('Error fetching latest:', error);
+  return data as PlantController;
+}
+
+// ----------------------------------------------------------------------------
+// COMPONENT
+// ----------------------------------------------------------------------------
+
+const TimeRangePicker = ({ selectedRange, setSelectedRange }: any) => {
+  const { theme } = useUnistyles();
+  return (
+    <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginVertical: 10 }}>
+      {Object.keys(TIME_RANGES).map((key) => (
+        <TouchableOpacity
+          key={key}
+          onPress={() => setSelectedRange(key as TimeRangeKey)}
+          style={{
+            padding: 8,
+            borderRadius: 5,
+            backgroundColor: selectedRange === key ? theme.colors.primary : theme.colors.background,
+            borderWidth: selectedRange === key ? 1 : 0,
+            borderColor: selectedRange === key ? theme.colors.primary : 'transparent',
+          }}>
+          <Text
+            style={{
+              color: selectedRange === key ? theme.colors.text : theme.colors.secondary,
+              fontSize: 12,
+            }}>
+            {key.split('(')[0].trim()}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+};
 
 export default function ShowPlantStats() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { theme } = useUnistyles();
-  const [chartType, setChartType] = useState('bar');
 
-  // State to hold the current user
+  const { plantId: initialPlantId } = route.params ?? {};
+
+  // State
   const [userId, setUserId] = useState<string | null>(null);
-  const { plantId: initialPlantId, plantName: initialPlantName } = route.params ?? {};
-
   const [name, setName] = useState('--');
-  const [temperature, setTemperature] = useState('—');
-  const [humidity, setHumidity] = useState('—');
-
-  const [plantsList, setPlantsList] = useState<any[]>([]);
+  const [temperature, setTemperature] = useState('—'); // Weather
+  const [humidity, setHumidity] = useState('—'); // Weather
   const [selectedPlant, setSelectedPlant] = useState<any>(null);
 
-  const [plants, setPlants] = useState<any[]>([]);
+  // Data State
+  const [latest, setLatest] = useState<PlantController | null>(null);
+  const [historyData, setHistoryData] = useState<PlantController[]>([]);
+
+  // UI State
   const [loading, setLoading] = useState(true);
-
-  // dropdowns
-  const [isPlantDropdownVisible, setPlantDropdownVisible] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(false); // New state for background loading
   const [isDropdownVisible, setDropdownVisible] = useState(false);
-
-  // chart selector
   const [selectedOptionLabel, setSelectedOptionLabel] = useState<
     'Temperature' | 'Humidity' | 'Soil Moisture' | 'Light' | 'EC'
   >('Temperature');
-
+  const [timeRange, setTimeRange] = useState<TimeRangeKey>('Last 1 Hour (5 Recs)');
   const [barColor, setBarColor] = useState('#fdae11');
 
-  // ---- WEATHER FETCH ----
-  // 📝 Note: This useEffect block runs on mount and fetches user plants + weather.
-  // It seems redundant with the second useEffect which handles initialPlantId,
-  // but I'm keeping it separate for now as it initializes the whole screen state.
-  useEffect(() => {
-    (async () => {
-      try {
-        await fetchUserPlants(); // Fetches plants list, sets initial selected plant, and fetches its controllers
+  const isDataFreshRef = useRef(false);
 
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') return;
-
-        const loc = await Location.getCurrentPositionAsync({});
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${loc.coords.latitude}&longitude=${loc.coords.longitude}&current_weather=true&hourly=relative_humidity_2m`;
-
-        const res = await fetch(url);
-        const data = await res.json();
-
-        const t = data?.current_weather?.temperature;
-        if (t != null) setTemperature(`${t.toFixed(1)}°`);
-
-        const h = data?.hourly?.relative_humidity_2m?.[0];
-        if (h != null) setHumidity(`${h}%`);
-      } catch (err) {
-        console.error('Initial useEffect error:', err);
-      }
-    })();
-  }, []);
-
-  // ---- SUPABASE FETCH: Plants ----
-  async function fetchUserPlants() {
-    setLoading(true);
-    try {
-      const { data: auth } = await db.public.auth.getUser();
-      const user = auth?.user;
-      if (!user) throw new Error('No user logged in.');
-
-      // 📝 Set userId here for use in other functions/effects
-      setUserId(user.id);
-
-      const { data } = await db.social.from('Plants').select('id, nickname').eq('user_id', user.id);
-
-      setPlantsList(data ?? []);
-
-      // 📝 If the component was opened with a specific plant ID (from route.params), we should select that one.
-      // If not, select the first one from the fetched list.
-      if (data?.length) {
-        let plantToSelect = data[0];
-        if (initialPlantId) {
-          const initialPlant = data.find((p) => p.id === initialPlantId);
-          if (initialPlant) {
-            plantToSelect = initialPlant;
-          }
-        }
-
-        setSelectedPlant(plantToSelect);
-        setName(plantToSelect.nickname);
-        await fetchPlantControllers(plantToSelect.id);
-      } else {
-        setSelectedPlant(null);
-        setName('--');
-        setPlants([]);
-      }
-    } catch (e) {
-      console.error('fetchUserPlants error:', e);
-    } finally {
-      setLoading(false);
+  // 🟢 1. MEMOIZATION: Calculate Chart & MiniTrend data only when history changes
+  // This prevents iterating over 1000 items 5 times on every render
+  const { chartData, maxY, sensorTrends } = useMemo(() => {
+    if (!historyData.length) {
+      return { chartData: [], maxY: 0, sensorTrends: { soil: [], temp: [], light: [], ec: [] } };
     }
-  }
 
-  // ---- SUPABASE: Sensor Controllers ----
-  async function fetchPlantControllers(plantId: string) {
+    // Prepare MiniTrend Data (Single iteration)
+    const sensorTrends = {
+      soil: [] as (number | null)[],
+      temp: [] as (number | null)[],
+      light: [] as (number | null)[],
+      ec: [] as (number | null)[],
+    };
+
+    historyData.forEach((p) => {
+      sensorTrends.soil.push(p.soil_moisture);
+      sensorTrends.temp.push(p.temperature);
+      sensorTrends.light.push(p.light);
+      sensorTrends.ec.push(p.electrical_conductivity);
+    });
+
+    // Prepare Chart Data
+    // Note: Reversing array can be expensive, do it only if necessary for the chart library
+    const sortedHistory = [...historyData].reverse();
+
+    const cData = sortedHistory.map((p) => {
+      const label = new Date(p.created_at).toISOString().slice(11, 16);
+      let value = 0;
+      switch (selectedOptionLabel) {
+        case 'Temperature':
+          value = p.temperature ?? 0;
+          break;
+        case 'Humidity':
+          value = p.humidity ?? 0;
+          break;
+        case 'Soil Moisture':
+          value = p.soil_moisture ?? 0;
+          break;
+        case 'Light':
+          value = p.light ?? 0;
+          break;
+        case 'EC':
+          value = p.electrical_conductivity ?? 0;
+          break;
+      }
+      return { value, label, frontColor: barColor };
+    });
+
+    const mY = cData.length ? Math.max(...cData.map((d) => d.value)) : 0;
+
+    return { chartData: cData, maxY: mY, sensorTrends };
+  }, [historyData, selectedOptionLabel, barColor]);
+
+  // 🟢 2. QUEST CHECKER: Fire and forget (doesn't block UI)
+  const runQuestCheck = async (uid: string) => {
     try {
-      const { data } = await db.micro
-        .from('Controllers')
-        .select('temperature, humidity, soil_moisture, light, electrical_conductivity, created_at')
-        .eq('plant_id', plantId)
-        .order('created_at', { ascending: false })
-        .limit(100);
-
-      setPlants(data ?? []);
-    } catch (err) {
-      console.error('fetchPlantControllers error:', err);
-      setPlants([]);
-    }
-  }
-
-  // MODIFIED: Accepts userId as an argument
-  async function triggerCheckStatusQuest(currentUserId: string) {
-    try {
-      if (!currentUserId) return; // Guard against null user ID
-
-      // Load all active quests for the user
-      const { data: quests, error } = await db.gamification
+      const { data: quests } = await db.gamification
         .from('User_quests')
-        .select(
-          `
-          id,
-          progress,
-          status,
-          quest:Quests (
-            action_code,
-            target_count
-          )
-          `
-        )
-        // FIX: Use currentUserId instead of the undefined 'user?.id'
-        .eq('user_id', currentUserId)
+        .select(`id, progress, status, quest:Quests (action_code, target_count)`)
+        .eq('user_id', uid)
         .neq('status', 'completed');
 
-      if (error) {
-        console.log('CHECK_STATUS quest fetch error:', error);
-        return;
-      }
+      if (!quests) return;
 
-      if (!quests?.length) return;
-
-      // Update all CHECK_STATUS quests
-      for (const uq of quests) {
-        if (uq.quest?.action_code === 'CHECK_STATUS') {
+      const updates = quests
+        .filter((q: any) => q.quest?.action_code === 'CHECK_STATUS')
+        .map((uq: any) => {
           const newProgress = (uq.progress ?? 0) + 1;
-
-          await db.gamification
+          const target = uq.quest?.target_count ?? 0;
+          return db.gamification
             .from('User_quests')
             .update({
               progress: newProgress,
-              status: newProgress >= uq.quest.target_count ? 'completed' : 'in_progress',
-              completed_at: newProgress >= uq.quest.target_count ? new Date().toISOString() : null,
+              status: newProgress >= target ? 'completed' : 'in_progress',
+              completed_at: newProgress >= target ? new Date().toISOString() : null,
             })
             .eq('id', uq.id);
+        });
+
+      if (updates.length > 0) await Promise.all(updates);
+    } catch (err) {
+      console.log('Quest update silent fail:', err);
+    }
+  };
+
+  // 🟢 3. WEATHER FETCHER: Separated from critical path
+  const fetchWeather = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }); // Balanced is faster
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${loc.coords.latitude}&longitude=${loc.coords.longitude}&current_weather=true&hourly=relative_humidity_2m`;
+
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (data?.current_weather?.temperature != null)
+        setTemperature(`${data.current_weather.temperature.toFixed(1)}°`);
+      if (data?.hourly?.relative_humidity_2m?.[0] != null)
+        setHumidity(`${data.hourly.relative_humidity_2m[0]}%`);
+    } catch (e) {
+      console.log('Weather fetch silent fail');
+    }
+  };
+
+  // 🟢 4. CORE DATA LOGIC
+  const fetchPlantData = useCallback(async (plantId: string, range: TimeRangeKey) => {
+    setLoadingHistory(true);
+
+    try {
+      // Step A: Load Cache immediately to show something
+      const cacheKey = CACHE_KEY_PREFIX + plantId;
+      const cached = await getCache(cacheKey);
+
+      let latestTimestamp = null;
+
+      if (cached && cached.data) {
+        setHistoryData(cached.data);
+        // If we don't have a "Latest" yet, use the cache's first item
+        setLatest((prev) => prev || cached.data[0]);
+        latestTimestamp = cached.timestamp;
+      }
+
+      // Step B: Get current server latest (Fast - 1 row)
+      const serverLatest = await fetchLatestController(plantId);
+
+      if (serverLatest) {
+        setLatest(serverLatest);
+
+        // Determine if we need to fetch full history
+        // 1. If no cache
+        // 2. If server data is newer than cache
+        // 3. If user changed time range (we might need more data than what is cached)
+        const isServerNewer =
+          !latestTimestamp || new Date(serverLatest.created_at) > new Date(latestTimestamp);
+
+        if (isServerNewer || range !== 'Last 1 Hour (5 Recs)') {
+          const limit = TIME_RANGES[range];
+          const { data: newData } = await db.micro
+            .from('Controllers')
+            .select(
+              'id, temperature, humidity, soil_moisture, light, electrical_conductivity, created_at'
+            )
+            .eq('plant_id', plantId)
+            .order('created_at', { ascending: false })
+            .limit(limit);
+
+          if (newData && newData.length > 0) {
+            setHistoryData(newData as PlantController[]);
+            isDataFreshRef.current = true;
+
+            // Only cache large datasets to save IO operations
+            if (limit >= 50) {
+              await setCache(cacheKey, { timestamp: serverLatest.created_at, data: newData });
+            }
+          }
+        } else {
+          isDataFreshRef.current = false;
         }
       }
     } catch (err) {
-      console.error('CHECK_STATUS error:', err);
-    }
-  }
-
-  // 📝 Second useEffect for initialPlantId handling and quest triggering
-  useEffect(() => {
-    // This effect's main goal is to handle the case where a plantId is passed
-    // via navigation parameters and to trigger the quest.
-    if (!initialPlantId) return;
-
-    (async () => {
-      setLoading(true);
-
-      // --- FIX: Fetch the authenticated user's ID first ---
-      const {
-        data: { user },
-      } = await db.public.auth.getUser();
-      if (user) {
-        // 📝 Set userId state here too, in case the first useEffect was still loading.
-        setUserId(user.id);
-        // Trigger quest with the retrieved user ID
-        await triggerCheckStatusQuest(user.id);
-      }
-      // ---------------------------------------------------
-
-      // 🐛 FIX: fetchPlantById was not defined. It's now defined outside the component.
-      const plant = await fetchPlantById(initialPlantId);
-      if (plant) {
-        setName(plant.nickname);
-        setSelectedPlant(plant);
-      }
-
-      // Load sensor data (this might be redundant if the first useEffect already ran and selected a plant)
-      // but it ensures the data for the *initial* plant is loaded correctly.
-      await fetchPlantControllers(initialPlantId);
-
-      // Load local weather (already in the first useEffect, but duplicated here for robustness/simplicity)
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === 'granted') {
-          const location = await Location.getCurrentPositionAsync({});
-          const url = `https://api.open-meteo.com/v1/forecast?latitude=${location.coords.latitude}&longitude=${location.coords.longitude}&current_weather=true&hourly=relative_humidity_2m`;
-
-          const res = await fetch(url);
-          const data = await res.json();
-          const temp = data.current_weather?.temperature;
-          const hum = data.hourly?.relative_humidity_2m?.[0];
-
-          if (temp !== undefined) setTemperature(`${temp.toFixed(1)}°`);
-          if (hum !== undefined) setHumidity(`${hum}%`);
-        }
-      } catch (err) {
-        console.error('Weather fetch error:', err);
-      }
-
+      console.error('Data fetch error:', err);
+    } finally {
       setLoading(false);
-    })();
-  }, [initialPlantId]); // initialPlantId is the dependency
+      setLoadingHistory(false);
+    }
+  }, []);
 
-  // 🐛 FIX: Renamed getChartData to chartData to match usage
-  const chartData = useCallback(() => {
-    if (!plants.length) return [];
+  // 🟢 5. INITIAL MOUNT (Parallel Execution)
+  const initializeScreen = useCallback(async () => {
+    setLoading(true);
+    try {
+      // 1. Get Auth and Plants first
+      const { data: auth } = await db.public.auth.getUser();
+      const user = auth?.user;
+      if (!user) throw new Error('No user');
+      setUserId(user.id);
 
-    // The data is ordered descending (newest first). Map it to be ascending (oldest first) for charting.
-    const sortedPlants = [...plants].reverse();
+      const { data: plants } = await db.social
+        .from('Plants')
+        .select('id, nickname')
+        .eq('user_id', user.id);
 
-    return sortedPlants.map((p) => {
-      const label = new Date(p.created_at).toISOString().slice(11, 16);
+      const targetPlant = plants?.find((p) => p.id === initialPlantId) || plants?.[0];
 
-      const value =
-        selectedOptionLabel === 'Temperature'
-          ? p.temperature
-          : selectedOptionLabel === 'Humidity'
-            ? p.humidity
-            : selectedOptionLabel === 'Soil Moisture'
-              ? p.soil_moisture
-              : selectedOptionLabel === 'Light'
-                ? p.light
-                : p.electrical_conductivity; // Default to EC
+      if (targetPlant) {
+        setSelectedPlant(targetPlant);
+        setName(targetPlant.nickname);
 
-      return {
-        value: value ?? 0,
-        label,
-        frontColor: barColor,
-      };
-    });
-  }, [plants, selectedOptionLabel, barColor]); // Dependencies for useCallback
+        // 2. PARALLEL EXECUTION: Fire all 3 tasks at once
+        await Promise.allSettled([
+          fetchPlantData(targetPlant.id, timeRange), // Main Data
+          fetchWeather(), // External API (don't await strictly)
+          runQuestCheck(user.id), // Background Task
+        ]);
+      } else {
+        setLoading(false);
+      }
+    } catch (e) {
+      console.error(e);
+      setLoading(false);
+    }
+  }, [initialPlantId, fetchPlantData]); // Removed timeRange dependency to prevent loop
 
-  const barData = chartData();
-  const maxY = barData.length ? Math.max(...barData.map((d) => d.value)) : 0;
+  useFocusEffect(
+    useCallback(() => {
+      initializeScreen();
+    }, [initializeScreen])
+  );
 
-  const latest = plants.length ? plants[0] : null;
+  // Handle Time Range Change specifically
+  useEffect(() => {
+    if (selectedPlant?.id && !loading) {
+      fetchPlantData(selectedPlant.id, timeRange);
+    }
+  }, [timeRange]);
+
   const health = latest ? calculateHealth(latest) : null;
 
-  // ---- LOADING SCREEN ----
   if (loading) return <LoadingScreen />;
 
-  // ---- MAIN UI ----
   return (
     <ImageBackground
       source={require('../../../assets/images/statsBackground.png')}
       style={styles.bg}>
-      {/* HEADER */}
-      <Header navigation={navigation}>
-        <PlantSelector
-          plantsList={plantsList}
-          selectedPlant={selectedPlant}
-          isVisible={isPlantDropdownVisible}
-          setVisible={setPlantDropdownVisible}
-          onSelectPlant={async (p: any) => {
-            setSelectedPlant(p);
-            setName(p.nickname);
-            setPlantDropdownVisible(false);
-            // 📝 Ensure plant stats are re-fetched for the newly selected plant
-            await fetchPlantControllers(p.id);
-          }}
-        />
-      </Header>
+      <Header navigation={navigation} />
 
-      {/* TITLE */}
       <View style={styles.headerContainer}>
         <Text style={[styles.headerTitle, { color: 'white' }]}>How's</Text>
         <Text style={[styles.headerTitle, { color: 'white' }]}>{name}?</Text>
       </View>
 
-      {/* CONTENT */}
       <ScrollView
         overScrollMode="never"
         contentContainerStyle={{ paddingBottom: 50 }}
         style={[styles.sheet, { backgroundColor: theme.colors.background }]}>
-        {/* OVERVIEW */}
         <OverviewCard latest={latest} health={health} />
-        {/* Snapshots */}
         <SnapshotBoxes latest={latest} />
-        {/* WEATHER */}
-        {/* <WeatherRow temperature={temperature} humidity={humidity} /> */}
+
+        {/* Status Indicators */}
+        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 10, marginTop: 10 }}>
+          <Text
+            style={[
+              styles.statusText,
+              { color: isDataFreshRef.current ? theme.colors.primary : theme.colors.secondary },
+            ]}>
+            {isDataFreshRef.current ? 'Live Data' : 'Cached Data'}
+          </Text>
+          {loadingHistory && (
+            <Text style={[styles.statusText, { color: theme.colors.greyedOut }]}>Updating...</Text>
+          )}
+        </View>
+
+        <TimeRangePicker selectedRange={timeRange} setSelectedRange={setTimeRange} />
+
         <TrendChartCard
-          barData={barData}
+          barData={chartData}
           maxY={maxY}
           selectedOptionLabel={selectedOptionLabel}
           setSelectedOptionLabel={setSelectedOptionLabel}
@@ -349,22 +404,17 @@ export default function ShowPlantStats() {
           isDropdownVisible={isDropdownVisible}
           setDropdownVisible={setDropdownVisible}
         />
-        {/* TREND */}
 
+        {/* 🟢 Optimised MiniTrends using memoized data */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-          <MiniTrendCard title="Soil Moisture" data={plants.map((p) => p.soil_moisture)} />
-          <MiniTrendCard title="Temperature" data={plants.map((p) => p.temperature)} />
+          <MiniTrendCard title="Soil Moisture" data={sensorTrends.soil} />
+          <MiniTrendCard title="Temperature" data={sensorTrends.temp} />
         </View>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-          {/* 🐛 FIX: Mapped data for Light and EC to the correct sensor fields */}
-          <MiniTrendCard title="Light" data={plants.map((p) => p.light)} />
-          <MiniTrendCard title="EC" data={plants.map((p) => p.electrical_conductivity)} />
+          <MiniTrendCard title="Light" data={sensorTrends.light} />
+          <MiniTrendCard title="EC" data={sensorTrends.ec} />
         </View>
 
-        {/* LAST UPDATED 
-          // Re-enabled the last updated text
-        <ChartTypePicker selected={chartType} onSelect={setChartType} />
-        <UnifiedChart type={chartType} data={barData} />*/}
         {latest && (
           <Text style={[styles.lastUpdated, { color: theme.colors.greyedOut }]}>
             Last update:{' '}
@@ -374,38 +424,22 @@ export default function ShowPlantStats() {
             })}
           </Text>
         )}
-        {/* HISTORY (WEEK + MONTH)        
-        <HistoryCard plants={plants} calculateAverages={calculateAverages} lastXdays={lastXdays} />*/}
+
+        <HistoryCard
+          historyData={historyData}
+          calculateAverages={calculateAverages}
+          lastXdays={lastXdays}
+        />
       </ScrollView>
     </ImageBackground>
   );
 }
 
-// ---- STYLES FOR THIS SCREEN ----
 const styles = StyleSheet.create((theme) => ({
   bg: { flex: 1, justifyContent: 'flex-end' },
-
-  headerContainer: {
-    paddingLeft: 20,
-    marginTop: 30,
-  },
-  headerTitle: {
-    fontSize: 48,
-    fontFamily: theme.fonts.header,
-    fontWeight: 'bold',
-  },
-
-  sheet: {
-    borderTopLeftRadius: 25,
-    borderTopRightRadius: 25,
-    padding: 20,
-    marginTop: 20,
-  },
-
-  lastUpdated: {
-    marginTop: 8,
-    fontSize: 11,
-    textAlign: 'center',
-    fontFamily: theme.fonts.regular,
-  },
+  headerContainer: { paddingLeft: 20, marginTop: 30 },
+  headerTitle: { fontSize: 48, fontFamily: theme.fonts.header, fontWeight: 'bold' },
+  sheet: { borderTopLeftRadius: 25, borderTopRightRadius: 25, padding: 20, marginTop: 20 },
+  lastUpdated: { marginTop: 8, fontSize: 11, textAlign: 'center', fontFamily: theme.fonts.regular },
+  statusText: { fontSize: 12, textAlign: 'center', fontFamily: theme.fonts.regular },
 }));
