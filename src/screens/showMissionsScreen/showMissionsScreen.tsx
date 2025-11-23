@@ -3,7 +3,6 @@ import {
   View,
   Text,
   Image,
-  ScrollView,
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
@@ -14,7 +13,11 @@ import { useUnistyles, StyleSheet } from 'react-native-unistyles';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaskedView from '@react-native-masked-view/masked-view';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
+import { GestureHandlerRootView, ScrollView } from 'react-native-gesture-handler';
+
+// Eigene Imports
 import { db } from '../../utils/supabase';
+import DraggableBottomSheet from '../../components/DraggableBottomSheet';
 
 const { height, width } = Dimensions.get('window');
 
@@ -22,7 +25,7 @@ const { height, width } = Dimensions.get('window');
 type QuestData = {
   id: number;
   title: string;
-  description: string; // Muss im Type definiert sein
+  description: string;
   xp_reward: number;
   target_count: number;
   type: 'daily' | 'weekly' | 'conditional' | 'milestone';
@@ -43,7 +46,7 @@ export default function ShowMissionsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // --- FETCH DATA ---
+  // --- FETCH DATA (VIA SQL VIEW) ---
   const fetchQuests = useCallback(async () => {
     try {
       const {
@@ -51,25 +54,23 @@ export default function ShowMissionsScreen() {
       } = await db.public.auth.getUser();
       if (!user) return;
 
-      // Wir fragen jetzt die VIEW ab, nicht mehr die Tabelle!
       const { data, error } = await db.gamification
-        .from('active_quests_with_plants') // <--- Der Name unserer View
-        .select('*') // <--- Einfach alles holen!
+        .from('active_quests_with_plants') // Abfrage der View
+        .select('*')
         .eq('user_id', user.id)
         .order('status', { ascending: true });
 
       if (error) throw error;
 
-      // Wir müssen die Datenstruktur leicht anpassen für dein altes State-Format
-      // Hier mappen wir es schnell passend für deinen existierenden Code:
-      const formattedData = data.map((item) => ({
+      // Mapping der flachen View-Daten auf die Struktur für QuestCard
+      const formattedData = data.map((item: any) => ({
         id: item.id,
         status: item.status,
         progress: item.progress,
         plant_id: item.plant_id,
         Plants: item.plant_name ? { nickname: item.plant_name } : null,
         Quests: {
-          id: item.id, // Achtung: hier müsste man evtl quest_id in View holen
+          id: item.id,
           title: item.title,
           description: item.description,
           xp_reward: item.xp_reward,
@@ -80,7 +81,7 @@ export default function ShowMissionsScreen() {
 
       setQuests(formattedData as any);
     } catch (e) {
-      console.error(e);
+      console.error('Error fetching quests:', e);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -95,20 +96,18 @@ export default function ShowMissionsScreen() {
   const handleClaim = async (userQuestId: number) => {
     try {
       setLoading(true);
-      // 1. Kurze künstliche Wartezeit (für das Feeling)
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      // 2. WICHTIG: Wir updaten den State LOKAL
-      // Wir gehen durch die Liste der Quests, suchen die richtige ID
-      // und ändern ihren Status manuell auf 'claimed'.
-      setQuests((currentQuests) =>
-        currentQuests.map((q) => {
-          if (q.id === userQuestId) {
-            // Kopie der Quest zurückgeben mit neuem Status
-            return { ...q, status: 'claimed' };
-          }
-          return q;
-        })
-      );
+      const { data, error } = await db.public.rpc('claim_quest', {
+        user_quest_id_input: userQuestId,
+      });
+
+      if (error) throw error;
+
+      if (data && data.success) {
+        alert(`🎉 Quest claimed! You got ${data.total_xp} XP!`);
+        fetchQuests();
+      } else {
+        alert(`Could not claim: ${data?.message || 'Unknown error'}`);
+      }
     } catch (e) {
       console.error(e);
       alert('Something went wrong while claiming.');
@@ -123,110 +122,125 @@ export default function ShowMissionsScreen() {
   const weeklyQuests = quests.filter((q) => q.Quests.type === 'weekly');
 
   return (
-    <View style={{ flex: 1 }}>
-      <StatusBar barStyle="light-content" />
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <View style={{ flex: 1 }}>
+        <StatusBar barStyle="light-content" />
 
-      {/* HINTERGRUND */}
-      <View style={styles.bgContainer}>
-        <Image
-          source={require('../../../assets/images/showDailyMissionsBackground.png')}
-          style={styles.bgImage}
-          resizeMode="cover"
-        />
-      </View>
-
-      {/* HEADER */}
-      <View style={styles.headerWrapper}>
-        <View style={{ alignSelf: 'flex-start', marginBottom: 10 }}>
-          <Text style={styles.brandText}>PlantUp</Text>
-        </View>
-
-        <MaskedView
-          style={{ height: 100, width: '100%' }}
-          maskElement={<Text style={styles.headerTitle}>Quests and{'\n'}Daily Rewards!</Text>}>
-          <LinearGradient
-            colors={['#FFFFFF', '#E0F7FA']}
-            start={{ x: 0.2, y: 0 }}
-            end={{ x: 0.8, y: 1 }}
-            style={{ flex: 1 }}
-          />
-        </MaskedView>
-
-        <View style={styles.comingSoonBar}>
-          <Text style={styles.comingSoonText}>Daily Streak • Coming Soon</Text>
-          <LinearGradient
-            colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.25)', 'rgba(255,255,255,0.1)']}
-            style={StyleSheet.absoluteFillObject}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
+        {/* HINTERGRUND */}
+        <View style={styles.bgContainer}>
+          <Image
+            source={require('../../../assets/images/showDailyMissionsBackground.png')}
+            style={styles.bgImage}
+            resizeMode="cover"
           />
         </View>
-      </View>
 
-      {/* BODY */}
-      <View style={[styles.taskContainer, { backgroundColor: theme.colors.background }]}>
-        <ScrollView
-          contentContainerStyle={{ paddingBottom: 40 }}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => {
-                setRefreshing(true);
-                fetchQuests();
-              }}
+        {/* HEADER */}
+        <View style={styles.headerWrapper}>
+          <View style={{ alignSelf: 'flex-start', marginBottom: 10 }}>
+            <Text style={styles.brandText}>PlantUp</Text>
+          </View>
+
+          <MaskedView
+            style={{ height: 100, width: '100%' }}
+            maskElement={<Text style={styles.headerTitle}>Quests and{'\n'}Daily Rewards!</Text>}>
+            <LinearGradient
+              colors={['#FFFFFF', '#E0F7FA']}
+              start={{ x: 0.2, y: 0 }}
+              end={{ x: 0.8, y: 1 }}
+              style={{ flex: 1 }}
             />
-          }>
-          {loading && !refreshing ? (
-            <ActivityIndicator size="large" color={theme.colors.accent} style={{ marginTop: 20 }} />
-          ) : (
-            <>
-              {/* Daily Quests */}
-              <View style={styles.sectionBlock}>
-                <Text style={styles.sectionTitle}>Daily Quests</Text>
-                <View style={styles.mintQuestContainer}>
-                  {dailyQuests.length > 0 ? (
-                    dailyQuests.map((q, index) => (
-                      <QuestCard
-                        key={q.id}
-                        quest={q}
-                        onClaim={() => handleClaim(q.id)}
-                        isLast={index === dailyQuests.length - 1}
-                      />
-                    ))
-                  ) : (
-                    <Text style={styles.emptyText}>You've completed all daily quests!</Text>
-                  )}
-                </View>
-              </View>
+          </MaskedView>
 
-              {/* Weekly Quests */}
-              <View style={styles.sectionBlock}>
-                <Text style={styles.sectionTitle}>Weekly Quests</Text>
-                <View style={styles.mintQuestContainer}>
-                  {weeklyQuests.length > 0 ? (
-                    weeklyQuests.map((q, index) => (
-                      <QuestCard
-                        key={q.id}
-                        quest={q}
-                        onClaim={() => handleClaim(q.id)}
-                        isLast={index === weeklyQuests.length - 1}
-                      />
-                    ))
-                  ) : (
-                    <Text style={styles.emptyText}>No weekly quests active.</Text>
-                  )}
-                </View>
-              </View>
-            </>
-          )}
-        </ScrollView>
+          <View style={styles.comingSoonBar}>
+            <Text style={styles.comingSoonText}>Daily Streak • Coming Soon</Text>
+            <LinearGradient
+              colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.25)', 'rgba(255,255,255,0.1)']}
+              style={StyleSheet.absoluteFillObject}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            />
+          </View>
+        </View>
+
+        {/* DRAGGABLE BOTTOM SHEET */}
+        <DraggableBottomSheet
+          initialHeight={0.55} // Startet bei 55%
+          maxHeight={0.75} // Geht maximal bis 75% hoch (unter den Header)
+        >
+          <View style={{ flex: 1, paddingHorizontal: 20, paddingTop: 10 }}>
+            {/* Wir nutzen die ScrollView von gesture-handler, damit Scrolling im Sheet geht */}
+            <ScrollView
+              // --- HIER ÄNDERN ---
+              // Wir nutzen 'height * 0.5', also 50% der Bildschirmhöhe als Platzhalter unten.
+              // Damit kannst du den Inhalt weit genug hochscrollen, auch wenn das Sheet unten ist.
+              contentContainerStyle={{ paddingBottom: height * 0.5 }}
+              showsVerticalScrollIndicator={false}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={() => {
+                    setRefreshing(true);
+                    fetchQuests();
+                  }}
+                />
+              }>
+              {loading && !refreshing ? (
+                <ActivityIndicator
+                  size="large"
+                  color={theme.colors.accent}
+                  style={{ marginTop: 20 }}
+                />
+              ) : (
+                <>
+                  {/* Daily Quests */}
+                  <View style={styles.sectionBlock}>
+                    <Text style={styles.sectionTitle}>Daily Quests</Text>
+                    <View style={styles.mintQuestContainer}>
+                      {dailyQuests.length > 0 ? (
+                        dailyQuests.map((q, index) => (
+                          <QuestCard
+                            key={q.id}
+                            quest={q}
+                            onClaim={() => handleClaim(q.id)}
+                            isLast={index === dailyQuests.length - 1}
+                          />
+                        ))
+                      ) : (
+                        <Text style={styles.emptyText}>You've completed all daily quests!</Text>
+                      )}
+                    </View>
+                  </View>
+
+                  {/* Weekly Quests */}
+                  <View style={styles.sectionBlock}>
+                    <Text style={styles.sectionTitle}>Weekly Quests</Text>
+                    <View style={styles.mintQuestContainer}>
+                      {weeklyQuests.length > 0 ? (
+                        weeklyQuests.map((q, index) => (
+                          <QuestCard
+                            key={q.id}
+                            quest={q}
+                            onClaim={() => handleClaim(q.id)}
+                            isLast={index === weeklyQuests.length - 1}
+                          />
+                        ))
+                      ) : (
+                        <Text style={styles.emptyText}>No weekly quests active.</Text>
+                      )}
+                    </View>
+                  </View>
+                </>
+              )}
+            </ScrollView>
+          </View>
+        </DraggableBottomSheet>
       </View>
-    </View>
+    </GestureHandlerRootView>
   );
 }
 
-// --- QUEST CARD (SICHERE VERSION) ---
+// --- QUEST CARD ---
 function QuestCard({
   quest,
   onClaim,
@@ -236,17 +250,15 @@ function QuestCard({
   onClaim: () => void;
   isLast: boolean;
 }) {
+  if (!quest || !quest.Quests) return null;
+
   const target = quest.Quests.target_count || 1;
-  const percentage = Math.min(quest.progress / target, 1) * 100;
+  const percentage = Math.min((quest.progress || 0) / target, 1) * 100;
 
   const canClaim = quest.status === 'completed';
   const isClaimed = quest.status === 'claimed';
 
   const plantName = quest.Plants?.nickname || 'your plant';
-
-  // --- SICHERHEITS-CHECK ---
-  // 1. Falls description null/undefined ist (z.B. Netzwerkfehler), nimm leeren String ''
-  // 2. Führe dann erst .replace aus
   const rawDesc = quest.Quests.description || '';
   const safeDescription = rawDesc.replace('{{plant_name}}', plantName);
 
@@ -263,8 +275,6 @@ function QuestCard({
           <Text style={styles.questTitle} numberOfLines={1}>
             {quest.Quests.title}
           </Text>
-
-          {/* Hier nutzen wir jetzt den sicheren Text */}
           <Text style={styles.questDescription} numberOfLines={2}>
             {safeDescription}
           </Text>
@@ -342,18 +352,6 @@ const styles = StyleSheet.create((theme) => ({
     right: 0,
     paddingHorizontal: 20,
     alignItems: 'center',
-  },
-  taskContainer: {
-    position: 'absolute',
-    top: '45%',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: theme.colors.background,
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    padding: 20,
-    paddingTop: 25,
   },
   brandText: {
     color: 'rgba(255,255,255,0.9)',
