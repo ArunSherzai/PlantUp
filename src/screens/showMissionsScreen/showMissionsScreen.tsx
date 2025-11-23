@@ -97,18 +97,20 @@ export default function ShowMissionsScreen() {
   const handleClaim = async (userQuestId: number) => {
     try {
       setLoading(true);
-      const { data, error } = await db.public.rpc('claim_quest', {
-        user_quest_id_input: userQuestId,
-      });
-
-      if (error) throw error;
-
-      if (data && data.success) {
-        alert(`🎉 Quest claimed! You got ${data.total_xp} XP!`);
-        fetchQuests();
-      } else {
-        alert(`Could not claim: ${data?.message || 'Unknown error'}`);
-      }
+      // 1. Kurze künstliche Wartezeit (für das Feeling)
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      // 2. WICHTIG: Wir updaten den State LOKAL
+      // Wir gehen durch die Liste der Quests, suchen die richtige ID
+      // und ändern ihren Status manuell auf 'claimed'.
+      setQuests((currentQuests) =>
+        currentQuests.map((q) => {
+          if (q.id === userQuestId) {
+            // Kopie der Quest zurückgeben mit neuem Status
+            return { ...q, status: 'claimed' };
+          }
+          return q;
+        })
+      );
     } catch (e) {
       console.error(e);
       alert('Something went wrong while claiming.');
