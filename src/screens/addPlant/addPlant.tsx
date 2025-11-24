@@ -1,4 +1,12 @@
-import { View, Text, TextInput, TouchableOpacity, Alert, Image, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Alert,
+  Image,
+  ActivityIndicator,
+} from 'react-native';
 import { useUnistyles, StyleSheet } from 'react-native-unistyles';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -55,10 +63,9 @@ export default function AddPlantScreen() {
           return;
         }
 
-
         console.log(data);
         // Ensure the data is properly typed as PlantData[]
-        const typedData: PlantData[] = data.map(item => ({
+        const typedData: PlantData[] = data.map((item) => ({
           id: item.id,
           name: item.name || item.common_name || 'Unnamed Plant',
           common_name: item.common_name || item.name || 'Unnamed Plant',
@@ -68,15 +75,12 @@ export default function AddPlantScreen() {
           optimal_humidity: item.optimal_humidity,
           image_url: item.image_url,
           water_frequency: item.water_frequency,
-          sunlight_requirements: item.sunlight_requirements
+          sunlight_requirements: item.sunlight_requirements,
         }));
         setPlantDataList(typedData);
       } catch (error) {
         console.error('Error in fetchPlantData:', error);
-        Alert.alert(
-          'Error',
-          error instanceof Error ? error.message : 'Failed to load plant data'
-        );
+        Alert.alert('Error', error instanceof Error ? error.message : 'Failed to load plant data');
       } finally {
         setIsLoadingPlants(false);
       }
@@ -102,13 +106,16 @@ export default function AddPlantScreen() {
 
     try {
       setIsLoading(true);
-      
+
       // Get the current session
-      const { data: { user }, error: sessionError } = await db.public.auth.getUser();
-      
+      const {
+        data: { user },
+        error: sessionError,
+      } = await db.public.auth.getUser();
+
       console.log('Auth session:', {
         hasUser: !!user,
-        userId: user?.id
+        userId: user?.id,
       });
 
       if (sessionError) {
@@ -131,16 +138,16 @@ export default function AddPlantScreen() {
 
       console.log('User verified:', {
         userId: user.id,
-        email: user.email
+        email: user.email,
       });
-      
+
       // Get the selected plant data
-      const selectedPlant = plantDataList.find(plant => plant.id === plantDataId);
-      
+      const selectedPlant = plantDataList.find((plant) => plant.id === plantDataId);
+
       if (!selectedPlant) {
         throw new Error('Selected plant data not found');
       }
-      
+
       // Insert the new plant into the Plants table
       const { data, error } = await db.social
         .from('Plants')
@@ -151,7 +158,7 @@ export default function AddPlantScreen() {
             plant_data_id: plantDataId,
             user_id: user.id,
             daily_streak: 0,
-          }
+          },
         ])
         .select();
 
@@ -159,17 +166,14 @@ export default function AddPlantScreen() {
         console.error('Database error details:', error);
         throw new Error('Failed to add plant. Please try again.');
       }
-      
+
       navigation.goBack();
     } catch (error) {
       console.error('Error in handleSave:', {
         error,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
-      Alert.alert(
-        'Error',
-        error instanceof Error ? error.message : 'An unknown error occurred'
-      );
+      Alert.alert('Error', error instanceof Error ? error.message : 'An unknown error occurred');
     } finally {
       setIsLoading(false);
     }
@@ -207,38 +211,34 @@ export default function AddPlantScreen() {
 
         <View style={styles.inputContainer}>
           <Text style={styles.label}>Plant Type*</Text>
-          <TouchableOpacity 
-            style={styles.dropdownButton} 
+          <TouchableOpacity
+            style={styles.dropdownButton}
             onPress={toggleDropdown}
-            activeOpacity={0.8}
-          >
+            activeOpacity={0.8}>
             <View style={styles.selectedPlantContainer}>
-              {plantDataId && plantDataList.find(p => p.id === plantDataId)?.image_url && (
-                <Image 
-                  source={{ uri: plantDataList.find(p => p.id === plantDataId)?.image_url }} 
+              {plantDataId && plantDataList.find((p) => p.id === plantDataId)?.image_url && (
+                <Image
+                  source={{ uri: plantDataList.find((p) => p.id === plantDataId)?.image_url }}
                   style={styles.selectedPlantImage}
                   resizeMode="cover"
                 />
               )}
               <Text style={styles.dropdownButtonText}>
-                {plantDataId 
-                  ? plantDataList.find(p => p.id === plantDataId)?.name || 'Select plant type'
+                {plantDataId
+                  ? plantDataList.find((p) => p.id === plantDataId)?.name || 'Select plant type'
                   : 'Select plant type'}
               </Text>
             </View>
-            <Feather 
-              name={isDropdownVisible ? 'chevron-up' : 'chevron-down'} 
-              size={20} 
-              color={theme.colors.text} 
+            <Feather
+              name={isDropdownVisible ? 'chevron-up' : 'chevron-down'}
+              size={20}
+              color={theme.colors.text}
             />
           </TouchableOpacity>
-          
+
           {isDropdownVisible && (
             <View style={styles.dropdownContainer}>
-              <ScrollView 
-                style={styles.dropdownScrollView}
-                keyboardShouldPersistTaps="handled"
-              >
+              <ScrollView style={styles.dropdownScrollView} keyboardShouldPersistTaps="handled">
                 {isLoadingPlants ? (
                   <View style={styles.dropdownItem}>
                     <ActivityIndicator size="small" color={theme.colors.primary} />
@@ -254,20 +254,17 @@ export default function AddPlantScreen() {
                       onPress={() => {
                         setPlantDataId(plant.id);
                         setDropdownVisible(false);
-                      }}
-                    >
+                      }}>
                       <View style={styles.plantItem}>
                         {plant.image_url && (
-                          <Image 
-                            source={{ uri: plant.image_url }} 
+                          <Image
+                            source={{ uri: plant.image_url }}
                             style={styles.plantImage}
                             resizeMode="cover"
                           />
                         )}
                         <View style={styles.plantInfo}>
-                          <Text style={styles.dropdownItemText}>
-                            {plant.common_name}
-                          </Text>
+                          <Text style={styles.dropdownItemText}>{plant.common_name}</Text>
                           {plant.scientific_name && (
                             <Text style={styles.dropdownItemScientific}>
                               {plant.scientific_name}
@@ -301,8 +298,8 @@ export default function AddPlantScreen() {
           />
         </View>
 
-        <FilledButton 
-          text={isLoading ? 'Saving...' : 'Save Plant'} 
+        <FilledButton
+          text={isLoading ? 'Saving...' : 'Save Plant'}
           onPress={handleSave}
           disabled={isLoading}
         />
@@ -337,7 +334,7 @@ const styles = StyleSheet.create((theme) => ({
     borderTopLeftRadius: 25,
     borderTopRightRadius: 25,
     padding: 20,
-    marginTop: 100,
+    marginTop: 20,
   },
 
   container: {
