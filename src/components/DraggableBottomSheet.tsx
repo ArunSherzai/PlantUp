@@ -11,17 +11,16 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 type BottomSheetProps = {
   children?: React.ReactNode;
-  initialHeight?: number;
-  maxHeight?: number; 
-  topInset?: number; // Falls du das noch nutzt
+  initialHeight?: number; // Z.B. 0.55 (55% des Screens)
+  maxHeight?: number;     // Z.B. 0.90 (90% des Screens)
 };
 
-export default function DraggableBottomSheet({ 
-  children, 
-  initialHeight = 0.55, 
-  maxHeight = 0.9 
+export default function DraggableBottomSheet({
+  children,
+  initialHeight = 0.55,
+  maxHeight = 0.9,
 }: BottomSheetProps) {
-
+  // BERECHNUNG DER GRENZEN (Prozentual)
   const START_Y = -SCREEN_HEIGHT * initialHeight;
   const MAX_Y = -SCREEN_HEIGHT * maxHeight;
 
@@ -38,6 +37,7 @@ export default function DraggableBottomSheet({
     })
     .onUpdate((event) => {
       let newY = event.translationY + context.value.y;
+      // Clamping: Nicht höher als MAX und nicht tiefer als START
       newY = Math.max(newY, MAX_Y);
       newY = Math.min(newY, START_Y);
       translateY.value = newY;
@@ -58,23 +58,18 @@ export default function DraggableBottomSheet({
   });
 
   return (
-    // 1. Der Animated.View ist jetzt GANZ AUSSEN (nicht mehr im GestureDetector)
     <Animated.View style={[styles.bottomSheetContainer, rBottomSheetStyle]}>
-      
-      {/* 2. Der GestureDetector umschließt NUR den Griff (lineWrapper) */}
+      {/* 1. Der Griff (GestureDetector) */}
       <GestureDetector gesture={gesture}>
-        {/* Wir geben dem Wrapper backgroundColor transparent, damit er Events fängt */}
         <View style={styles.lineWrapper}>
           <View style={styles.line} />
         </View>
       </GestureDetector>
-      
-      {/* 3. Der Inhalt liegt AUSSERHALB des GestureDetectors */}
-      {/* Jetzt kann die ScrollView hier drin ungestört arbeiten */}
+
+      {/* 2. Der Inhalt (Frei für ScrollView) */}
       <View style={styles.contentContainer}>
         {children}
       </View>
-
     </Animated.View>
   );
 }
@@ -95,10 +90,11 @@ const styles = StyleSheet.create({
   },
   lineWrapper: {
     width: '100%',
-    height: 60, // Ich habe es vergrößert (von 40 auf 60), damit man es leichter trifft!
+    height: 60, // Große Touch-Area
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'transparent', // Wichtig: Damit man "durchklicken" kann zum GestureDetector
+    backgroundColor: 'transparent',
+    
   },
   line: {
     width: 50,

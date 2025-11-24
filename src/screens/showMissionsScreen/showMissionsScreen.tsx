@@ -8,18 +8,19 @@ import {
   RefreshControl,
   Dimensions,
   StatusBar,
+  LayoutChangeEvent,
+  SectionList,
 } from 'react-native';
 import { useUnistyles, StyleSheet } from 'react-native-unistyles';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaskedView from '@react-native-masked-view/masked-view';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
-import { GestureHandlerRootView, ScrollView } from 'react-native-gesture-handler';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-// Eigene Imports
 import { db } from '../../utils/supabase';
 import DraggableBottomSheet from '../../components/DraggableBottomSheet';
 
-const { height, width } = Dimensions.get('window');
+const { height } = Dimensions.get('window');
 
 // --- TYPES ---
 type QuestData = {
@@ -46,15 +47,12 @@ export default function ShowMissionsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // --- FETCH DATA (VIA SQL VIEW) ---
+  // --- FETCH DATA ---
   const fetchQuests = useCallback(async () => {
     try {
-      const {
-        data: { user },
-      } = await db.public.auth.getUser();
+      const { data: { user } } = await db.public.auth.getUser();
       if (!user) return;
 
-      // Wir fragen die SQL VIEW ab (keine Joins im Frontend nötig)
       const { data, error } = await db.gamification
         .from('active_quests_with_plants')
         .select('*')
@@ -63,15 +61,14 @@ export default function ShowMissionsScreen() {
 
       if (error) throw error;
 
-      // Mapping: Flache View-Daten -> Verschachtelte Struktur für QuestCard
       const formattedData = data.map((item: any) => ({
-        id: item.id, // User_quests ID
+        id: item.id,
         status: item.status,
         progress: item.progress,
         plant_id: item.plant_id,
         Plants: item.plant_name ? { nickname: item.plant_name } : null,
         Quests: {
-          id: item.quest_id, // assuming active_quests_with_plants has quest_id
+          id: item.quest_id || item.id,
           title: item.title,
           description: item.description,
           xp_reward: item.xp_reward,
@@ -97,40 +94,30 @@ export default function ShowMissionsScreen() {
   const handleClaim = useCallback(async (userQuestId: number) => {
     try {
       setLoading(true);
-
-      // 1. Kurze künstliche Wartezeit (für das Feeling)
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      // 2. WICHTIG: Supabase Datenbank-Update
       const { error } = await db.gamification
         .from('User_quests')
         .update({
           status: 'claimed',
-          completed_at: new Date().toISOString(), // Sets the claim timestamp explicitly
+          completed_at: new Date().toISOString(),
         })
-        .eq('id', userQuestId) // Target the specific User_quests entry
+        .eq('id', userQuestId)
         .select();
 
-      if (error) {
-        throw error;
-      }
-      // ---------------------------------------------------
+      if (error) throw error;
 
-      // 3. Wir updaten den State LOKAL
       setQuests((currentQuests) =>
         currentQuests.map((q) => {
           if (q.id === userQuestId) {
-            // Nur den lokalen State aktualisieren, NACHDEM das Supabase-Update erfolgreich war.
             return { ...q, status: 'claimed' };
           }
           return q;
         })
       );
-
-      console.log(`Quest ${userQuestId} successfully claimed and updated in Supabase.`);
     } catch (e) {
-      console.error('Error claiming quest:', e);
-      alert('Something went wrong while claiming. The update was not saved.');
+      console.error('Error claiming:', e);
+      alert('Fehler beim Claimen.');
     } finally {
       setLoading(false);
     }
@@ -138,23 +125,26 @@ export default function ShowMissionsScreen() {
 
   // Listen filtern
   const dailyQuests = quests.filter((q) => {
-    // 1. Normale Dailies: Immer anzeigen (auch wenn fertig, als Erfolgserlebnis)
     if (q.Quests.type === 'daily') return true;
-
-    // 2. Conditionals (Sensoren): Nur anzeigen, wenn sie noch NICHT fertig sind
-    if (q.Quests.type === 'conditional') {
-      // Zeige sie nur, wenn Status 'active' oder 'completed' (noch nicht geclaimed) ist.
-      // Sobald 'claimed', verschwindet sie aus der Liste.
-      return q.status !== 'claimed';
-    }
-
+    if (q.Quests.type === 'conditional') return q.status !== 'claimed';
     return false;
   });
 
   const weeklyQuests = quests.filter((q) => q.Quests.type === 'weekly');
 
+  // Sections erstellen
+  const sections = [
+    {
+      title: 'Daily Quests',
+      data: dailyQuests.length > 0 ? dailyQuests : [{ id: 'empty-daily', type: 'empty' } as any],
+    },
+    {
+      title: 'Weekly Quests',
+      data: weeklyQuests.length > 0 ? weeklyQuests : [{ id: 'empty-weekly', type: 'empty' } as any],
+    },
+  ];
+
   return (
-    // GestureHandlerRootView ist ZWINGEND nötig für DraggableBottomSheet
     <GestureHandlerRootView style={{ flex: 1 }}>
       <View style={{ flex: 1 }}>
         <StatusBar barStyle="light-content" />
@@ -198,74 +188,78 @@ export default function ShowMissionsScreen() {
 
         {/* DRAGGABLE BOTTOM SHEET */}
         <DraggableBottomSheet
-          initialHeight={0.55} // Startet bei 55% Bildschirmhöhe
-          maxHeight={0.75} // Geht maximal bis 75% hoch (lässt Platz für Header)
+          initialHeight={0.55}
+          maxHeight={0.75}
         >
-          <View style={{ flex: 1, paddingHorizontal: 20, paddingTop: 10 }}>
-            {/* WICHTIG: ScrollView von gesture-handler nutzen! */}
-            <ScrollView
-              // --- HIER ÄNDERN ---
-              // Wir nutzen 'height * 0.5', also 50% der Bildschirmhöhe als Platzhalter unten.
-              // Damit kannst du den Inhalt weit genug hochscrollen, auch wenn das Sheet unten ist.
-              contentContainerStyle={{ paddingBottom: height * 0.5 }}
-              showsVerticalScrollIndicator={false}
-              refreshControl={
-                <RefreshControl
-                  refreshing={refreshing}
-                  onRefresh={() => {
-                    setRefreshing(true);
-                    fetchQuests();
-                  }}
-                />
-              }>
-              {loading && !refreshing ? (
-                <ActivityIndicator
-                  size="large"
-                  color={theme.colors.accent}
-                  style={{ marginTop: 20 }}
-                />
-              ) : (
-                <>
-                  {/* Daily Quests */}
-                  <View style={styles.sectionBlock}>
-                    <Text style={styles.sectionTitle}>Daily Quests</Text>
-                    <View style={styles.mintQuestContainer}>
-                      {dailyQuests.length > 0 ? (
-                        dailyQuests.map((q, index) => (
-                          <QuestCard
-                            key={q.id}
-                            quest={q}
-                            onClaim={() => handleClaim(q.id)}
-                            isLast={index === dailyQuests.length - 1}
-                          />
-                        ))
-                      ) : (
-                        <Text style={styles.emptyText}>You've completed all daily quests!</Text>
-                      )}
-                    </View>
+          <View style={{ flex: 1, paddingHorizontal: 20 }}>
+            
+            {loading && !refreshing ? (
+              <ActivityIndicator size="large" color={theme.colors.accent} style={{ marginTop: 20 }} />
+            ) : (
+              // --- SECTION LIST START ---
+              <SectionList
+                sections={sections}
+                keyExtractor={(item) => item.id.toString()}
+                
+                // --- PERFORMANCE PROPS (Optimiert für Android) ---
+                removeClippedSubviews={true} // Wichtig! Versteckt unsichtbares.
+                initialNumToRender={6}       // Rendert genug für den ersten Blick.
+                maxToRenderPerBatch={4}      // Lädt moderat nach beim Scrollen.
+                windowSize={7}               // Behält ein bisschen was im Speicher (weniger Ruckeln beim Zurückscrollen).
+                
+                // HILFT DER LISTE DIE GRÖSSE ZU SCHÄTZEN (Wichtig gegen Ruckeln!)
+                // Wir nehmen an: Header ~40px, Item ~110px
+                // (Wenn Items unterschiedlich hoch sind, diesen Block löschen, aber mit fixen Höhen ist es schneller)
+                // getItemLayout={(data, index) => (
+                //   {length: 110, offset: 110 * index, index}
+                // )}
+                
+                contentContainerStyle={{ paddingBottom: height * 0.5 }}
+                showsVerticalScrollIndicator={false}
+                
+                renderSectionHeader={({ section: { title } }) => (
+                  <View style={styles.sectionHeaderContainer}>
+                    <Text style={styles.sectionTitle}>{title}</Text>
                   </View>
+                )}
+                
+                renderItem={({ item }) => {
+                  // Leere Listen
+                  if (item.type === 'empty') {
+                     const text = item.id === 'empty-daily' 
+                        ? "You've completed all daily quests!" 
+                        : "No weekly quests active.";
+                     return (
+                        <View style={styles.mintQuestContainerEmpty}>
+                            <Text style={styles.emptyText}>{text}</Text>
+                        </View>
+                     );
+                  }
+                  
+                  // Echte Quest
+                  return (
+                    <View style={styles.itemWrapperMint}>
+                         <QuestCard
+                            quest={item}
+                            onClaim={() => handleClaim(item.id)}
+                            isLast={false}
+                        />
+                    </View>
+                  );
+                }}
 
-                  {/* Weekly Quests */}
-                  <View style={styles.sectionBlock}>
-                    <Text style={styles.sectionTitle}>Weekly Quests</Text>
-                    <View style={styles.mintQuestContainer}>
-                      {weeklyQuests.length > 0 ? (
-                        weeklyQuests.map((q, index) => (
-                          <QuestCard
-                            key={q.id}
-                            quest={q}
-                            onClaim={() => handleClaim(q.id)}
-                            isLast={index === weeklyQuests.length - 1}
-                          />
-                        ))
-                      ) : (
-                        <Text style={styles.emptyText}>No weekly quests active.</Text>
-                      )}
-                    </View>
-                  </View>
-                </>
-              )}
-            </ScrollView>
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={() => {
+                      setRefreshing(true);
+                      fetchQuests();
+                    }}
+                    tintColor={theme.colors.accent}
+                  />
+                }
+              />
+            )}
           </View>
         </DraggableBottomSheet>
       </View>
@@ -273,7 +267,7 @@ export default function ShowMissionsScreen() {
   );
 }
 
-// --- QUEST CARD ---
+// --- QUEST CARD (Normal, kein Memo) ---
 function QuestCard({
   quest,
   onClaim,
@@ -283,7 +277,6 @@ function QuestCard({
   onClaim: () => void;
   isLast: boolean;
 }) {
-  // Sicherheitscheck: Falls Daten kaputt sind
   if (!quest || !quest.Quests) return null;
 
   const target = quest.Quests.target_count || 1;
@@ -294,26 +287,15 @@ function QuestCard({
   const isClaimed = quest.status === 'claimed';
 
   const plantName = quest.Plants?.nickname || 'your plant';
-  // Sicherer Zugriff auf Description
   const rawDesc = quest.Quests.description || '';
   const safeDescription = rawDesc.replace('{{plant_name}}', plantName);
 
   return (
-    <View style={[styles.card, isLast && { marginBottom: 0 }, isClaimed && { opacity: 0.6 }]}>
-      <View
-        style={{
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 8,
-        }}>
+    <View style={[styles.card, isClaimed && { opacity: 0.6 }]}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <View style={{ flex: 1, paddingRight: 10 }}>
-          <Text style={styles.questTitle} numberOfLines={1}>
-            {quest.Quests.title}
-          </Text>
-          <Text style={styles.questDescription} numberOfLines={2}>
-            {safeDescription}
-          </Text>
+          <Text style={styles.questTitle} numberOfLines={1}>{quest.Quests.title}</Text>
+          <Text style={styles.questDescription} numberOfLines={2}>{safeDescription}</Text>
         </View>
 
         {canClaim ? (
@@ -331,18 +313,11 @@ function QuestCard({
         ) : (
           !isClaimed && (
             <View style={styles.xpContainer}>
-              <FontAwesome6
-                name="star"
-                size={12}
-                color="#329D9C"
-                style={{ marginRight: 4 }}
-                solid
-              />
+              <FontAwesome6 name="star" size={12} color="#329D9C" style={{ marginRight: 4 }} solid />
               <Text style={styles.xpText}>{quest.Quests.xp_reward} XP</Text>
             </View>
           )
         )}
-
         {isClaimed && <FontAwesome6 name="check" size={20} color="#329D9C" />}
       </View>
 
@@ -357,9 +332,7 @@ function QuestCard({
         </View>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
           <Text style={styles.progressTextSubtle}>{percentage.toFixed(0)}%</Text>
-          <Text style={styles.progressTextSubtle}>
-            {progress}/{target}
-          </Text>
+          <Text style={styles.progressTextSubtle}>{progress}/{target}</Text>
         </View>
       </View>
     </View>
@@ -368,138 +341,28 @@ function QuestCard({
 
 // --- STYLES ---
 const styles = StyleSheet.create((theme) => ({
-  bgContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: '100%',
-    height: '70%',
-    justifyContent: 'flex-end',
-    zIndex: -1,
-  },
-  bgImage: {
-    width: '100%',
-    height: '100%',
-  },
-  headerWrapper: {
-    position: 'absolute',
-    top: '8%',
-    left: 0,
-    right: 0,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-  },
-  brandText: {
-    color: 'rgba(255,255,255,0.9)',
-    fontWeight: '600',
-    fontSize: 18,
-  },
-  headerTitle: {
-    fontSize: 40,
-    fontWeight: '900',
-    color: 'white',
-    lineHeight: 44,
-  },
-  comingSoonBar: {
-    marginTop: 30,
-    height: 60,
-    width: '100%',
-    borderRadius: 18,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.4)',
-  },
-  comingSoonText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  sectionBlock: { marginBottom: 25 },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#000',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  mintQuestContainer: {
-    backgroundColor: '#E0F7FA',
-    borderRadius: 20,
-    padding: 15,
-    borderWidth: 2,
-    borderColor: '#B2EBF2',
-  },
+  bgContainer: { position: 'absolute', top: 0, left: 0, width: '100%', height: '70%', justifyContent: 'flex-end', zIndex: -1 },
+  bgImage: { width: '100%', height: '100%' },
+  headerWrapper: { position: 'absolute', top: '8%', left: 0, right: 0, paddingHorizontal: 20, alignItems: 'center' },
+  brandText: { color: 'rgba(255,255,255,0.9)', fontWeight: '600', fontSize: 18 },
+  headerTitle: { fontSize: 40, fontWeight: '900', color: 'white', lineHeight: 44 },
+  comingSoonBar: { marginTop: 30, height: 60, width: '100%', borderRadius: 18, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)' },
+  comingSoonText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+  
+  sectionHeaderContainer: {marginBottom: 10 },
+  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#000', textAlign: 'center' },
+  itemWrapperMint: { backgroundColor: '#E0F7FA', paddingHorizontal: 15, paddingVertical: 8, marginHorizontal: 0, borderRadius: 12, marginBottom: 10 },
+  mintQuestContainerEmpty: { backgroundColor: '#E0F7FA', borderRadius: 20, padding: 15, borderWidth: 2, borderColor: '#B2EBF2' },
   emptyText: { textAlign: 'center', color: '#888', fontStyle: 'italic', padding: 10 },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 15,
-    padding: 15,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  questTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#333',
-  },
-  questDescription: {
-    fontSize: 12,
-    color: '#777',
-    marginTop: 2,
-    lineHeight: 16,
-  },
-  xpContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E0F2F1',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#B2DFDB',
-  },
-  xpText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#00796B',
-  },
-  claimButtonStyled: {
-    width: 70,
-    height: 32,
-    borderRadius: 16,
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#329D9C',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  claimButtonText: {
-    color: 'white',
-    fontWeight: '800',
-    fontSize: 11,
-    letterSpacing: 0.5,
-  },
-  progressBarBg: {
-    height: 10,
-    backgroundColor: '#E0E0E0',
-    borderRadius: 5,
-    overflow: 'hidden',
-    marginTop: 5,
-  },
+  
+  card: { backgroundColor: '#fff', borderRadius: 15, padding: 15, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
+  questTitle: { fontSize: 15, fontWeight: '600', color: '#333' },
+  questDescription: { fontSize: 12, color: '#777', marginTop: 2, lineHeight: 16 },
+  xpContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E0F2F1', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 20, borderWidth: 1, borderColor: '#B2DFDB' },
+  xpText: { fontSize: 12, fontWeight: '700', color: '#00796B' },
+  claimButtonStyled: { width: 70, height: 32, borderRadius: 16, overflow: 'hidden', justifyContent: 'center', alignItems: 'center', shadowColor: '#329D9C', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 3, elevation: 3 },
+  claimButtonText: { color: 'white', fontWeight: '800', fontSize: 11, letterSpacing: 0.5 },
+  progressBarBg: { height: 10, backgroundColor: '#E0E0E0', borderRadius: 5, overflow: 'hidden', marginTop: 5 },
   progressBarFill: { height: '100%', borderRadius: 5 },
-  progressTextSubtle: {
-    fontSize: 11,
-    color: '#888',
-    fontWeight: '600',
-  },
+  progressTextSubtle: { fontSize: 11, color: '#888', fontWeight: '600' },
 }));
