@@ -5,6 +5,7 @@ import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import TabNavigator from './tab-navigator';
 import AddPlantScreen from '~/screens/Plants/addPlant/addPlant';
+import AuthStack from './auth';
 
 export type RootStackParamList = {
   TabNavigator: undefined;
@@ -44,7 +45,7 @@ export default function RootStack() {
   return (
     <NavigationContainer linking={linking}>
       <Stack.Navigator
-        initialRouteName="TabNavigator"
+        initialRouteName="Auth"
         screenOptions={{
           headerStyle: {
             backgroundColor: theme.colors.background,
@@ -54,6 +55,7 @@ export default function RootStack() {
           },
           headerTintColor: theme.colors.accent,
         }}>
+        <Stack.Screen name="Auth" component={AuthStack} options={{ headerShown: false }} />
         <Stack.Screen
           name="TabNavigator"
           component={TabNavigator}
