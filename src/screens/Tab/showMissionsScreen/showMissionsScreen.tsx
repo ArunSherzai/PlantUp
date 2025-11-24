@@ -16,8 +16,8 @@ import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { GestureHandlerRootView, ScrollView } from 'react-native-gesture-handler';
 
 // Eigene Imports
-import { db } from '../../utils/supabase';
-import DraggableBottomSheet from '../../components/DraggableBottomSheet';
+import { db } from '../../../utils/supabase';
+import DraggableBottomSheet from '../../../components/DraggableBottomSheet';
 
 const { height, width } = Dimensions.get('window');
 
@@ -134,7 +134,7 @@ export default function ShowMissionsScreen() {
         {/* HINTERGRUND */}
         <View style={styles.bgContainer}>
           <Image
-            source={require('../../../assets/images/showDailyMissionsBackground.png')}
+            source={require('../../../../assets/images/showDailyMissionsBackground.png')}
             style={styles.bgImage}
             resizeMode="cover"
           />

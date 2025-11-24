@@ -4,7 +4,7 @@ import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/nativ
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage'; // 🟢 Added actual storage
-import { db } from '../../utils/supabase';
+import { db } from '../../../utils/supabase';
 
 // --- COMPONENTS ---
 import Header from '~/features/plantstats/components/Header';
@@ -362,7 +362,7 @@ export default function ShowPlantStats() {
 
   return (
     <ImageBackground
-      source={require('../../../assets/images/statsBackground.png')}
+      source={require('../../../../assets/images/statsBackground.png')}
       style={styles.bg}>
       <Header navigation={navigation} />
 

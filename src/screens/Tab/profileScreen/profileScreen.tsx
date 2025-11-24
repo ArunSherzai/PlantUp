@@ -94,14 +94,14 @@ export default function ProfileScreen() {
   return (
     <View style={{ flex: 1 }}>
       <Image
-        source={require('../../../assets/images/profileScreenBackground.png')}
+        source={require('../../../../assets/images/profileScreenBackground.png')}
         style={[styles.headerImage]}
         resizeMode="cover"
       />
 
       <View style={styles.profileWrapper}>
         <Image
-          source={require('../../../assets/images/Profilbild.png')}
+          source={require('../../../../assets/images/Profilbild.png')}
           style={styles.profileImage}
         />
         <Text style={styles.profileName}>Andreas</Text>

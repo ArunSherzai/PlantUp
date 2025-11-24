@@ -14,9 +14,10 @@ import Feather from '@expo/vector-icons/Feather';
 
 import { useFonts, Nunito_400Regular } from '@expo-google-fonts/nunito';
 
-import { PlantCard } from '../../features/plantlist/components/Plantcard';
-import { usePlants } from '../../features/plantlist/hooks/usePlants';
-import { styles, vw, vh } from '../../features/plantlist/styles/plantStyles';
+import { PlantCard } from '~/features/plantlist/components/Plantcard';
+import { usePlants } from '~/features/plantlist/hooks/usePlants';
+
+import { styles, vw, vh } from '../../../features/plantlist/styles/plantStyles';
 
 export default function PlantListScreen() {
   const navigation = useNavigation<any>();
@@ -73,7 +74,7 @@ export default function PlantListScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ImageBackground
-        source={require('../../../assets/images/PlantViewBackground.png')}
+        source={require('../../../../assets/images/PlantViewBackground.png')}
         style={styles.backgroundImage}>
         <View style={styles.arrowIcon}>
           <Feather name="arrow-left" size={24} color="white" />

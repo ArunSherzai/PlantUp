@@ -1,16 +1,17 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StackScreenProps } from '@react-navigation/stack';
 import { useUnistyles } from 'react-native-unistyles';
-import ShowMissionsScreen from '../screens/showMissionsScreen/showMissionsScreen';
+
 import { RootStackParamList } from './Root';
 import { HeaderButton } from '../components/HeaderButton';
 import { TabBarIcon } from '../components/TabBarIcon';
-import AddPlantScreen from '../screens/addPlant/addPlant';
-import HomeScreen from '~/screens/homeScreen/homeScreen';
-import PlantListScreen from '../screens/plantList/PlantListScreen';
-import PlantStatsScreen from '~/screens/plantStats/ShowPlantStats';
-import NavigationBar from '~/components/NavigationBar';
-import ProfileScreen from '~/screens/profileScreen/profileScreen';
+
+import NavigationBar from '../components/NavigationBar';
+import PlantListScreen from '~/screens/Tab/plantList/PlantListScreen';
+import AddPlantScreen from '~/screens/Plants/addPlant/addPlant';
+import ShowMissionsScreen from '~/screens/Tab/showMissionsScreen/showMissionsScreen';
+import ProfileScreen from '~/screens/Tab/profileScreen/profileScreen';
+import ShowPlantStats from '~/screens/Tab/plantStats/ShowPlantStats';
 
 const Tab = createBottomTabNavigator();
 
@@ -36,7 +37,7 @@ export default function TabLayout({ navigation }: Props) {
       tabBar={(props) => <NavigationBar {...props} />}>
       <Tab.Screen
         name="PlantStats"
-        component={PlantStatsScreen}
+        component={ShowPlantStats}
         options={{
           title: 'Plant States',
           tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,

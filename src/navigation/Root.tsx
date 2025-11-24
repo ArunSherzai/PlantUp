@@ -4,14 +4,14 @@ import { useUnistyles } from 'react-native-unistyles';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import TabNavigator from './tab-navigator';
-import AuthStack from './auth';
-import { useEffect } from 'react';
+import AddPlantScreen from '~/screens/Plants/addPlant/addPlant';
 
 export type RootStackParamList = {
   TabNavigator: undefined;
   Modal: undefined;
   Auth: undefined;
   Index: undefined;
+  'Add a Plant': undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -59,8 +59,14 @@ export default function RootStack() {
           component={TabNavigator}
           options={{ headerShown: false }}
         />
-
-        <Stack.Screen name="Auth" component={AuthStack} options={{ headerShown: false }} />
+        <Stack.Screen
+          name="Add a Plant"
+          component={AddPlantScreen}
+          options={{
+            title: 'Add a Plant',
+            headerShown: false,
+          }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );
