@@ -35,7 +35,7 @@ type UserQuest = {
   id: number;
   status: 'active' | 'completed' | 'claimed';
   progress: number;
-  plant_id: number | null;
+  plant_id: string | null;
   Plants: { nickname: string } | null;
   Quests: QuestData;
 };
@@ -65,13 +65,13 @@ export default function ShowMissionsScreen() {
 
       // Mapping: Flache View-Daten -> Verschachtelte Struktur für QuestCard
       const formattedData = data.map((item: any) => ({
-        id: item.id,
+        id: item.id, // User_quests ID
         status: item.status,
         progress: item.progress,
         plant_id: item.plant_id,
         Plants: item.plant_name ? { nickname: item.plant_name } : null,
         Quests: {
-          id: item.id, // oder quest_id aus der View
+          id: item.quest_id, // assuming active_quests_with_plants has quest_id
           title: item.title,
           description: item.description,
           xp_reward: item.xp_reward,
@@ -94,35 +94,63 @@ export default function ShowMissionsScreen() {
   }, [fetchQuests]);
 
   // --- CLAIM LOGIC ---
-  const handleClaim = async (userQuestId: number) => {
+  const handleClaim = useCallback(async (userQuestId: number) => {
     try {
       setLoading(true);
+
       // 1. Kurze künstliche Wartezeit (für das Feeling)
       await new Promise((resolve) => setTimeout(resolve, 500));
-      // 2. WICHTIG: Wir updaten den State LOKAL
-      // Wir gehen durch die Liste der Quests, suchen die richtige ID
-      // und ändern ihren Status manuell auf 'claimed'.
+
+      // 2. WICHTIG: Supabase Datenbank-Update
+      const { error } = await db.gamification
+        .from('User_quests')
+        .update({
+          status: 'claimed',
+          completed_at: new Date().toISOString(), // Sets the claim timestamp explicitly
+        })
+        .eq('id', userQuestId) // Target the specific User_quests entry
+        .select();
+
+      if (error) {
+        throw error;
+      }
+      // ---------------------------------------------------
+
+      // 3. Wir updaten den State LOKAL
       setQuests((currentQuests) =>
         currentQuests.map((q) => {
           if (q.id === userQuestId) {
-            // Kopie der Quest zurückgeben mit neuem Status
+            // Nur den lokalen State aktualisieren, NACHDEM das Supabase-Update erfolgreich war.
             return { ...q, status: 'claimed' };
           }
           return q;
         })
       );
+
+      console.log(`Quest ${userQuestId} successfully claimed and updated in Supabase.`);
     } catch (e) {
-      console.error(e);
-      alert('Something went wrong while claiming.');
+      console.error('Error claiming quest:', e);
+      alert('Something went wrong while claiming. The update was not saved.');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Listen filtern
-  const dailyQuests = quests.filter(
-    (q) => q.Quests.type === 'daily' || q.Quests.type === 'conditional'
-  );
+  const dailyQuests = quests.filter((q) => {
+    // 1. Normale Dailies: Immer anzeigen (auch wenn fertig, als Erfolgserlebnis)
+    if (q.Quests.type === 'daily') return true;
+
+    // 2. Conditionals (Sensoren): Nur anzeigen, wenn sie noch NICHT fertig sind
+    if (q.Quests.type === 'conditional') {
+      // Zeige sie nur, wenn Status 'active' oder 'completed' (noch nicht geclaimed) ist.
+      // Sobald 'claimed', verschwindet sie aus der Liste.
+      return q.status !== 'claimed';
+    }
+
+    return false;
+  });
+
   const weeklyQuests = quests.filter((q) => q.Quests.type === 'weekly');
 
   return (
