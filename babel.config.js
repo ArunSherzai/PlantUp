@@ -9,6 +9,7 @@ module.exports = function (api) {
       autoProcessImports: ['~/components'],
     },
   ]);
+  plugins.push('react-native-reanimated/plugin');
 
   return {
     presets: ['babel-preset-expo'],

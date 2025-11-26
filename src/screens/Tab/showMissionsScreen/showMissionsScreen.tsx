@@ -18,6 +18,7 @@ import { GestureHandlerRootView, ScrollView } from 'react-native-gesture-handler
 // Eigene Imports
 import { db } from '../../../utils/supabase';
 import DraggableBottomSheet from '../../../components/DraggableBottomSheet';
+import { useUserStore } from '../../../stores/UserStore';
 
 const { height, width } = Dimensions.get('window');
 
@@ -93,24 +94,43 @@ export default function ShowMissionsScreen() {
     fetchQuests();
   }, [fetchQuests]);
 
+
+
+
+  const { addXP } = useUserStore();
+
   // --- CLAIM LOGIC ---
   const handleClaim = async (userQuestId: number) => {
     try {
       setLoading(true);
-      // 1. Kurze künstliche Wartezeit (für das Feeling)
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      // 2. WICHTIG: Wir updaten den State LOKAL
-      // Wir gehen durch die Liste der Quests, suchen die richtige ID
-      // und ändern ihren Status manuell auf 'claimed'.
+
+      // Find the quest to get XP reward
+      const questToClaim = quests.find(q => q.id === userQuestId);
+      if (!questToClaim) return;
+
+      // 1. Add XP to User Profile
+      await addXP(questToClaim.Quests.xp_reward);
+
+      // 2. Update DB status to 'claimed'
+      const { error } = await db.gamification
+        .from('User_quests')
+        .update({ status: 'claimed' })
+        .eq('id', userQuestId);
+
+      if (error) throw error;
+
+      // 3. Update Local State
       setQuests((currentQuests) =>
         currentQuests.map((q) => {
           if (q.id === userQuestId) {
-            // Kopie der Quest zurückgeben mit neuem Status
             return { ...q, status: 'claimed' };
           }
           return q;
         })
       );
+
+      alert(`Claimed ${questToClaim.Quests.xp_reward} XP!`);
+
     } catch (e) {
       console.error(e);
       alert('Something went wrong while claiming.');
