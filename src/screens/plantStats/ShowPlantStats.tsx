@@ -75,10 +75,6 @@ async function fetchLatestController(plantId: string): Promise<PlantController |
   return data as PlantController;
 }
 
-// ----------------------------------------------------------------------------
-// COMPONENT
-// ----------------------------------------------------------------------------
-
 const TimeRangePicker = ({ selectedRange, setSelectedRange }: any) => {
   const { theme } = useUnistyles();
   return (
@@ -198,28 +194,36 @@ export default function ShowPlantStats() {
         .from('User_quests')
         .select(`id, progress, status, quest:Quests (action_code, target_count)`)
         .eq('user_id', uid)
-        .neq('status', 'completed');
+        .eq('status', 'active'); // ✅ only active quests
 
       if (!quests) return;
 
       const updates = quests
-        .filter((q: any) => q.quest?.action_code === 'CHECK_STATUS')
+        .filter((q: any) => {
+          const target = q.quest?.target_count ?? 0;
+          const current = q.progress ?? 0;
+
+          return (
+            q.quest?.action_code === 'CHECK_STATUS' && current < target // ✅ only update if not already reached
+          );
+        })
         .map((uq: any) => {
           const newProgress = (uq.progress ?? 0) + 1;
           const target = uq.quest?.target_count ?? 0;
+
           return db.gamification
             .from('User_quests')
             .update({
               progress: newProgress,
-              status: newProgress >= target ? 'completed' : 'in_progress',
+              status: newProgress >= target ? 'completed' : 'active',
               completed_at: newProgress >= target ? new Date().toISOString() : null,
             })
             .eq('id', uq.id);
         });
 
-      if (updates.length > 0) await Promise.all(updates);
+      await Promise.all(updates);
     } catch (err) {
-      console.log('Quest update silent fail:', err);
+      console.error('runQuestCheck error:', err);
     }
   };
 
