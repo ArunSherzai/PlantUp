@@ -71,9 +71,6 @@ export default function CreatePostScreen() {
             <FontAwesome6 name="chevron-left" size={22} color="white" />
             <Text style={styles.cancelText}>Cancel</Text>
           </TouchableOpacity>
-          <TouchableOpacity>
-            <FontAwesome6 name="magnifying-glass" size={26} color="white" />
-          </TouchableOpacity>
         </View>
       </SafeAreaView>
 
