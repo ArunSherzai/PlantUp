@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useUnistyles } from 'react-native-unistyles';
@@ -14,7 +15,7 @@ import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { useUserStore } from '../../../stores/UserStore';
 import RankCard from '../../../components/RankCard';
 import RewardItem from '../../../components/RewardItem';
-import { REWARDS } from '../../../utils/leveling';
+import { REWARDS, getRankName } from '../../../utils/leveling';
 import DraggableBottomSheet from '../../../components/DraggableBottomSheet';
 import { GestureHandlerRootView, ScrollView } from 'react-native-gesture-handler';
 import GradientIcon from '../../../components/GradientIcon';
@@ -36,6 +37,7 @@ export default function ProfileScreen() {
 
   const currentLevel = profile?.level || 1;
   const currentXP = profile?.xp || 0;
+  const currentRank = getRankName(currentLevel);
 
   // Placeholder data for stats
   const stats = [
@@ -44,6 +46,11 @@ export default function ProfileScreen() {
     { label: 'Friends', value: 14 },
     { label: 'Follower', value: '4.000' },
   ];
+
+  const handleClaimReward = (rewardTitle: string) => {
+    // Rewards can be added here 
+    Alert.alert('Reward Claimed!', `You have claimed: ${rewardTitle}`);
+  };
 
   const renderContent = () => {
     switch (activeTab) {
@@ -64,7 +71,7 @@ export default function ProfileScreen() {
             </TouchableOpacity>
 
             {/* Rank Card */}
-            <RankCard level={currentLevel} xp={currentXP} />
+            <RankCard level={currentLevel} xp={currentXP} rankName={currentRank} />
 
             {/* Rewards Section */}
             <Text style={styles.sectionTitle}>Rewards</Text>
@@ -75,6 +82,7 @@ export default function ProfileScreen() {
                   title={reward.title}
                   description={reward.description}
                   isUnlocked={currentLevel >= reward.level}
+                  onClaim={() => handleClaimReward(reward.title)}
                 />
               ))}
             </ScrollView>
@@ -121,7 +129,7 @@ export default function ProfileScreen() {
 
         {/* Draggable Bottom Sheet */}
         <DraggableBottomSheet initialHeight={0.65} maxHeight={0.9}>
-          <View style={styles.sheetContent}>
+          <ScrollView contentContainerStyle={[styles.sheetContent, { paddingBottom: 100 }]} showsVerticalScrollIndicator={false}>
             {/* Profile Card */}
             <View style={styles.profileCard}>
               <View style={styles.avatarContainer}>
@@ -212,8 +220,7 @@ export default function ProfileScreen() {
             {renderContent()}
 
             {/* Extra padding at bottom for scrolling */}
-            <View style={{ height: 100 }} />
-          </View>
+          </ScrollView>
         </DraggableBottomSheet>
       </View>
     </GestureHandlerRootView>
@@ -368,7 +375,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   rewardsScroll: {
-    marginBottom: 20,
+    marginTop: 10,
+    marginBottom: 250,
   },
   comingSoonContainer: {
     backgroundColor: 'rgba(255, 255, 255, 0.7)',

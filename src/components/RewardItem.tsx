@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 
@@ -7,11 +7,18 @@ type RewardItemProps = {
     title: string;
     description: string;
     isUnlocked: boolean;
+    onClaim?: () => void;
 };
 
-export default function RewardItem({ title, description, isUnlocked }: RewardItemProps) {
+export default function RewardItem({ title, description, isUnlocked, onClaim }: RewardItemProps) {
+    const Container = isUnlocked && onClaim ? TouchableOpacity : View;
+
     return (
-        <View style={[styles.container, !isUnlocked && styles.lockedContainer]}>
+        <Container
+            style={[styles.container, !isUnlocked && styles.lockedContainer]}
+            onPress={isUnlocked ? onClaim : undefined}
+            activeOpacity={0.7}
+        >
             <View style={styles.iconContainer}>
                 <LinearGradient
                     colors={isUnlocked ? ['#4CAF50', '#81C784'] : ['#BDBDBD', '#E0E0E0']}
@@ -24,7 +31,7 @@ export default function RewardItem({ title, description, isUnlocked }: RewardIte
                 <Text style={styles.title}>{title}</Text>
                 <Text style={styles.description} numberOfLines={2}>{description}</Text>
             </View>
-        </View>
+        </Container>
     );
 }
 

@@ -14,6 +14,17 @@ type RankCardProps = {
 export default function RankCard({ level, xp, rankName = 'Blooming Sprout' }: RankCardProps) {
     const { theme } = useUnistyles();
 
+    const RANK_GRADIENTS: Record<string, [string, string]> = {
+        'Evergreen': ['#29d071', '#23b060'],
+        'Roseheart': ['#f68580', '#e57373'],
+        'Sapling': ['#68cf67', '#5cb85c'],
+        'Seedling': ['#4fab4b', '#439a40'],
+        'Sprout': ['#42973b', '#388e3c'],
+        'Sunflower': ['#f1aa21', '#ffa000'],
+    };
+
+    const gradientColors = RANK_GRADIENTS[rankName] || ['#4CAF50', '#388E3C'];
+
     const progress = getLevelProgress(xp, level);
     const xpForNext = getXPForNextLevel(level);
     const currentLevelXP = getTotalXPForLevel(level);
@@ -27,24 +38,27 @@ export default function RankCard({ level, xp, rankName = 'Blooming Sprout' }: Ra
     });
 
     return (
-        <View style={styles.container}>
-            {/* Emblem Glow Effect */}
-            <View style={styles.glowContainer}>
-                <LinearGradient
-                    colors={['rgba(76, 175, 80, 0.2)', 'transparent']}
-                    style={styles.glow}
-                />
-            </View>
-
+        <LinearGradient
+            colors={gradientColors}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.container}
+        >
             {/* Rank Emblem */}
             <View style={styles.emblemContainer}>
-                {/* Placeholder for Rank Emblem */}
-                <View style={styles.emblemPlaceholder}>
-                    <Image
-                        source={require('../../assets/images/icon.png')}
-                        style={{ width: 60, height: 60, tintColor: '#2E7D32' }}
-                    />
-                </View>
+                <Image
+                    source={
+                        rankName === 'Seedling' ? require('../../assets/emblems/Seedlin.png') :
+                            rankName === 'Sprout' ? require('../../assets/emblems/Sprout.png') :
+                                rankName === 'Sapling' ? require('../../assets/emblems/Sapling.png') :
+                                    rankName === 'Evergreen' ? require('../../assets/emblems/Evergreen.png') :
+                                        rankName === 'Sunflower' ? require('../../assets/emblems/Sunflower.png') :
+                                            rankName === 'Roseheart' ? require('../../assets/emblems/Roseheart.png') :
+                                                require('../../assets/emblems/Seedlin.png')
+                    }
+                    style={{ width: 100, height: 100 }}
+                    resizeMode="contain"
+                />
             </View>
 
             {/* Level & Rank Info */}
@@ -55,96 +69,78 @@ export default function RankCard({ level, xp, rankName = 'Blooming Sprout' }: Ra
 
             {/* Progress Bar */}
             <View style={styles.progressBarBg}>
-                <Animated.View style={[styles.progressBarFill, animatedStyle]}>
-                    <LinearGradient
-                        colors={['#4CAF50', '#81C784']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={{ flex: 1 }}
-                    />
-                </Animated.View>
+                <Animated.View style={[styles.progressBarFill, animatedStyle]} />
             </View>
 
             <Text style={styles.rankName}>Rank: <Text style={styles.rankNameBold}>{rankName}</Text></Text>
-        </View>
+        </LinearGradient>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: '#FFFFFF',
         borderRadius: 20,
-        padding: 20,
+        padding: 25,
         alignItems: 'center',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
+        shadowOpacity: 0.15,
         shadowRadius: 10,
-        elevation: 5,
+        elevation: 8,
         marginVertical: 20,
         width: '100%',
-        minHeight: 350,
-        paddingTop: '20%',
-    },
-    glowContainer: {
-        position: 'absolute',
-        top: -20,
-        left: 0,
-        right: 0,
-        alignItems: 'center',
-    },
-    glow: {
-        width: 150,
-        height: 150,
-        borderRadius: 75,
+        minHeight: 320,
+        justifyContent: 'center',
     },
     emblemContainer: {
-        marginBottom: 10,
+        marginBottom: 25,
         alignItems: 'center',
         justifyContent: 'center',
-    },
-    emblemPlaceholder: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        backgroundColor: '#E8F5E9',
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 2,
-        borderColor: '#A5D6A7',
     },
     infoContainer: {
         alignItems: 'center',
-        marginBottom: 10,
+        marginBottom: 20,
     },
     levelText: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: '#1B5E20',
+        fontSize: 36,
+        fontWeight: '900',
+        color: '#FFFFFF',
+        textShadowColor: 'rgba(0, 0, 0, 0.1)',
+        textShadowOffset: { width: 0, height: 2 },
+        textShadowRadius: 4,
     },
     xpText: {
-        fontSize: 12,
-        color: '#757575',
-        marginTop: 4,
+        fontSize: 14,
+        color: 'rgba(255, 255, 255, 0.9)',
+        marginTop: 5,
+        fontWeight: '600',
+        letterSpacing: 0.5,
     },
     progressBarBg: {
         width: '100%',
-        height: 12,
-        backgroundColor: '#E0E0E0',
-        borderRadius: 6,
+        height: 14,
+        backgroundColor: 'rgba(255, 255, 255, 0.25)',
+        borderRadius: 7,
         overflow: 'hidden',
-        marginBottom: 10,
+        marginBottom: 15,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
     },
     progressBarFill: {
         height: '100%',
-        borderRadius: 6,
+        borderRadius: 7,
+        backgroundColor: '#FFFFFF',
     },
     rankName: {
-        fontSize: 14,
-        color: '#424242',
+        fontSize: 16,
+        color: 'rgba(255, 255, 255, 0.95)',
+        fontWeight: '500',
     },
     rankNameBold: {
-        fontWeight: 'bold',
-        color: '#2E7D32',
+        fontWeight: '800',
+        color: '#FFFFFF',
+        fontSize: 20,
+        textTransform: 'uppercase',
+        letterSpacing: 1,
     },
 });

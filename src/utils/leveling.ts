@@ -99,3 +99,17 @@ export const getNextReward = (level: number): Reward | null => {
   return REWARDS.find(r => r.level > level) || null;
 };
 
+export const RANKS = [
+  { name: 'Seedling', minLevel: 1, maxLevel: 16 },
+  { name: 'Sprout', minLevel: 17, maxLevel: 33 },
+  { name: 'Sapling', minLevel: 34, maxLevel: 50 },
+  { name: 'Evergreen', minLevel: 51, maxLevel: 67 },
+  { name: 'Sunflower', minLevel: 68, maxLevel: 83 },
+  { name: 'Roseheart', minLevel: 84, maxLevel: 100 },
+];
+
+export const getRankName = (level: number): string => {
+  const rank = RANKS.find(r => level >= r.minLevel && level <= r.maxLevel);
+  return rank ? rank.name : 'Seedling';
+};
+
