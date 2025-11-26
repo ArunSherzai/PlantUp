@@ -1,13 +1,5 @@
 import React, { useCallback } from 'react';
-import {
-  View,
-  Text,
-  Image,
-  TouchableOpacity,
-  StyleSheet,
-  Dimensions,
-  Alert,
-} from 'react-native';
+import { View, Text, Image, TouchableOpacity, StyleSheet, Dimensions, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useUnistyles } from 'react-native-unistyles';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -48,7 +40,7 @@ export default function ProfileScreen() {
   ];
 
   const handleClaimReward = (rewardTitle: string) => {
-    // Rewards can be added here 
+    // Rewards can be added here
     Alert.alert('Reward Claimed!', `You have claimed: ${rewardTitle}`);
   };
 
@@ -75,7 +67,10 @@ export default function ProfileScreen() {
 
             {/* Rewards Section */}
             <Text style={styles.sectionTitle}>Rewards</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.rewardsScroll}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.rewardsScroll}>
               {REWARDS.map((reward) => (
                 <RewardItem
                   key={reward.level}
@@ -115,7 +110,7 @@ export default function ProfileScreen() {
         {/* Header Background */}
         <View style={styles.headerBg}>
           <Image
-            source={require('../../../../assets/images/ProfileScreenBackground.png')}
+            source={require('../../../../assets/images/profileScreenBackground.png')}
             style={styles.headerGradient}
             resizeMode="cover"
           />
@@ -123,13 +118,17 @@ export default function ProfileScreen() {
             <TouchableOpacity style={styles.backButton}>
               <FontAwesome6 name="chevron-left" size={20} color="white" />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Your{'\n'}Growing{'\n'}Profile!</Text>
+            <Text style={styles.headerTitle}>
+              Your{'\n'}Growing{'\n'}Profile!
+            </Text>
           </View>
         </View>
 
         {/* Draggable Bottom Sheet */}
         <DraggableBottomSheet initialHeight={0.65} maxHeight={0.9}>
-          <ScrollView contentContainerStyle={[styles.sheetContent, { paddingBottom: 100 }]} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            contentContainerStyle={[styles.sheetContent, { paddingBottom: 100 }]}
+            showsVerticalScrollIndicator={false}>
             {/* Profile Card */}
             <View style={styles.profileCard}>
               <View style={styles.avatarContainer}>
@@ -140,7 +139,9 @@ export default function ProfileScreen() {
               </View>
               <View style={styles.userInfo}>
                 <View style={styles.nameRow}>
-                  <Text style={styles.userName}>{profile?.username.split('@')[0] || 'Gardener'}</Text>
+                  <Text style={styles.userName}>
+                    {profile?.username.split('@')[0] || 'Gardener'}
+                  </Text>
                   <GradientIcon name="pen" size={14} style={{ marginLeft: 8 }} />
                 </View>
                 <Text style={styles.userBio}>Coole bio haha...</Text>
@@ -162,8 +163,7 @@ export default function ProfileScreen() {
             <View style={styles.actionRow}>
               <TouchableOpacity
                 style={styles.actionButton}
-                onPress={() => setActiveTab('leveling')}
-              >
+                onPress={() => setActiveTab('leveling')}>
                 {activeTab === 'leveling' ? (
                   <View style={{ alignItems: 'center', width: '100%' }}>
                     <GradientIcon name="seedling" size={20} />
@@ -178,10 +178,7 @@ export default function ProfileScreen() {
                   <FontAwesome6 name="seedling" size={20} color="#555" />
                 )}
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={() => setActiveTab('posts')}
-              >
+              <TouchableOpacity style={styles.actionButton} onPress={() => setActiveTab('posts')}>
                 {activeTab === 'posts' ? (
                   <View style={{ alignItems: 'center', width: '100%' }}>
                     <GradientIcon name="list" size={20} />
@@ -196,10 +193,7 @@ export default function ProfileScreen() {
                   <FontAwesome6 name="list" size={20} color="#555" />
                 )}
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={() => setActiveTab('likes')}
-              >
+              <TouchableOpacity style={styles.actionButton} onPress={() => setActiveTab('likes')}>
                 {activeTab === 'likes' ? (
                   <View style={{ alignItems: 'center', width: '100%' }}>
                     <GradientIcon name="thumbs-up" size={20} />

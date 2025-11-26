@@ -8,7 +8,10 @@ import { TabBarIcon } from '../components/TabBarIcon';
 
 import NavigationBar from '../components/NavigationBar';
 import PlantListScreen from '~/screens/Tab/plantList/PlantListScreen';
-import AddPlantScreen from '~/screens/Plants/addPlant/addPlant';
+// ALT: import AddPlantScreen from '~/screens/Plants/addPlant/addPlant';
+// NEU: Importiere den neuen Screen (Pfad ggf. anpassen, wenn er woanders liegt!)
+import CreatePostScreen from '~/screens/Tab/createPostScreen/createPostScreen';
+
 import ShowMissionsScreen from '~/screens/Tab/showMissionsScreen/showMissionsScreen';
 import ProfileScreen from '~/screens/Tab/profileScreen/profileScreen';
 import ShowPlantStats from '~/screens/Tab/plantStats/ShowPlantStats';
@@ -44,35 +47,20 @@ export default function TabLayout({ navigation }: Props) {
           headerRight: () => <HeaderButton onPress={() => navigation.navigate('Modal')} />,
         }}
       />
-      {/* 
+
+      {/* --- HIER GEÄNDERT: Create Post statt Add a Plant --- */}
       <Tab.Screen
-        name="Two"
-        component={Two}
+        name="CreatePost"
+        component={CreatePostScreen}
         options={{
-          title: 'Tab Two',
-          tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
-        }} 
-      />*/}
-      <Tab.Screen
-        name="Add a Plant"
-        component={AddPlantScreen}
-        options={{
-          title: 'Add a Plant',
+          title: 'Create Post',
           headerShown: false,
-          tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
+          // Wir nutzen 'plus-circle' (FontAwesome Name), das passt gut
+          tabBarIcon: ({ color }) => <TabBarIcon name="plus-circle" color={color} />,
         }}
       />
-      {/*
-        <Tab.Screen
-        name="Homescreen"
-        component={HomeScreen}
-        options={{
-          title: 'Home',
-          headerShown: false,
-          tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
-        }}
-      />
-      */}
+      {/* --------------------------------------------------- */}
+
       <Tab.Screen
         name="Missions"
         component={ShowMissionsScreen}
