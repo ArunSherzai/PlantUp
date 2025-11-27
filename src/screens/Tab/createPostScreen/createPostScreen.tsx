@@ -236,7 +236,10 @@ export default function CreatePostScreen() {
       if (error) throw error;
 
       Alert.alert('Success', 'Post created!');
-      navigation.goBack();
+
+      // >>> RESET HERE <<<
+      setCaption('');
+      setMedia(null);
     } catch (e: any) {
       console.error('Post Error:', e);
       Alert.alert('Error', e.message || 'Network request failed');
@@ -415,7 +418,7 @@ function AttachmentCard({ icon, color, label, onPress, isGifIcon }: any) {
 const styles = StyleSheet.create((theme) => ({
   container: {
     flex: 1,
-    backgroundColor: 'white',
+    backgroundColor: theme.colors.background,
   },
   bgContainer: {
     position: 'absolute',
@@ -430,7 +433,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.1)',
+    backgroundColor: 'rgba(0,0,0,0.1)', // Transparenz bleibt statisch, da es über einem Bild liegt
   },
 
   safeArea: {
@@ -446,7 +449,7 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: 'center',
   },
   cancelText: {
-    color: 'white',
+    color: theme.colors.typography, // Weiß im Lightmode, Hellgrau im Darkmode
     fontSize: 18,
     marginLeft: 8,
     fontWeight: '600',
@@ -460,7 +463,7 @@ const styles = StyleSheet.create((theme) => ({
   pageTitle: {
     fontSize: 40,
     fontWeight: '900',
-    color: 'white',
+    color: theme.colors.typography,
     paddingHorizontal: 20,
     marginBottom: 5,
     textShadowColor: 'rgba(0,0,0,0.2)',
@@ -470,7 +473,7 @@ const styles = StyleSheet.create((theme) => ({
 
   whiteSheet: {
     flex: 1,
-    backgroundColor: '#F9F9F9',
+    backgroundColor: theme.colors.surface, // Passt sich an (Weiß vs Dunkelgrau)
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     paddingHorizontal: 24,
@@ -487,26 +490,30 @@ const styles = StyleSheet.create((theme) => ({
   userInfo: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 1,
   },
   avatar: {
     width: 42,
     height: 42,
     borderRadius: 21,
     marginRight: 10,
-    backgroundColor: '#ddd',
+    backgroundColor: theme.colors.greyedOut,
   },
   usernameText: {
     fontSize: 17,
     fontWeight: 'bold',
-    color: '#333',
+    color: theme.colors.text,
+    flexShrink: 1,
+    maxWidth: 180,
   },
   postButton: {
     paddingVertical: 8,
     paddingHorizontal: 20,
     borderRadius: 10,
+    // Falls der Button einen Hintergrund braucht, wäre hier theme.colors.primary sinnvoll
   },
   postButtonText: {
-    color: 'white',
+    color: theme.colors.typography,
     fontWeight: 'bold',
     fontSize: 14,
   },
@@ -521,7 +528,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   input: {
     fontSize: 18,
-    color: '#333',
+    color: theme.colors.text,
     textAlignVertical: 'top',
     minHeight: 120,
   },
@@ -531,12 +538,12 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'white',
+    backgroundColor: theme.colors.background,
     padding: 12,
     borderRadius: 12,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#eee',
+    borderColor: theme.colors.greyedOut,
   },
   previewContent: {
     flexDirection: 'row',
@@ -546,7 +553,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   previewText: {
     fontSize: 14,
-    color: '#333',
+    color: theme.colors.text,
     fontWeight: '500',
     flex: 1,
   },
@@ -555,7 +562,7 @@ const styles = StyleSheet.create((theme) => ({
   toolbar: {
     marginTop: 'auto', // Wird nach unten geschoben
     borderTopWidth: 1,
-    borderTopColor: '#eee',
+    borderTopColor: theme.colors.greyedOut,
     paddingTop: 15,
     paddingBottom: 20, // Sicherheits-Padding
   },
@@ -563,13 +570,15 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#E0F2F1',
+    backgroundColor: theme.colors.surface, // Fallback, da kein "lightSecondary" definiert ist
     padding: 12,
     borderRadius: 12,
     alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: theme.colors.accent, // Hinzugefügt für bessere Sichtbarkeit im Darkmode
   },
   addAttachmentText: {
-    color: '#329D9C',
+    color: theme.colors.accent,
     fontWeight: '600',
     fontSize: 14,
   },
@@ -581,7 +590,7 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: 'white',
+    backgroundColor: theme.colors.surface,
     borderTopLeftRadius: 25,
     borderTopRightRadius: 25,
     padding: 24,
@@ -591,7 +600,7 @@ const styles = StyleSheet.create((theme) => ({
   modalHandle: {
     width: 40,
     height: 4,
-    backgroundColor: '#ddd',
+    backgroundColor: theme.colors.greyedOut,
     borderRadius: 2,
     alignSelf: 'center',
     marginBottom: 20,
@@ -599,7 +608,7 @@ const styles = StyleSheet.create((theme) => ({
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: theme.colors.text,
     marginBottom: 20,
   },
   gridContainer: {
@@ -610,7 +619,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   attachmentCard: {
     width: '47%',
-    backgroundColor: '#F9F9F9',
+    backgroundColor: theme.colors.background, // Kontrast zum Modal Surface
     borderRadius: 16,
     padding: 15,
     height: 100,
@@ -618,13 +627,13 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: 'center',
     gap: 10,
     borderWidth: 1,
-    borderColor: '#eee',
+    borderColor: theme.colors.greyedOut,
   },
   cardIconContainer: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'white',
+    backgroundColor: theme.colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
@@ -636,7 +645,7 @@ const styles = StyleSheet.create((theme) => ({
   attachmentLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#555',
+    color: theme.colors.text,
   },
   gifIcon: {
     borderWidth: 2,
@@ -645,5 +654,6 @@ const styles = StyleSheet.create((theme) => ({
     height: 24,
     alignItems: 'center',
     justifyContent: 'center',
+    borderColor: theme.colors.icon, // Annahme: Icon Border passt zur Icon Farbe
   },
 }));
