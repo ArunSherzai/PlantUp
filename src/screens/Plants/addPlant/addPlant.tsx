@@ -333,7 +333,7 @@ const styles = StyleSheet.create((theme) => ({
     borderTopLeftRadius: 25,
     borderTopRightRadius: 25,
     padding: 20,
-    marginTop: 100,
+    marginTop: 20,
   },
 
   container: {
