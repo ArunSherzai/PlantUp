@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import { View, Dimensions } from 'react-native';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
@@ -20,6 +21,7 @@ export default function DraggableBottomSheet({
   initialHeight = 0.55,
   maxHeight = 0.9,
 }: BottomSheetProps) {
+  const { theme } = useUnistyles();
   // BERECHNUNG DER GRENZEN (Prozentual)
   const START_Y = -SCREEN_HEIGHT * initialHeight;
   const MAX_Y = -SCREEN_HEIGHT * maxHeight;
@@ -74,11 +76,11 @@ export default function DraggableBottomSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create((theme) => ({
   bottomSheetContainer: {
     height: SCREEN_HEIGHT,
     width: '100%',
-    backgroundColor: '#F2F2F2',
+    backgroundColor: theme.colors.surface,
     position: 'absolute',
     top: SCREEN_HEIGHT,
     borderRadius: 30,
@@ -94,15 +96,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'transparent',
-    
   },
   line: {
     width: 50,
     height: 5,
-    backgroundColor: '#ccc',
+    backgroundColor: theme.colors.greyedOut,
     borderRadius: 3,
   },
   contentContainer: {
     flex: 1,
+    marginBottom: 100,
   }
-});
+}));

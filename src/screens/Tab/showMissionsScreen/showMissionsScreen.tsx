@@ -204,7 +204,7 @@ export default function ShowMissionsScreen() {
             {loading && !refreshing ? (
               <ActivityIndicator
                 size="large"
-                color={theme.colors.accent}
+                color={theme.colors.primary}
                 style={{ marginTop: 20 }}
               />
             ) : (
@@ -259,7 +259,7 @@ export default function ShowMissionsScreen() {
                       setRefreshing(true);
                       fetchQuests();
                     }}
-                    tintColor={theme.colors.accent}
+                    tintColor={theme.colors.primary}
                   />
                 }
               />
@@ -398,9 +398,9 @@ const styles = StyleSheet.create((theme) => ({
   comingSoonText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
 
   sectionHeaderContainer: { marginBottom: 10 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#000', textAlign: 'center' },
+  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: theme.colors.text, textAlign: 'center' },
   itemWrapperMint: {
-    backgroundColor: '#E0F7FA',
+    backgroundColor: theme.colors.surface,
     paddingHorizontal: 15,
     paddingVertical: 8,
     marginHorizontal: 0,
@@ -408,37 +408,37 @@ const styles = StyleSheet.create((theme) => ({
     marginBottom: 10,
   },
   mintQuestContainerEmpty: {
-    backgroundColor: '#E0F7FA',
+    backgroundColor: theme.colors.surface,
     borderRadius: 20,
     padding: 15,
     borderWidth: 2,
-    borderColor: '#B2EBF2',
+    borderColor: theme.colors.greyedOut,
   },
-  emptyText: { textAlign: 'center', color: '#888', fontStyle: 'italic', padding: 10 },
+  emptyText: { textAlign: 'center', color: theme.colors.typography, fontStyle: 'italic', padding: 10 },
 
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.background,
     borderRadius: 15,
     padding: 15,
-    shadowColor: '#000',
+    shadowColor: theme.colors.text,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
   },
-  questTitle: { fontSize: 15, fontWeight: '600', color: '#333' },
-  questDescription: { fontSize: 12, color: '#777', marginTop: 2, lineHeight: 16 },
+  questTitle: { fontSize: 15, fontWeight: '600', color: theme.colors.text },
+  questDescription: { fontSize: 12, color: theme.colors.typography, marginTop: 2, lineHeight: 16 },
   xpContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E0F2F1',
+    backgroundColor: theme.colors.surface,
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#B2DFDB',
+    borderColor: theme.colors.primary,
   },
-  xpText: { fontSize: 12, fontWeight: '700', color: '#00796B' },
+  xpText: { fontSize: 12, fontWeight: '700', color: theme.colors.primary },
   claimButtonStyled: {
     width: 70,
     height: 32,
@@ -455,11 +455,11 @@ const styles = StyleSheet.create((theme) => ({
   claimButtonText: { color: 'white', fontWeight: '800', fontSize: 11, letterSpacing: 0.5 },
   progressBarBg: {
     height: 10,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: theme.colors.greyedOut,
     borderRadius: 5,
     overflow: 'hidden',
     marginTop: 5,
   },
   progressBarFill: { height: '100%', borderRadius: 5 },
-  progressTextSubtle: { fontSize: 11, color: '#888', fontWeight: '600' },
+  progressTextSubtle: { fontSize: 11, color: theme.colors.typography, fontWeight: '600' },
 }));

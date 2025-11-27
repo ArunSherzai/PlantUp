@@ -77,7 +77,8 @@ export default function TrendChartCard({
         hideRules
         xAxisThickness={0}
         yAxisThickness={0}
-        xAxisLabelTextStyle={{ color: theme.colors.greyedOut }}
+        xAxisLabelTextStyle={{ color: theme.colors.text }}
+        yAxisTextStyle={{ color: theme.colors.text }}
         noOfSections={5}
       />
     </View>

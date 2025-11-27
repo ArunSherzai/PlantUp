@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { LinearGradient } from 'expo-linear-gradient';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 
@@ -11,6 +12,7 @@ type RewardItemProps = {
 };
 
 export default function RewardItem({ title, description, isUnlocked, onClaim }: RewardItemProps) {
+    const { theme } = useUnistyles();
     const Container = isUnlocked && onClaim ? TouchableOpacity : View;
 
     return (
@@ -35,15 +37,15 @@ export default function RewardItem({ title, description, isUnlocked, onClaim }: 
     );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create((theme) => ({
     container: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#FFFFFF',
+        backgroundColor: theme.colors.surface,
         borderRadius: 12,
         padding: 12,
         marginBottom: 10,
-        shadowColor: '#000',
+        shadowColor: theme.colors.text,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,
         shadowRadius: 4,
@@ -70,11 +72,11 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 14,
         fontWeight: 'bold',
-        color: '#333',
+        color: theme.colors.text,
         marginBottom: 2,
     },
     description: {
         fontSize: 11,
-        color: '#757575',
+        color: theme.colors.typography,
     },
-});
+}));

@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { View, Text, ImageBackground, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, Image, TouchableOpacity } from 'react-native';
 import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { useUnistyles, StyleSheet } from 'react-native-unistyles';
 import * as Location from 'expo-location';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // 🟢 Added actual storage
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { db } from '../../../utils/supabase';
+import { GestureHandlerRootView, ScrollView } from 'react-native-gesture-handler';
+import DraggableBottomSheet from '~/components/DraggableBottomSheet';
 
 // --- COMPONENTS ---
 import Header from '~/features/plantstats/components/Header';
@@ -365,85 +367,138 @@ export default function ShowPlantStats() {
   if (loading) return <LoadingScreen />;
 
   return (
-    <ImageBackground
-      source={require('../../../../assets/images/statsBackground.png')}
-      style={styles.bg}>
-      <Header navigation={navigation} />
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <View style={styles.container}>
+        {/* Header Background */}
+        <View style={styles.headerBg}>
+          <Image
+            source={require('../../../../assets/images/statsBackground.png')}
+            style={styles.headerImage}
+            resizeMode="cover"
+          />
+          <View style={styles.headerContent}>
+            <Header navigation={navigation} />
+            <View style={styles.titleContainer}>
+              <Text style={[styles.headerTitle, { color: 'white' }]}>How's</Text>
+              <Text style={[styles.headerTitle, { color: 'white' }]}>{name}?</Text>
+            </View>
+          </View>
+        </View>
 
-      <View style={styles.headerContainer}>
-        <Text style={[styles.headerTitle, { color: 'white' }]}>How's</Text>
-        <Text style={[styles.headerTitle, { color: 'white' }]}>{name}?</Text>
+        {/* Draggable Bottom Sheet */}
+        <DraggableBottomSheet initialHeight={0.65} maxHeight={0.9}>
+          <ScrollView
+            overScrollMode="never"
+            contentContainerStyle={{ paddingBottom: 100, paddingHorizontal: 20, paddingTop: 10 }}
+            showsVerticalScrollIndicator={false}
+            style={[styles.sheet, { backgroundColor: "transparent" }]}>
+            <OverviewCard latest={latest} health={health} />
+            <SnapshotBoxes latest={latest} />
+
+            {/* Status Indicators */}
+            <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 10, marginTop: 10 }}>
+              <Text
+                style={[
+                  styles.statusText,
+                  { color: isDataFreshRef.current ? theme.colors.primary : theme.colors.secondary },
+                ]}>
+                {isDataFreshRef.current ? 'Live Data' : 'Cached Data'}
+              </Text>
+              {loadingHistory && (
+                <Text style={[styles.statusText, { color: theme.colors.greyedOut }]}>Updating...</Text>
+              )}
+            </View>
+
+            <TimeRangePicker selectedRange={timeRange} setSelectedRange={setTimeRange} />
+
+            <TrendChartCard
+              barData={chartData}
+              maxY={maxY}
+              selectedOptionLabel={selectedOptionLabel}
+              setSelectedOptionLabel={setSelectedOptionLabel}
+              barColor={barColor}
+              setBarColor={setBarColor}
+              isDropdownVisible={isDropdownVisible}
+              setDropdownVisible={setDropdownVisible}
+            />
+
+            {/* 🟢 Optimised MiniTrends using memoized data */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <MiniTrendCard title="Soil Moisture" data={sensorTrends.soil} />
+              <MiniTrendCard title="Temperature" data={sensorTrends.temp} />
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <MiniTrendCard title="Light" data={sensorTrends.light} />
+              <MiniTrendCard title="EC" data={sensorTrends.ec} />
+            </View>
+
+            {latest && (
+              <Text style={[styles.lastUpdated, { color: theme.colors.greyedOut }]}>
+                Last update:{' '}
+                {new Date(latest.created_at).toLocaleTimeString([], {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </Text>
+            )}
+
+            <HistoryCard
+              historyData={historyData}
+              calculateAverages={calculateAverages}
+              lastXdays={lastXdays}
+            />
+          </ScrollView>
+        </DraggableBottomSheet>
       </View>
-
-      <ScrollView
-        overScrollMode="never"
-        contentContainerStyle={{ paddingBottom: 50 }}
-        style={[styles.sheet, { backgroundColor: theme.colors.background }]}>
-        <OverviewCard latest={latest} health={health} />
-        <SnapshotBoxes latest={latest} />
-
-        {/* Status Indicators */}
-        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 10, marginTop: 10 }}>
-          <Text
-            style={[
-              styles.statusText,
-              { color: isDataFreshRef.current ? theme.colors.primary : theme.colors.secondary },
-            ]}>
-            {isDataFreshRef.current ? 'Live Data' : 'Cached Data'}
-          </Text>
-          {loadingHistory && (
-            <Text style={[styles.statusText, { color: theme.colors.greyedOut }]}>Updating...</Text>
-          )}
-        </View>
-
-        <TimeRangePicker selectedRange={timeRange} setSelectedRange={setTimeRange} />
-
-        <TrendChartCard
-          barData={chartData}
-          maxY={maxY}
-          selectedOptionLabel={selectedOptionLabel}
-          setSelectedOptionLabel={setSelectedOptionLabel}
-          barColor={barColor}
-          setBarColor={setBarColor}
-          isDropdownVisible={isDropdownVisible}
-          setDropdownVisible={setDropdownVisible}
-        />
-
-        {/* 🟢 Optimised MiniTrends using memoized data */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-          <MiniTrendCard title="Soil Moisture" data={sensorTrends.soil} />
-          <MiniTrendCard title="Temperature" data={sensorTrends.temp} />
-        </View>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-          <MiniTrendCard title="Light" data={sensorTrends.light} />
-          <MiniTrendCard title="EC" data={sensorTrends.ec} />
-        </View>
-
-        {latest && (
-          <Text style={[styles.lastUpdated, { color: theme.colors.greyedOut }]}>
-            Last update:{' '}
-            {new Date(latest.created_at).toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
-          </Text>
-        )}
-
-        <HistoryCard
-          historyData={historyData}
-          calculateAverages={calculateAverages}
-          lastXdays={lastXdays}
-        />
-      </ScrollView>
-    </ImageBackground>
+    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create((theme) => ({
-  bg: { flex: 1, justifyContent: 'flex-end' },
-  headerContainer: { paddingLeft: 20, marginTop: 30 },
-  headerTitle: { fontSize: 48, fontFamily: theme.fonts.header, fontWeight: 'bold' },
-  sheet: { borderTopLeftRadius: 25, borderTopRightRadius: 25, padding: 20, marginTop: 20 },
-  lastUpdated: { marginTop: 8, fontSize: 11, textAlign: 'center', fontFamily: theme.fonts.regular },
-  statusText: { fontSize: 12, textAlign: 'center', fontFamily: theme.fonts.regular },
+  container: {
+    flex: 1,
+    backgroundColor: '#F5F5F5',
+  },
+  headerBg: {
+    height: '100%',
+    width: '100%',
+    position: 'absolute',
+    top: 0,
+  },
+  headerImage: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  headerContent: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    padding: 20,
+  },
+  titleContainer: {
+    marginTop: 10,
+  },
+  headerTitle: {
+    fontSize: 48,
+    fontFamily: theme.fonts.header,
+    fontWeight: 'bold',
+  },
+  sheet: {
+    borderTopLeftRadius: 25,
+    borderTopRightRadius: 25,
+    marginTop: 20,
+  },
+  statusText: {
+    fontSize: 12,
+    textAlign: 'center',
+    fontFamily: theme.fonts.regular,
+  },
+  lastUpdated: {
+    marginTop: 8,
+    fontSize: 11,
+    textAlign: 'center',
+    fontFamily: theme.fonts.regular,
+  },
 }));

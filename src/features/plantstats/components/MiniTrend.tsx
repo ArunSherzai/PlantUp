@@ -43,6 +43,8 @@ export default function MiniTrendCard({ title, data }: any) {
           yAxisLabelWidth={20}
           disableScroll={false}
           showScrollIndicator={false}
+          xAxisLabelTextStyle={{ color: theme.colors.text }}
+          yAxisTextStyle={{ color: theme.colors.text }}
         />
       </View>
     </View>

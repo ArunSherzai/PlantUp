@@ -29,7 +29,7 @@ export default function TabLayout({ navigation }: Props) {
         },
         tabBarActiveTintColor: theme.colors.accent,
         tabBarStyle: {
-          backgroundColor: theme.colors.background,
+          backgroundColor: "transparent",
           justifyContent: 'center',
           alignItems: 'center',
         },

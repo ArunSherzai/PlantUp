@@ -63,7 +63,7 @@ export default function HomeScreen() {
         source={require('../../../assets/images/homeScreenBackground.png')}
         style={styles.backgroundImage}>
         <View style={styles.topBar}>
-          <FontAwesome name="search" size={22} color="white" />
+          <FontAwesome name="search" size={22} color={theme.colors.textDark} />
         </View>
         <View style={styles.titleWrapper}>
           <Text style={styles.title}>Home</Text>
@@ -132,7 +132,7 @@ const styles = StyleSheet.create((theme) => ({
     marginTop: 20,
   },
   title: {
-    color: 'white',
+    color: theme.colors.textDark,
     fontSize: 50,
     fontWeight: 'bold',
     marginLeft: 15,
@@ -154,7 +154,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   tag: {
     backgroundColor: theme.colors.greyedOut,
-    color: 'white',
+    color: theme.colors.textDark,
     fontSize: 12,
     paddingHorizontal: 8,
     paddingVertical: 2,
