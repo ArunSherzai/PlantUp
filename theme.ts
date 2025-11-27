@@ -6,11 +6,11 @@ export const lightTheme = {
     background: '#FFFFFF',
     //lightBackground: '#CFF4D2',
     surface: '#FFFFFF',
-    typography: '#FFFFFF',
+    typography: '#292D32',
     text: '#292D32',
     textDark: '#FFFFFF',
     greyedOut: '#BFC1C0',
-    icon: '#FFFFFF',
+    icon: '#292D32',
     gradient: ['#329D9C', '#4FDA74'],
   },
   fonts: {
@@ -33,7 +33,7 @@ export const lightTheme = {
     borderRadius: 5,
   },
   icons: {
-    color: '#FFFFFF',
+    color: '#292D32',
     size: 24,
   },
   margins: {
@@ -47,17 +47,17 @@ export const lightTheme = {
 export const darkTheme = {
   colors: {
     primary: '#4FDA74',
-    secondary: '#205072',
-    accent: '#329D9C',
-    background: '#111111',
+    secondary: '#329D9C',
+    accent: '#205072',
+    background: '#121212',
     // lightBackground: '#293033',
-    surface: '#2A2E33',
+    surface: '#1E1E1E',
     typography: '#E4E6EB',
     text: '#E4E6EB',
-    textDark: '#BFC1C0',
+    textDark: '#FFFFFF',
     greyedOut: '#5A5D5F',
     icon: '#E4E6EB',
-    gradient: ['#205072', '#4FDA74'],
+    gradient: ['#329D9C', '#4FDA74'],
   },
   fonts: {
     regular: 'Nunito',

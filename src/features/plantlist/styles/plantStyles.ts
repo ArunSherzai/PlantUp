@@ -156,7 +156,7 @@ export const styles = StyleSheet.create((theme) => ({
 
   input: {
     backgroundColor:
-      theme.colors.background === '#111111' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+      theme.colors.background === '#121212' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
     borderRadius: vw * 2,
     paddingVertical: vh * 1,
     paddingHorizontal: vw * 3,
@@ -190,7 +190,7 @@ export const styles = StyleSheet.create((theme) => ({
 
   emptyListText: {
     fontSize: 18,
-    color: 'black',
+    color: theme.colors.text,
     textAlign: 'center',
     fontFamily: 'Inter-SemiBold',
   },
@@ -214,6 +214,6 @@ export const styles = StyleSheet.create((theme) => ({
     width: 8,
     height: 8,
     borderRadius: 6,
-    backgroundColor: 'black',
+    backgroundColor: theme.colors.text,
   },
 }));

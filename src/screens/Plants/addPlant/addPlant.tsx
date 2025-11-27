@@ -11,12 +11,12 @@ import { useUnistyles, StyleSheet } from 'react-native-unistyles';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useState, useEffect } from 'react';
-import { ScrollView } from 'react-native-gesture-handler';
-import { ImageBackground } from 'react-native';
+import { ScrollView, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Feather from '@expo/vector-icons/Feather';
 import FilledButton from '~/features/auth/components/FilledButton';
 import { db } from '~/utils/supabase';
 import { useUserStore } from '~/stores/UserStore';
+import DraggableBottomSheet from '~/components/DraggableBottomSheet';
 
 type PlantData = {
   id: number;
@@ -179,187 +179,186 @@ export default function AddPlantScreen() {
   };
 
   return (
-    <ImageBackground
-      source={require('../../../../assets/images/updatePlant.png')}
-      style={styles.backgroundImage}>
-      <TouchableOpacity style={styles.arrowIcon} onPress={() => navigation.goBack()}>
-        <Feather name="arrow-left" size={24} color="white" />
-      </TouchableOpacity>
-      <View style={styles.headerContainer}>
-        <Text style={styles.headerTitle}>Add</Text>
-        <Text style={styles.headerTitle}>your</Text>
-        <Text style={styles.headerTitle}>Plant!</Text>
-      </View>
-
-      <ScrollView
-        overScrollMode="never"
-        style={styles.formContainer}
-        contentContainerStyle={{ paddingBottom: 40 }}
-        keyboardShouldPersistTaps="handled">
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Nickname*</Text>
-          <TextInput
-            style={styles.input}
-            value={nickname}
-            onChangeText={setNickname}
-            placeholder="Enter plant nickname"
-            placeholderTextColor={theme.colors.text}
-            maxLength={50}
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <View style={styles.container}>
+        {/* Header Background */}
+        <View style={styles.headerBg}>
+          <Image
+            source={require('../../../../assets/images/updatePlant.png')}
+            style={styles.headerImage}
+            resizeMode="cover"
           />
-        </View>
-
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Plant Type*</Text>
-          <TouchableOpacity
-            style={styles.dropdownButton}
-            onPress={toggleDropdown}
-            activeOpacity={0.8}>
-            <View style={styles.selectedPlantContainer}>
-              {plantDataId && plantDataList.find((p) => p.id === plantDataId)?.image_url && (
-                <Image
-                  source={{ uri: plantDataList.find((p) => p.id === plantDataId)?.image_url }}
-                  style={styles.selectedPlantImage}
-                  resizeMode="cover"
-                />
-              )}
-              <Text style={styles.dropdownButtonText}>
-                {plantDataId
-                  ? plantDataList.find((p) => p.id === plantDataId)?.name || 'Select plant type'
-                  : 'Select plant type'}
-              </Text>
-            </View>
-            <Feather
-              name={isDropdownVisible ? 'chevron-up' : 'chevron-down'}
-              size={20}
-              color={theme.colors.text}
-            />
+          <TouchableOpacity style={styles.arrowIcon} onPress={() => navigation.goBack()}>
+            <Feather name="arrow-left" size={24} color={theme.colors.textDark} />
           </TouchableOpacity>
+          <View style={styles.headerContainer}>
+            <Text style={styles.headerTitle}>Add</Text>
+            <Text style={styles.headerTitle}>your</Text>
+            <Text style={styles.headerTitle}>Plant!</Text>
+          </View>
+        </View>
 
-          {isDropdownVisible && (
-            <View style={styles.dropdownContainer}>
-              <ScrollView style={styles.dropdownScrollView} keyboardShouldPersistTaps="handled">
-                {isLoadingPlants ? (
-                  <View style={styles.dropdownItem}>
-                    <ActivityIndicator size="small" color={theme.colors.primary} />
-                    <Text style={[styles.dropdownItemText, { marginLeft: 10 }]}>
-                      Loading plants...
-                    </Text>
-                  </View>
-                ) : plantDataList.length > 0 ? (
-                  plantDataList.map((plant) => (
-                    <TouchableOpacity
-                      key={plant.id}
-                      style={styles.dropdownItem}
-                      onPress={() => {
-                        setPlantDataId(plant.id);
-                        setDropdownVisible(false);
-                      }}>
-                      <View style={styles.plantItem}>
-                        {plant.image_url && (
-                          <Image
-                            source={{ uri: plant.image_url }}
-                            style={styles.plantImage}
-                            resizeMode="cover"
-                          />
-                        )}
-                        <View style={styles.plantInfo}>
-                          <Text style={styles.dropdownItemText}>{plant.common_name}</Text>
-                          {plant.scientific_name && (
-                            <Text style={styles.dropdownItemScientific}>
-                              {plant.scientific_name}
-                            </Text>
-                          )}
-                        </View>
-                      </View>
-                    </TouchableOpacity>
-                  ))
-                ) : (
-                  <Text style={styles.dropdownItem}>
-                    No plant types available. Please try again later.
-                  </Text>
-                )}
-              </ScrollView>
+        {/* Draggable Bottom Sheet */}
+        <DraggableBottomSheet initialHeight={0.65} maxHeight={0.9}>
+          <ScrollView
+            overScrollMode="never"
+            style={styles.formScrollView}
+            contentContainerStyle={styles.formContentContainer}
+            keyboardShouldPersistTaps="handled">
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Nickname*</Text>
+              <TextInput
+                style={styles.input}
+                value={nickname}
+                onChangeText={setNickname}
+                placeholder="Enter plant nickname"
+                placeholderTextColor={theme.colors.text}
+                maxLength={50}
+              />
             </View>
-          )}
-        </View>
 
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Description</Text>
-          <TextInput
-            style={[styles.input, { minHeight: 100, textAlignVertical: 'top' }]}
-            value={description}
-            onChangeText={setDescription}
-            placeholder="Tell us about your plant..."
-            placeholderTextColor={theme.colors.text}
-            multiline
-            numberOfLines={4}
-            maxLength={500}
-          />
-        </View>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Plant Type*</Text>
+              <TouchableOpacity
+                style={styles.dropdownButton}
+                onPress={toggleDropdown}
+                activeOpacity={0.8}>
+                <View style={styles.selectedPlantContainer}>
+                  {plantDataId && plantDataList.find((p) => p.id === plantDataId)?.image_url && (
+                    <Image
+                      source={{ uri: plantDataList.find((p) => p.id === plantDataId)?.image_url }}
+                      style={styles.selectedPlantImage}
+                      resizeMode="cover"
+                    />
+                  )}
+                  <Text style={styles.dropdownButtonText}>
+                    {plantDataId
+                      ? plantDataList.find((p) => p.id === plantDataId)?.name || 'Select plant type'
+                      : 'Select plant type'}
+                  </Text>
+                </View>
+                <Feather
+                  name={isDropdownVisible ? 'chevron-up' : 'chevron-down'}
+                  size={20}
+                  color={theme.colors.text}
+                />
+              </TouchableOpacity>
 
-        <FilledButton
-          text={isLoading ? 'Saving...' : 'Save Plant'}
-          onPress={handleSave}
-          disabled={isLoading}
-        />
-      </ScrollView>
-    </ImageBackground>
+              {isDropdownVisible && (
+                <View style={styles.dropdownContainer}>
+                  <ScrollView style={styles.dropdownScrollView} keyboardShouldPersistTaps="handled">
+                    {isLoadingPlants ? (
+                      <View style={styles.dropdownItem}>
+                        <ActivityIndicator size="small" color={theme.colors.primary} />
+                        <Text style={[styles.dropdownItemText, { marginLeft: 10 }]}>
+                          Loading plants...
+                        </Text>
+                      </View>
+                    ) : plantDataList.length > 0 ? (
+                      plantDataList.map((plant) => (
+                        <TouchableOpacity
+                          key={plant.id}
+                          style={styles.dropdownItem}
+                          onPress={() => {
+                            setPlantDataId(plant.id);
+                            setDropdownVisible(false);
+                          }}>
+                          <View style={styles.plantItem}>
+                            {plant.image_url && (
+                              <Image
+                                source={{ uri: plant.image_url }}
+                                style={styles.plantImage}
+                                resizeMode="cover"
+                              />
+                            )}
+                            <View style={styles.plantInfo}>
+                              <Text style={styles.dropdownItemText}>{plant.common_name}</Text>
+                              {plant.scientific_name && (
+                                <Text style={styles.dropdownItemScientific}>
+                                  {plant.scientific_name}
+                                </Text>
+                              )}
+                            </View>
+                          </View>
+                        </TouchableOpacity>
+                      ))
+                    ) : (
+                      <Text style={styles.dropdownItem}>
+                        No plant types available. Please try again later.
+                      </Text>
+                    )}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Description</Text>
+              <TextInput
+                style={[styles.input, { minHeight: 100, textAlignVertical: 'top' }]}
+                value={description}
+                onChangeText={setDescription}
+                placeholder="Tell us about your plant..."
+                placeholderTextColor={theme.colors.text}
+                multiline
+                numberOfLines={4}
+                maxLength={500}
+              />
+            </View>
+
+            <FilledButton
+              text={isLoading ? 'Saving...' : 'Save Plant'}
+              onPress={handleSave}
+              disabled={isLoading}
+            />
+          </ScrollView>
+        </DraggableBottomSheet>
+      </View>
+    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create((theme) => ({
-  backgroundImage: {
-    justifyContent: 'flex-end',
+  container: {
+    flex: 1,
+    backgroundColor: '#F5F5F5',
+  },
+  headerBg: {
+    height: '100%',
+    width: '100%',
+    position: 'absolute',
+    top: 0,
+  },
+  headerImage: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
   },
   arrowIcon: {
-    margin: 5,
-    top: 30,
     position: 'absolute',
+    top: 50,
+    left: 20,
+    zIndex: 10,
   },
-
   headerContainer: {
-    paddingLeft: 20,
-    marginTop: 85,
+    position: 'absolute',
+    top: 100,
+    left: 20,
   },
-
   headerTitle: {
     fontSize: 48,
     fontWeight: 'bold',
-    color: theme.colors.text,
+    color: theme.colors.textDark,
   },
-
-  formContainer: {
-    backgroundColor: theme.colors.background,
-    borderTopLeftRadius: 25,
-    borderTopRightRadius: 25,
+  formScrollView: {
+    flex: 1,
+  },
+  formContentContainer: {
     padding: 20,
-    marginTop: 100,
-  },
-
-  container: {
-    backgroundColor: theme.colors.background,
-  },
-  header: {
-    marginBottom: 30,
-  },
-  title: {
-    fontSize: 32,
-    fontFamily: theme.fonts.header,
-    color: theme.colors.text,
-  },
-  subtitle: {
-    fontSize: 24,
-    fontFamily: theme.fonts.header,
-    color: theme.colors.text,
-    marginTop: 5,
+    paddingBottom: 40,
   },
   inputContainer: {
     marginBottom: 25,
-  },
-  xButton: {
-    borderRadius: 50,
-    width: '100%',
-    alignItems: 'flex-end',
   },
   label: {
     fontSize: 16,
@@ -443,45 +442,5 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.greyedOut,
     marginTop: 2,
     fontStyle: 'italic',
-  },
-  sensorText: {
-    fontSize: 16,
-    color: theme.colors.textDark,
-    marginBottom: 5,
-  },
-  connectedText: {
-    fontSize: 14,
-  },
-  linkDeviceButton: {
-    marginTop: 10,
-    marginBottom: 30,
-  },
-  linkDeviceText: {
-    fontSize: 16,
-    color: theme.colors.textDark,
-    textDecorationLine: 'underline',
-  },
-  imagePlaceholder: {
-    height: 150,
-    borderWidth: 1,
-    borderColor: theme.colors.greyedOut,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  imageText: {
-    fontSize: 16,
-    color: theme.colors.textDark,
-  },
-  saveButton: {
-    backgroundColor: theme.colors.primary,
-    borderRadius: 8,
-    padding: 16,
-    alignItems: 'center',
-  },
-  saveButtonText: {
-    color: theme.colors.textDark,
-    fontSize: 18,
   },
 }));

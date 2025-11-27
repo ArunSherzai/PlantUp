@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet, Dimensions, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { useUnistyles } from 'react-native-unistyles';
+import { useUnistyles, StyleSheet } from 'react-native-unistyles';
 import { LinearGradient } from 'expo-linear-gradient';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { useUserStore } from '../../../stores/UserStore';
@@ -22,6 +22,11 @@ export default function ProfileScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      console.log('--- Profile Screen Focused ---');
+      console.log('User:', user);
+      console.log('Profile:', profile);
+      console.log('Current Level:', profile?.level);
+      console.log('Username:', profile?.username);
       fetchProfile();
       console.log('Profile refreshed on focus');
     }, [])
@@ -116,7 +121,7 @@ export default function ProfileScreen() {
           />
           <View style={styles.headerContent}>
             <TouchableOpacity style={styles.backButton}>
-              <FontAwesome6 name="chevron-left" size={20} color="white" />
+              <FontAwesome6 name="chevron-left" size={20} color={theme.colors.textDark} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>
               Your{'\n'}Growing{'\n'}Profile!
@@ -175,7 +180,7 @@ export default function ProfileScreen() {
                     />
                   </View>
                 ) : (
-                  <FontAwesome6 name="seedling" size={20} color="#555" />
+                  <FontAwesome6 name="seedling" size={20} color={theme.colors.greyedOut} />
                 )}
               </TouchableOpacity>
               <TouchableOpacity style={styles.actionButton} onPress={() => setActiveTab('posts')}>
@@ -190,7 +195,7 @@ export default function ProfileScreen() {
                     />
                   </View>
                 ) : (
-                  <FontAwesome6 name="list" size={20} color="#555" />
+                  <FontAwesome6 name="list" size={20} color={theme.colors.greyedOut} />
                 )}
               </TouchableOpacity>
               <TouchableOpacity style={styles.actionButton} onPress={() => setActiveTab('likes')}>
@@ -205,7 +210,7 @@ export default function ProfileScreen() {
                     />
                   </View>
                 ) : (
-                  <FontAwesome6 name="thumbs-up" size={20} color="#555" />
+                  <FontAwesome6 name="thumbs-up" size={20} color={theme.colors.greyedOut} />
                 )}
               </TouchableOpacity>
             </View>
@@ -221,10 +226,10 @@ export default function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create((theme) => ({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: theme.colors.background,
   },
   headerBg: {
     height: '100%', // Cover full background initially
@@ -246,7 +251,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 42,
     fontWeight: '900',
-    color: 'white',
+    color: theme.colors.textDark,
     lineHeight: 46,
   },
   sheetContent: {
@@ -254,7 +259,7 @@ const styles = StyleSheet.create({
     paddingTop: 20,
   },
   profileCard: {
-    backgroundColor: 'white',
+    backgroundColor: theme.colors.background,
     borderRadius: 20,
     padding: 20,
     flexDirection: 'row',
@@ -273,7 +278,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#EEE',
+    backgroundColor: theme.colors.greyedOut,
   },
   userInfo: {
     flex: 1,
@@ -285,18 +290,18 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: theme.colors.text,
   },
   userBio: {
     fontSize: 14,
-    color: '#888',
+    color: theme.colors.typography,
     marginTop: 4,
   },
   actionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 20,
-    backgroundColor: 'white',
+    backgroundColor: theme.colors.background,
     borderRadius: 15,
     padding: 15,
     shadowColor: '#000',
@@ -319,7 +324,7 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: 'white',
+    backgroundColor: theme.colors.background,
     borderRadius: 20,
     padding: 20,
     marginBottom: 15,
@@ -335,15 +340,15 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#2E7D32',
+    color: theme.colors.primary,
   },
   statLabel: {
     fontSize: 12,
-    color: '#888',
+    color: theme.colors.typography,
     marginTop: 2,
   },
   plantsButton: {
-    backgroundColor: 'white',
+    backgroundColor: theme.colors.background,
     borderRadius: 15,
     padding: 15,
     flexDirection: 'row',
@@ -359,12 +364,12 @@ const styles = StyleSheet.create({
   plantsButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: theme.colors.text,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: theme.colors.text,
     marginTop: 10,
     marginBottom: 10,
   },
@@ -373,19 +378,19 @@ const styles = StyleSheet.create({
     marginBottom: 250,
   },
   comingSoonContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    backgroundColor: theme.colors.surface + 'B3', // 70% opacity
     borderRadius: 15,
     padding: 30,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: theme.colors.greyedOut,
     borderStyle: 'dashed',
   },
   comingSoonText: {
     fontSize: 16,
-    color: '#888',
+    color: theme.colors.typography,
     fontStyle: 'italic',
   },
-});
+}));
