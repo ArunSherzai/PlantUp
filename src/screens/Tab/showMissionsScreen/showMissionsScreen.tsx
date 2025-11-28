@@ -21,6 +21,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { db } from '../../../utils/supabase';
 import DraggableBottomSheet from '../../../components/DraggableBottomSheet';
 import { useUserStore } from '../../../stores/UserStore';
+import DailyStreakComponent from '~/features/ShowMissions/components/DailyStreak';
 
 const { height } = Dimensions.get('window');
 
@@ -188,13 +189,7 @@ export default function ShowMissionsScreen() {
           </MaskedView>
 
           <View style={styles.comingSoonBar}>
-            <Text style={styles.comingSoonText}>Daily Streak • Coming Soon</Text>
-            <LinearGradient
-              colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.25)', 'rgba(255,255,255,0.1)']}
-              style={StyleSheet.absoluteFillObject}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-            />
+            <DailyStreakComponent></DailyStreakComponent>
           </View>
         </View>
 
@@ -414,7 +409,12 @@ const styles = StyleSheet.create((theme) => ({
     borderWidth: 2,
     borderColor: theme.colors.greyedOut,
   },
-  emptyText: { textAlign: 'center', color: theme.colors.typography, fontStyle: 'italic', padding: 10 },
+  emptyText: {
+    textAlign: 'center',
+    color: theme.colors.typography,
+    fontStyle: 'italic',
+    padding: 10,
+  },
 
   card: {
     backgroundColor: theme.colors.background,
