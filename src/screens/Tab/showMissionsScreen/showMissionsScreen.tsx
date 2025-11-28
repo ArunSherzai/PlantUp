@@ -22,6 +22,7 @@ import { db } from '../../../utils/supabase';
 import DraggableBottomSheet from '../../../components/DraggableBottomSheet';
 import { useUserStore } from '../../../stores/UserStore';
 import DailyStreakComponent from '~/features/ShowMissions/components/DailyStreak';
+import TimeLeft from '~/features/ShowMissions/components/TimeLeft';
 
 const { height } = Dimensions.get('window');
 
@@ -160,8 +161,6 @@ export default function ShowMissionsScreen() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <View style={{ flex: 1 }}>
-        <StatusBar barStyle="light-content" />
-
         {/* HINTERGRUND */}
         <View style={styles.bgContainer}>
           <Image
@@ -188,8 +187,11 @@ export default function ShowMissionsScreen() {
             />
           </MaskedView>
 
-          <View style={styles.comingSoonBar}>
-            <DailyStreakComponent></DailyStreakComponent>
+          <View style={styles.wrapper}>
+            <TimeLeft />
+            <View style={styles.comingSoonBar}>
+              <DailyStreakComponent></DailyStreakComponent>
+            </View>
           </View>
         </View>
 
@@ -379,10 +381,9 @@ const styles = StyleSheet.create((theme) => ({
   brandText: { color: 'rgba(255,255,255,0.9)', fontWeight: '600', fontSize: 18 },
   headerTitle: { fontSize: 40, fontWeight: '900', color: 'white', lineHeight: 44 },
   comingSoonBar: {
-    marginTop: 30,
+    borderRadius: 18,
     height: 60,
     width: '100%',
-    borderRadius: 18,
     overflow: 'hidden',
     backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
@@ -390,7 +391,7 @@ const styles = StyleSheet.create((theme) => ({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.4)',
   },
-  comingSoonText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+  wrapper: { height: 100, width: '100%', flexDirection: 'column' },
 
   sectionHeaderContainer: { marginBottom: 10 },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', color: theme.colors.text, textAlign: 'center' },
