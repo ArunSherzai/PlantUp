@@ -5,6 +5,8 @@ import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import TabNavigator from './tab-navigator';
 import AddPlantScreen from '~/screens/Plants/addPlant/addPlant';
+import { View } from 'react-native';
+import SpriteComponent from '~/components/SpriteComponent';
 import AuthStack from './auth';
 
 export type RootStackParamList = {
@@ -44,32 +46,35 @@ export default function RootStack() {
 
   return (
     <NavigationContainer linking={linking}>
-      <Stack.Navigator
-        initialRouteName="Auth"
-        screenOptions={{
-          headerStyle: {
-            backgroundColor: theme.colors.background,
-          },
-          headerTitleStyle: {
-            color: theme.colors.text,
-          },
-          headerTintColor: theme.colors.accent,
-        }}>
-        <Stack.Screen name="Auth" component={AuthStack} options={{ headerShown: false }} />
-        <Stack.Screen
-          name="TabNavigator"
-          component={TabNavigator}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="Add a Plant"
-          component={AddPlantScreen}
-          options={{
-            title: 'Add a Plant',
-            headerShown: false,
-          }}
-        />
-      </Stack.Navigator>
+      <View style={{ flex: 1 }}>
+        <Stack.Navigator
+          initialRouteName="Auth"
+          screenOptions={{
+            headerStyle: {
+              backgroundColor: theme.colors.background,
+            },
+            headerTitleStyle: {
+              color: theme.colors.text,
+            },
+            headerTintColor: theme.colors.accent,
+          }}>
+          <Stack.Screen name="Auth" component={AuthStack} options={{ headerShown: false }} />
+          <Stack.Screen
+            name="TabNavigator"
+            component={TabNavigator}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Add a Plant"
+            component={AddPlantScreen}
+            options={{
+              title: 'Add a Plant',
+              headerShown: false,
+            }}
+          />
+        </Stack.Navigator>
+        <SpriteComponent />
+      </View>
     </NavigationContainer>
   );
 }
