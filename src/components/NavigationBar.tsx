@@ -1,25 +1,24 @@
 import React from 'react';
-import {
-  Text,
-  TouchableOpacity,
-  TouchableOpacityProps,
-  TextStyle,
-  ButtonProps,
-  View,
-} from 'react-native';
+import { View, TouchableOpacity } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+// HIER ANPASSEN:
 const iconMap: { [key: string]: keyof typeof FontAwesome6.glyphMap } = {
-  One: 'newspaper',
-  'Add a Plant': 'message',
-  Homescreen: 'house',
+  PlantStats: 'chart-simple',
+
+  // ALT: 'Add a Plant': 'circle-plus',
+  // NEU: Der Key muss exakt so heißen wie im Tab-Navigator ('CreatePost')
+  CreatePost: 'circle-plus',
+
+  Missions: 'list-check',
   'Show Plants': 'seedling',
   Profile: 'user-large',
 };
 
 export default function NavigationBar({ state, descriptors, navigation }: any) {
+  // ... (Rest des Codes bleibt exakt gleich wie vorher)
   const { theme } = useUnistyles();
   const insets = useSafeAreaInsets();
   return (
@@ -56,6 +55,7 @@ export default function NavigationBar({ state, descriptors, navigation }: any) {
   );
 }
 
+// ... Styles bleiben gleich
 const styles = StyleSheet.create((theme) => ({
   wrapper: {
     backgroundColor: theme.colors.background,
@@ -73,13 +73,10 @@ const styles = StyleSheet.create((theme) => ({
     borderRadius: 20,
     marginBottom: 10,
     backgroundColor: theme.colors.background,
-
-    //shadowColor: theme.colors.text,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 6,
-
     elevation: 6,
   },
   touchable: {},
