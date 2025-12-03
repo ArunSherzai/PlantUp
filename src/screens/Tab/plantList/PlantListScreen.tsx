@@ -69,8 +69,9 @@ export default function PlantListScreen() {
     );
   }
 
+  // ✅ Restored old navigation
   const handleAddPlant = () => {
-    navigation.navigate('TabNavigator', { screen: 'Add a Plant' });
+    navigation.navigate('Add a Plant');
   };
 
   return (
@@ -194,7 +195,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   carouselContainer: {
-    height: 400, // Adjust based on PlantCard height
+    height: 400,
     width: '100%',
   },
   emptyListContainer: {
