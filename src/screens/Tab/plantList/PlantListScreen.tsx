@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
   TouchableOpacity,
 } from 'react-native';
-
+import { PlantCoinBox } from '~/components/PlantCoinBox';
 import { useNavigation } from '@react-navigation/native';
 import { StackScreenProps } from '@react-navigation/stack';
 
@@ -81,7 +81,7 @@ export default function PlantListScreen() {
           style={styles.headerImage}
           resizeMode="cover"
         />
-
+        <PlantCoinBox />
         <View style={styles.headerContainer}>
           <Text style={styles.headerTitle}>View</Text>
           <Text style={styles.headerTitle}>your</Text>
