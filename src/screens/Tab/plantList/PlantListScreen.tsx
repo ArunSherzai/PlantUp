@@ -24,11 +24,7 @@ import { usePlants } from '~/features/plantlist/hooks/usePlants';
 import { vw, vh } from '../../../features/plantlist/styles/plantStyles';
 
 export default function PlantListScreen() {
-<<<<<<< Updated upstream
   const navigation = useNavigation<any>();
-=======
-  const navigation = useNavigation<NavProp>();
->>>>>>> Stashed changes
 
   // CORRECT UNISTYLES USAGE
   const { theme } = useUnistyles();
@@ -53,16 +49,9 @@ export default function PlantListScreen() {
     });
   };
 
-<<<<<<< Updated upstream
   // ✅ FIXED NAVIGATION (Back to old behavior)
   const handleAddPlant = () => {
     navigation.navigate('Add a Plant');
-=======
-  const handleAddPlant = () => {
-    navigation.navigate('TabNavigator', {
-      screen: 'Add a Plant',
-    });
->>>>>>> Stashed changes
   };
 
   if (!fontsLoaded) {
