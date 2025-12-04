@@ -7,6 +7,7 @@ type UserProfile = {
   xp: number;
   level: number;
   username: string;
+  plant_coins: number;
 };
 
 type State = {
@@ -45,7 +46,7 @@ export const useUserStore = create<State>((set, get) => ({
     // 2. Fetch Username from User Schema
     const userPromise = db.user
       .from('Users')
-      .select('username')
+      .select('username, plant_coins')
       .eq('id', user.id)
       .single();
 
@@ -62,8 +63,10 @@ export const useUserStore = create<State>((set, get) => ({
       xp: 0,
       level: 1,
       username: userData?.username || 'Gardener',
+      plant_coins: userData?.plant_coins || 0,
     };
 
+    console.log(finalProfile);
     // Handle Stats Logic (Create if missing)
     if (statsData) {
       finalProfile.xp = statsData.xp || 0;
