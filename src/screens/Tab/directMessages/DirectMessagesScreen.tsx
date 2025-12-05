@@ -119,8 +119,7 @@ export default function DirectMessagesScreen() {
             {/* Header Section */}
             <View style={[styles.header]}>
                 <View style={styles.headerContent}>
-                    <Text style={styles.headerTitle}>PlantUp</Text>
-                    <Text style={[styles.headerLargeTitle, { paddingVertical: 70 }]}>Connect with{'\n'}Others?</Text>
+                    <Text style={[styles.headerLargeTitle, { paddingVertical: 70 }]}>Connect with{'\n'}Others!</Text>
                 </View>
             </View>
 
