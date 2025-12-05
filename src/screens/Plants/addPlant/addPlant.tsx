@@ -199,7 +199,7 @@ export default function AddPlantScreen() {
         </View>
 
         {/* Draggable Bottom Sheet */}
-        <DraggableBottomSheet initialHeight={0.65} maxHeight={0.9}>
+        <DraggableBottomSheet initialHeight={0.59} maxHeight={0.85}>
           <ScrollView
             overScrollMode="never"
             style={styles.formScrollView}

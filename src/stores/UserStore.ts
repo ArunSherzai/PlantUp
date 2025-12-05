@@ -7,6 +7,7 @@ type UserProfile = {
   xp: number;
   level: number;
   username: string;
+  plant_coins: number;
 };
 
 type State = {
@@ -16,6 +17,7 @@ type State = {
   setProfile: (profile: UserProfile | null) => void;
   addXP: (amount: number) => Promise<void>;
   fetchProfile: () => Promise<void>;
+  addPlantCoins: (coins: number) => Promise<void>;
 };
 
 export const useUserStore = create<State>((set, get) => ({
@@ -31,6 +33,40 @@ export const useUserStore = create<State>((set, get) => ({
   },
   setProfile: (profile) => set({ profile }),
 
+  addPlantCoins: async (coins: number) => {
+    const { user } = get();
+    if (!user) return;
+
+    const { data: userData, error: selectError } = await db.user
+      .from('Users')
+      .select('username, plant_coins')
+      .eq('id', user.id)
+      .single();
+
+    if (selectError) {
+      console.error('Error loading user for coin update:', selectError);
+      return;
+    }
+
+    const currentCoins = userData?.plant_coins ?? 0;
+    const newCoins = currentCoins + coins;
+
+    // 2) Update plant_coins with the new value
+    const { data: updatedUser, error: updateError } = await db.user
+      .from('Users')
+      .update({ plant_coins: newCoins })
+      .eq('id', user.id)
+      .select('username, plant_coins')
+      .single();
+
+    if (updateError) {
+      console.error('Error updating plant coins:', updateError);
+      return;
+    }
+
+    console.log('Updated user coins:', updatedUser);
+  },
+
   fetchProfile: async () => {
     const { user } = get();
     if (!user) return;
@@ -45,7 +81,7 @@ export const useUserStore = create<State>((set, get) => ({
     // 2. Fetch Username from User Schema
     const userPromise = db.user
       .from('Users')
-      .select('username')
+      .select('username, plant_coins')
       .eq('id', user.id)
       .single();
 
@@ -62,8 +98,10 @@ export const useUserStore = create<State>((set, get) => ({
       xp: 0,
       level: 1,
       username: userData?.username || 'Gardener',
+      plant_coins: userData?.plant_coins || 0,
     };
 
+    console.log(finalProfile);
     // Handle Stats Logic (Create if missing)
     if (statsData) {
       finalProfile.xp = statsData.xp || 0;
