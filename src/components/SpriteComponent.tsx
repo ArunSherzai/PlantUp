@@ -8,7 +8,7 @@ export default function SpriteComponent() {
 
     return (
         <>
-            <TipNotification message={activePlantTip} onClose={dismissTip} />
+            <TipNotification tip={activePlantTip} onClose={dismissTip} />
             <TouchableOpacity onPress={triggerManualTip} style={styles.container}>
                 <Image
                     source={require('../../assets/images/sprig_idle.png')}

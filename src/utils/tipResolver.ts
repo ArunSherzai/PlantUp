@@ -25,6 +25,11 @@ export interface PlantThresholds {
     ideal_ec_max_summer: number;
 }
 
+export interface TipObject {
+    message: string;
+    severity: 'critical' | 'warning' | 'info';
+}
+
 export const GENERAL_TIPS = [
     "Remember to check your plants for pests regularly!",
     "Dusting leaves helps plants absorb more sunlight.",
@@ -35,9 +40,12 @@ export const GENERAL_TIPS = [
     "Deadheading spent flowers encourages new blooms.",
 ];
 
-export function getRandomGeneralTip(): string {
+export function getRandomGeneralTip(): TipObject {
     const randomIndex = Math.floor(Math.random() * GENERAL_TIPS.length);
-    return GENERAL_TIPS[randomIndex];
+    return {
+        message: GENERAL_TIPS[randomIndex],
+        severity: 'info'
+    };
 }
 
 function isSummer(): boolean {
@@ -49,7 +57,7 @@ function isSummer(): boolean {
 export function getTriggeredTip(
     plantData: PlantDataInput | null,
     thresholds: PlantThresholds | null
-): string | null {
+): TipObject | null {
     if (!plantData) return null;
 
     const {
@@ -61,12 +69,10 @@ export function getTriggeredTip(
     } = plantData;
 
     // Default thresholds if none provided (fallback to previous hardcoded values)
-    // or return null if we strictly require thresholds.
-    // Let's use safe defaults or fallback to the hardcoded logic if thresholds are missing.
     if (!thresholds) {
         // Fallback to generic logic
-        if (soilMoisture < 30) return `Your ${plantName} is dry, please water it!`;
-        if (soilMoisture > 70) return `Your ${plantName} is overwatered.`;
+        if (soilMoisture < 30) return { message: `Your ${plantName} is dry, please water it!`, severity: 'warning' };
+        if (soilMoisture > 70) return { message: `Your ${plantName} is overwatered.`, severity: 'warning' };
         return null;
     }
 
@@ -76,11 +82,18 @@ export function getTriggeredTip(
     const minMoisture = summer ? thresholds.ideal_soil_moisture_min_summer : thresholds.ideal_soil_moisture_min_winter;
     const maxMoisture = summer ? thresholds.ideal_soil_moisture_max_summer : thresholds.ideal_soil_moisture_max_winter;
 
+    // Critical levels (arbitrary buffer for demo: +/- 15% from ideal)
+    if (soilMoisture < minMoisture - 15) {
+        return { message: `CRITICAL: Your ${plantName} is extremely dry (${soilMoisture}%)! Water immediately.`, severity: 'critical' };
+    }
     if (soilMoisture < minMoisture) {
-        return `Your ${plantName} is too dry (${soilMoisture}%). Target: >${minMoisture}%.`;
+        return { message: `Your ${plantName} is too dry (${soilMoisture}%). Target: >${minMoisture}%.`, severity: 'warning' };
+    }
+    if (soilMoisture > maxMoisture + 15) {
+        return { message: `CRITICAL: Your ${plantName} is drowning (${soilMoisture}%)! Check drainage.`, severity: 'critical' };
     }
     if (soilMoisture > maxMoisture) {
-        return `Your ${plantName} is too wet (${soilMoisture}%). Target: <${maxMoisture}%.`;
+        return { message: `Your ${plantName} is too wet (${soilMoisture}%). Target: <${maxMoisture}%.`, severity: 'warning' };
     }
 
     // 2. Light Logic
@@ -88,21 +101,27 @@ export function getTriggeredTip(
     const maxLight = summer ? thresholds.ideal_light_max_summer : thresholds.ideal_light_max_winter;
 
     if (lightLevel < minLight) {
-        return `Your ${plantName} needs more light. Current: ${lightLevel}, Target: >${minLight}.`;
+        return { message: `Your ${plantName} needs more light. Current: ${lightLevel}, Target: >${minLight}.`, severity: 'warning' };
     }
     if (lightLevel > maxLight) {
-        return `Your ${plantName} has too much light. Current: ${lightLevel}, Target: <${maxLight}.`;
+        return { message: `Your ${plantName} has too much light. Current: ${lightLevel}, Target: <${maxLight}.`, severity: 'warning' };
     }
 
     // 3. Temperature Logic
     const minTemp = summer ? thresholds.ideal_temperature_min_summer : thresholds.ideal_temperature_min_winter;
     const maxTemp = summer ? thresholds.ideal_temperature_max_summer : thresholds.ideal_temperature_max_winter;
 
+    if (temperature < minTemp - 5) {
+        return { message: `FREEZING WARNING: Your ${plantName} is very cold (${temperature}°C)!`, severity: 'critical' };
+    }
     if (temperature < minTemp) {
-        return `Your ${plantName} is too cold (${temperature}°C). Keep it above ${minTemp}°C.`;
+        return { message: `Your ${plantName} is too cold (${temperature}°C). Keep it above ${minTemp}°C.`, severity: 'warning' };
+    }
+    if (temperature > maxTemp + 5) {
+        return { message: `HEAT WARNING: Your ${plantName} is burning up (${temperature}°C)!`, severity: 'critical' };
     }
     if (temperature > maxTemp) {
-        return `Your ${plantName} is too hot (${temperature}°C). Keep it below ${maxTemp}°C.`;
+        return { message: `Your ${plantName} is too hot (${temperature}°C). Keep it below ${maxTemp}°C.`, severity: 'warning' };
     }
 
     // 4. EC Logic
@@ -110,10 +129,10 @@ export function getTriggeredTip(
     const maxEc = summer ? thresholds.ideal_ec_max_summer : thresholds.ideal_ec_max_winter;
 
     if (ecValue < minEc) {
-        return `Your ${plantName} nutrient levels are low.`;
+        return { message: `Your ${plantName} nutrient levels are low.`, severity: 'warning' };
     }
     if (ecValue > maxEc) {
-        return `Your ${plantName} nutrient levels are too high! Flush the soil.`;
+        return { message: `Your ${plantName} nutrient levels are too high! Flush the soil.`, severity: 'warning' };
     }
 
     return null;

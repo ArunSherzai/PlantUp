@@ -1,12 +1,21 @@
 import { useEffect, useState, useRef } from 'react';
 import { Alert } from 'react-native';
 import { db } from '../utils/supabase';
-import { getTriggeredTip, getRandomGeneralTip, PlantDataInput } from '../utils/tipResolver';
+import { getTriggeredTip, getRandomGeneralTip, PlantDataInput, TipObject } from '../utils/tipResolver';
+import { saveTip } from '../utils/tipHistory';
 
 export function usePlantTipSystem() {
-    const [activePlantTip, setActivePlantTip] = useState<string | null>(null);
+    const [activePlantTip, setActivePlantTip] = useState<TipObject | null>(null);
     const latestPlantDataRef = useRef<PlantDataInput | null>(null);
     const latestThresholdsRef = useRef<any | null>(null);
+
+    // Helper to save tip history
+    const setAndSaveTip = (tip: TipObject | null) => {
+        setActivePlantTip(tip);
+        if (tip) {
+            saveTip(tip);
+        }
+    };
 
     // 1. Polling System (Every 1 Minute)
     useEffect(() => {
@@ -58,7 +67,7 @@ export function usePlantTipSystem() {
                     const tip = getTriggeredTip(plantData, thresholds);
 
                     if (tip) {
-                        setActivePlantTip(tip);
+                        setAndSaveTip(tip);
                         break;
                     } else {
                         setActivePlantTip(null);
@@ -74,7 +83,7 @@ export function usePlantTipSystem() {
         checkPlantHealth();
 
         // Then run every 1 minute
-        const interval = setInterval(checkPlantHealth, 60 * 1000);
+        const interval = setInterval(checkPlantHealth, 60 * 10000);
 
         return () => clearInterval(interval);
     }, []);
@@ -84,9 +93,9 @@ export function usePlantTipSystem() {
         const interval = setInterval(() => {
             if (!activePlantTip) {
                 const randomTip = getRandomGeneralTip();
-                setActivePlantTip(randomTip);
+                setAndSaveTip(randomTip);
             }
-        }, 5 * 60 * 1000); // 5 minutes
+        }, 30 * 60 * 1000); // 30 minutes
 
         return () => clearInterval(interval);
     }, [activePlantTip]);
@@ -96,13 +105,13 @@ export function usePlantTipSystem() {
         if (latestPlantDataRef.current) {
             const tip = getTriggeredTip(latestPlantDataRef.current, latestThresholdsRef.current);
             if (tip) {
-                setActivePlantTip(tip);
+                setAndSaveTip(tip);
                 return;
             }
         }
         // Fallback to general tip
         const generalTip = getRandomGeneralTip();
-        setActivePlantTip(generalTip);
+        setAndSaveTip(generalTip);
     };
 
     const dismissTip = () => {

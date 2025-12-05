@@ -9,12 +9,17 @@ import { View } from 'react-native';
 import SpriteComponent from '~/components/SpriteComponent';
 import AuthStack from './auth';
 
+import DirectMessagesScreen from '~/screens/Tab/directMessages/DirectMessagesScreen';
+import MessageDetailScreen from '~/screens/Tab/directMessages/MessageDetailScreen';
+
 export type RootStackParamList = {
   TabNavigator: undefined;
   Modal: undefined;
   Auth: undefined;
   Index: undefined;
   'Add a Plant': undefined;
+  DirectMessages: undefined;
+  MessageDetail: { id: string; name: string; avatar: any };
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -37,6 +42,8 @@ const linking = {
         path: 'app',
         // add tabs if needed
       },
+      DirectMessages: 'messages',
+      MessageDetail: 'message/:id',
     },
   },
 };
@@ -69,6 +76,20 @@ export default function RootStack() {
             component={AddPlantScreen}
             options={{
               title: 'Add a Plant',
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="DirectMessages"
+            component={DirectMessagesScreen}
+            options={{
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="MessageDetail"
+            component={MessageDetailScreen}
+            options={{
               headerShown: false,
             }}
           />

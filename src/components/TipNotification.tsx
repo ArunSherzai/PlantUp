@@ -1,15 +1,16 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, TouchableOpacity, Dimensions, PanResponder, Image } from 'react-native';
 import { useUnistyles } from 'react-native-unistyles';
+import { TipObject } from '../utils/tipResolver';
 
 interface TipNotificationProps {
-    message: string | null;
+    tip: TipObject | null;
     onClose: () => void;
 }
 
 const { width } = Dimensions.get('window');
 
-export default function TipNotification({ message, onClose }: TipNotificationProps) {
+export default function TipNotification({ tip, onClose }: TipNotificationProps) {
     const { theme } = useUnistyles();
     const slideAnim = useRef(new Animated.Value(-150)).current; // Start off-screen (top)
 
@@ -31,7 +32,7 @@ export default function TipNotification({ message, onClose }: TipNotificationPro
     ).current;
 
     useEffect(() => {
-        if (message) {
+        if (tip) {
             // Slide in
             Animated.spring(slideAnim, {
                 toValue: 50, // Position from top
@@ -49,7 +50,7 @@ export default function TipNotification({ message, onClose }: TipNotificationPro
             // Ensure it's hidden if message is null
             slideAnim.setValue(-150);
         }
-    }, [message]);
+    }, [tip]);
 
     const hide = () => {
         Animated.timing(slideAnim, {
@@ -57,11 +58,23 @@ export default function TipNotification({ message, onClose }: TipNotificationPro
             duration: 300,
             useNativeDriver: true,
         }).start(() => {
-            if (message) onClose();
+            if (tip) onClose();
         });
     };
 
-    if (!message) return null;
+    const getAnimation = (severity: string) => {
+        switch (severity) {
+            case 'critical':
+                return require('../../assets/animations/running.gif');
+            case 'warning':
+                return require('../../assets/animations/peeking.gif');
+            case 'info':
+            default:
+                return require('../../assets/animations/tips.gif');
+        }
+    };
+
+    if (!tip) return null;
 
     return (
         <Animated.View
@@ -76,13 +89,13 @@ export default function TipNotification({ message, onClose }: TipNotificationPro
             <TouchableOpacity activeOpacity={0.9} onPress={hide} style={styles.content}>
                 <View style={styles.videoContainer}>
                     <Image
-                        source={require('../../assets/animations/tips.gif')}
+                        source={getAnimation(tip.severity)}
                         style={styles.video}
                         resizeMode="cover"
                     />
                 </View>
                 <View style={styles.textContainer}>
-                    <Text style={[styles.text, { color: theme.colors.text }]}>{message}</Text>
+                    <Text style={[styles.text, { color: theme.colors.text }]}>{tip.message}</Text>
                 </View>
             </TouchableOpacity>
         </Animated.View>
