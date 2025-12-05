@@ -43,7 +43,7 @@ export default function PlantListScreen() {
   );
 
   const handleViewStats = (plantId: string) => {
-    navigation.navigate('ShowPlantStats', {
+    navigation.navigate('PlantStats', {
       plantId,
       onlyShowSelected: true,
     });

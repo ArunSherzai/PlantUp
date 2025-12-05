@@ -25,7 +25,7 @@ interface Props {
 }
 
 export const PlantCard = React.memo(
-  ({ item, onActionPress, showActionText, refreshPlants }: Props) => {
+  ({ item, onActionPress, showActionText, refreshPlants, onPress }: Props) => {
     const navigation = useNavigation<any>();
     const flip = useSharedValue(showActionText ? 1 : 0);
     const [typeDropdownOpen, setTypeDropdownOpen] = useState(false);
@@ -93,10 +93,7 @@ export const PlantCard = React.memo(
 
     const handleCardPress = () => {
       if (!showActionText) {
-        navigation.navigate('PlantStats', {
-          plantId: item.id,
-          plantName: item.name,
-        });
+        onPress();
       }
     };
 

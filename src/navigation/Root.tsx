@@ -11,6 +11,7 @@ import AuthStack from './auth';
 
 import DirectMessagesScreen from '~/screens/Tab/directMessages/DirectMessagesScreen';
 import MessageDetailScreen from '~/screens/Tab/directMessages/MessageDetailScreen';
+import ShowPlantStats from '~/screens/Tab/plantStats/ShowPlantStats';
 
 export type RootStackParamList = {
   TabNavigator: undefined;
@@ -20,6 +21,7 @@ export type RootStackParamList = {
   'Add a Plant': undefined;
   DirectMessages: undefined;
   MessageDetail: { id: string; name: string; avatar: any };
+  PlantStats: { plantId: string; plantName?: string; onlyShowSelected?: boolean };
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -89,6 +91,13 @@ export default function RootStack() {
           <Stack.Screen
             name="MessageDetail"
             component={MessageDetailScreen}
+            options={{
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="PlantStats"
+            component={ShowPlantStats}
             options={{
               headerShown: false,
             }}
