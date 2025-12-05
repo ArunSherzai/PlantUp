@@ -129,7 +129,6 @@ export const styles = StyleSheet.create((theme) => ({
     fontFamily: theme.fonts.header,
     fontWeight: theme.fontWeights.bold,
     color: theme.colors.typography,
-    marginBottom: vh * 1,
   },
 
   backRow: {

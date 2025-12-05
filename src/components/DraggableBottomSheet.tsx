@@ -2,18 +2,14 @@ import React, { useEffect } from 'react';
 import { View, Dimensions } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-} from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 type BottomSheetProps = {
   children?: React.ReactNode;
   initialHeight?: number; // Z.B. 0.55 (55% des Screens)
-  maxHeight?: number;     // Z.B. 0.90 (90% des Screens)
+  maxHeight?: number; // Z.B. 0.90 (90% des Screens)
 };
 
 export default function DraggableBottomSheet({
@@ -69,9 +65,7 @@ export default function DraggableBottomSheet({
       </GestureDetector>
 
       {/* 2. Der Inhalt (Frei für ScrollView) */}
-      <View style={styles.contentContainer}>
-        {children}
-      </View>
+      <View style={styles.contentContainer}>{children}</View>
     </Animated.View>
   );
 }
@@ -84,7 +78,7 @@ const styles = StyleSheet.create((theme) => ({
     position: 'absolute',
     top: SCREEN_HEIGHT,
     borderRadius: 30,
-    shadowColor: "#000",
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: -3 },
     shadowOpacity: 0.1,
     shadowRadius: 5,
@@ -106,5 +100,5 @@ const styles = StyleSheet.create((theme) => ({
   contentContainer: {
     flex: 1,
     marginBottom: 100,
-  }
+  },
 }));

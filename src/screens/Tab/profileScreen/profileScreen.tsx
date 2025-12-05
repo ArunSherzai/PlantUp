@@ -27,6 +27,7 @@ export default function ProfileScreen() {
       console.log('Profile:', profile);
       console.log('Current Level:', profile?.level);
       console.log('Username:', profile?.username);
+      console.log('Plant Coins:', profile?.plant_coins);
       fetchProfile();
       console.log('Profile refreshed on focus');
     }, [])
@@ -39,7 +40,7 @@ export default function ProfileScreen() {
   // Placeholder data for stats
   const stats = [
     { label: 'Plants', value: 9 },
-    { label: 'Coins', value: '1.500' },
+    { label: 'Coins', value: profile?.plant_coins || 0 },
     { label: 'Friends', value: 14 },
     { label: 'Follower', value: '4.000' },
   ];
@@ -152,8 +153,6 @@ export default function ProfileScreen() {
                 <Text style={styles.userBio}>Coole bio haha...</Text>
               </View>
             </View>
-
-            {/* Stats Row */}
             {/* Stats Row */}
             <View style={styles.statsRow}>
               {stats.map((stat, index) => (
