@@ -55,7 +55,7 @@ export default function RootStack() {
     <NavigationContainer linking={linking}>
       <View style={{ flex: 1 }}>
         <Stack.Navigator
-          initialRouteName="Auth"
+          initialRouteName="TabNavigator"
           screenOptions={{
             headerStyle: {
               backgroundColor: theme.colors.background,

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, FlatList, Image, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, TextInput, FlatList, Image, TouchableOpacity, SafeAreaView, StatusBar, ImageBackground } from 'react-native';
 import { useUnistyles } from 'react-native-unistyles';
 import { StackScreenProps } from '@react-navigation/stack';
 import { RootStackParamList } from '../../../navigation/Root';
@@ -38,7 +38,7 @@ const MOCK_MESSAGES: Message[] = [
     },
     {
         id: '4',
-        name: 'adad',
+        name: 'Mina',
         lastMessage: 'Hi how are you...',
         time: 'Yesterday',
         avatar: require('../../../../assets/images/pfp5.png'), // Placeholder
@@ -109,19 +109,18 @@ export default function DirectMessagesScreen() {
     );
 
     return (
-        <View style={[styles.container, { backgroundColor: theme.colors.accent }]}>
-            <StatusBar barStyle="light-content" backgroundColor={theme.colors.accent} />
+        <ImageBackground
+            source={require('../../../../assets/images/dmbackground.png')}
+            style={styles.container}
+            resizeMode="cover"
+        >
+            <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
             {/* Header Section */}
-            <View style={styles.header}>
-                <Image
-                    source={require('../../../../assets/images/dmbackground.png')}
-                    style={styles.headerBg}
-                    resizeMode="cover"
-                />
+            <View style={[styles.header]}>
                 <View style={styles.headerContent}>
                     <Text style={styles.headerTitle}>PlantUp</Text>
-                    <Text style={styles.headerLargeTitle}>Connect with{'\n'}Others?</Text>
+                    <Text style={[styles.headerLargeTitle, { paddingVertical: 70 }]}>Connect with{'\n'}Others?</Text>
                 </View>
             </View>
 
@@ -153,7 +152,7 @@ export default function DirectMessagesScreen() {
                     contentContainerStyle={styles.listContent}
                 />
             </View>
-        </View>
+        </ImageBackground>
     );
 }
 
@@ -165,11 +164,7 @@ const styles = StyleSheet.create({
         height: '35%',
         position: 'relative',
     },
-    headerBg: {
-        ...StyleSheet.absoluteFillObject,
-        width: '100%',
-        height: '100%',
-    },
+
     headerContent: {
         paddingHorizontal: 20,
         paddingTop: 60, // Adjust for status bar
