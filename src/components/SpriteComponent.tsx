@@ -9,13 +9,7 @@ export default function SpriteComponent() {
     return (
         <>
             <TipNotification tip={activePlantTip} onClose={dismissTip} />
-            <TouchableOpacity onPress={triggerManualTip} style={styles.container}>
-                <Image
-                    source={require('../../assets/images/sprig_idle.png')}
-                    style={styles.sprite}
-                    resizeMode="contain"
-                />
-            </TouchableOpacity>
+
         </>
     );
 }
