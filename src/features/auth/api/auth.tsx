@@ -22,12 +22,12 @@ export const signUp = async (email: string, password: string, username: string) 
     return null;
   }
 
-  // ✅ Insert into your custom Users table
-  const { error: insertError } = await db.user.from('Users').insert([{ id: user.id, username }]); // `id` should match auth.users.id
+  // ✅ Update the username if it's not set yet
+  const { error: updateError } = await db.user.from('Users').upsert([{ id: user.id, username }]);
 
-  if (insertError) {
-    console.log(insertError);
-    Alert.alert('Fehler', 'Benutzer konnte nicht gespeichert werden: ' + insertError.message);
+  if (updateError) {
+    console.log(updateError);
+    Alert.alert('Fehler', 'Benutzername konnte nicht aktualisiert werden: ' + updateError.message);
     return null;
   }
 
@@ -97,33 +97,6 @@ export const LoginViaGoogle = async () => {
   const {
     data: { user },
   } = await db.public.auth.getUser();
-
-  const { data: existingUser, error: selectError } = await db.user
-    .from('Users')
-    .select('id')
-    .eq('id', user?.id)
-    .maybeSingle(); // ← returns data: null when no row found (no error!)
-
-  if (selectError) {
-    console.warn('Failed to check if user exists:', selectError);
-    return null;
-  }
-
-  // 2️⃣ User already exists → skip inserting
-  if (existingUser) {
-    console.log('User already exists:', existingUser.id);
-    return existingUser;
-  }
-
-  // 3️⃣ Insert new user
-  const { error: insertError } = await db.user
-    .from('Users')
-    .insert([{ id: user?.id, username: user?.email }]);
-
-  if (insertError) {
-    console.warn('Failed to insert user:', insertError);
-    return null;
-  }
 
   return user;
 };
