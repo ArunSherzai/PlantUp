@@ -31,7 +31,7 @@ const linking = {
   config: {
     screens: {
       Auth: {
-        path: 'TabNavigator',
+        path: 'auth',
         screens: {
           Login: 'login',
           ForgotPass: 'forgot-password',
