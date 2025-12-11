@@ -15,11 +15,14 @@ import DraggableBottomSheet from '../../../components/DraggableBottomSheet';
 import { GestureHandlerRootView, ScrollView } from 'react-native-gesture-handler';
 import GradientIcon from '../../../components/GradientIcon';
 import GradientText from '../../../components/GradientText';
+import { useNavigation, NavigationProp } from '@react-navigation/native';
+import { RootStackParamList } from '../../../navigation/Root';
 
 const { width } = Dimensions.get('window');
 
 export default function ProfileScreen() {
   const { theme } = useUnistyles();
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { user, profile, fetchProfile } = useUserStore();
   const [activeTab, setActiveTab] = React.useState<'leveling' | 'posts' | 'likes'>('leveling');
 
@@ -169,6 +172,18 @@ export default function ProfileScreen() {
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <FontAwesome6 name="vial" size={24} color={theme.colors.primary} style={{ marginRight: 8 }} />
                 <Text style={styles.plantsButtonText}>Test Tips (Random then Plant)</Text>
+              </View>
+              <GradientIcon name="chevron-right" size={14} />
+            </TouchableOpacity>
+
+            {/* Test Lootbox Button */}
+            <TouchableOpacity
+              style={[styles.plantsButton, { marginTop: 10 }]}
+              onPress={() => navigation.navigate('Lootbox', { itemName: 'Rare Monstera' })}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <FontAwesome6 name="gift" size={24} color={theme.colors.primary} style={{ marginRight: 8 }} />
+                <Text style={styles.plantsButtonText}>Test Lootbox</Text>
               </View>
               <GradientIcon name="chevron-right" size={14} />
             </TouchableOpacity>
