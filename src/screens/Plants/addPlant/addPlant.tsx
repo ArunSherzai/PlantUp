@@ -156,7 +156,6 @@ export default function AddPlantScreen() {
             description: description.trim() || null,
             plant_data_id: plantDataId,
             user_id: user.id,
-            daily_streak: 0,
           },
         ])
         .select();
