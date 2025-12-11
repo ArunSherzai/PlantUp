@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { db } from '../utils/supabase';
 import { getTriggeredTip, getRandomGeneralTip, PlantDataInput, TipObject } from '../utils/tipResolver';
 import { saveTip } from '../utils/tipHistory';
@@ -22,71 +22,70 @@ export function usePlantTipSystem() {
     };
 
     // 1. Polling System (Every 1 Minute)
-    useEffect(() => {
-        const checkPlantHealth = async () => {
-            try {
-                const { data: { user } } = await db.public.auth.getUser();
-                if (!user) return;
+    const checkPlantHealth = useCallback(async () => {
+        try {
+            const { data: { user } } = await db.public.auth.getUser();
+            if (!user) return;
 
-                // Get user's plants
-                const { data: plants } = await db.social
-                    .from('Plants')
-                    .select('id, nickname, plant_data:Plant_data(*)')
-                    .eq('user_id', user.id);
+            // Get user's plants
+            const { data: plants } = await db.social
+                .from('Plants')
+                .select('id, nickname, plant_data:Plant_data(*)')
+                .eq('user_id', user.id);
 
-                if (!plants || plants.length === 0) return;
+            if (!plants || plants.length === 0) return;
 
-                // Check each plant
-                for (const plant of plants) {
-                    // Get latest sensor data for this plant
-                    const { data: latestController } = await db.micro
-                        .from('Controllers')
-                        .select('temperature, humidity, soil_moisture, light, electrical_conductivity, created_at')
-                        .eq('plant_id', plant.id)
-                        .order('created_at', { ascending: false })
-                        .limit(1)
-                        .single();
+            // Check each plant
+            for (const plant of plants) {
+                // Get latest sensor data for this plant
+                const { data: latestController } = await db.micro
+                    .from('Controllers')
+                    .select('temperature, humidity, soil_moisture, light, electrical_conductivity, created_at')
+                    .eq('plant_id', plant.id)
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .single();
 
-                    if (!latestController) continue;
+                if (!latestController) continue;
 
-                    // Prepare data for resolver
-                    const plantData: PlantDataInput = {
-                        plantName: plant.nickname || 'your plant',
-                        soilMoisture: latestController.soil_moisture,
-                        lightLevel: latestController.light,
-                        temperature: latestController.temperature,
-                        ecValue: latestController.electrical_conductivity,
-                    };
+                // Prepare data for resolver
+                const plantData: PlantDataInput = {
+                    plantName: plant.nickname || 'your plant',
+                    soilMoisture: latestController.soil_moisture,
+                    lightLevel: latestController.light,
+                    temperature: latestController.temperature,
+                    ecValue: latestController.electrical_conductivity,
+                };
 
-                    // Get thresholds
-                    const thresholds = Array.isArray(plant.plant_data) ? plant.plant_data[0] : plant.plant_data;
+                // Get thresholds
+                const thresholds = Array.isArray(plant.plant_data) ? plant.plant_data[0] : plant.plant_data;
 
-                    // Store for manual trigger
-                    setLatestPlantData(plantData);
-                    setLatestThresholds(thresholds);
+                // Store for manual trigger
+                setLatestPlantData(plantData);
+                setLatestThresholds(thresholds);
 
-                    // Check for tips
-                    const tip = getTriggeredTip(plantData, thresholds);
+                // Check for tips
+                const tip = getTriggeredTip(plantData, thresholds);
 
-                    if (tip) {
-                        setAndSaveTip(tip);
-                        break;
-                    } else {
-                        // Only clear if *this* poll found nothing, but maybe another process handles active tips?
-                        // For now, let's keep original behavior: if no tip found in poll, clear active.
-                        // Be careful not to fight with manual triggers.
-                        // Active tip might have been set by something else.
-                        // Let's only clear if we previously set a plant tip.
-                        // For simplicity, we stick to the original logic:
-                        setActiveTip(null);
-                    }
+                if (tip) {
+                    setAndSaveTip(tip);
+                    // Return true if a tip was found/set
+                    return true;
                 }
-
-            } catch (err) {
-                console.log("Polling error:", err);
             }
-        };
 
+            // If we loop through all and find nothing, clear active tip
+            // (Only if we want auto-clear behavior)
+            // setActiveTip(null); 
+            return false;
+
+        } catch (err) {
+            console.log("Polling error:", err);
+            return false;
+        }
+    }, [setActiveTip, setLatestPlantData, setLatestThresholds]);
+
+    useEffect(() => {
         // Run immediately on mount
         checkPlantHealth();
 
@@ -94,7 +93,7 @@ export function usePlantTipSystem() {
         const interval = setInterval(checkPlantHealth, 60 * 10000);
 
         return () => clearInterval(interval);
-    }, []);
+    }, [checkPlantHealth]);
 
     // 2. General Tips Timer
     useEffect(() => {
@@ -130,6 +129,7 @@ export function usePlantTipSystem() {
 
     return {
         triggerManualTip,
+        checkPlantHealth, // Exposed for on-demand scanning
         activeTip, // Expose for backward compat if needed, though components should use store directly
         dismissTip,
         latestPlantData

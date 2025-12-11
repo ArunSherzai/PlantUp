@@ -17,6 +17,9 @@ export type RootStackParamList = {
   Settings: undefined;
   CreatePost: undefined;
   FeedPostDetail: { post: any }; // Using any to match Post interface roughly for now, or import it
+  UserPlants: undefined;
+  Lootbox: { itemName: string };
+  MessageDetail: { id: string; name: string; avatar: any };
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -45,6 +48,9 @@ const linking = {
 
 import CreatePostScreen from '~/screens/Tab/createPostScreen/createPostScreen';
 import FeedPostDetailScreen from '~/screens/Tab/Feed/FeedPostDetailScreen';
+import UserPlantsScreen from '~/screens/Tab/profileScreen/UserPlantsScreen';
+import LootboxScreen from '~/screens/Tab/profileScreen/LootboxScreen';
+import MessageDetailScreen from '~/screens/Tab/directMessages/MessageDetailScreen';
 
 export default function RootStack() {
   const { theme } = useUnistyles();
@@ -96,6 +102,24 @@ export default function RootStack() {
             headerShown: false,
             // presentation: 'transparentModal', // Optional: if we want to see underlying feed, but standard stack is usually fine for "open new screen"
           }}
+        />
+        <Stack.Screen
+          name="UserPlants"
+          component={UserPlantsScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="Lootbox"
+          component={LootboxScreen}
+          options={{
+            headerShown: false,
+            presentation: 'transparentModal',
+          }}
+        />
+        <Stack.Screen
+          name="MessageDetail"
+          component={MessageDetailScreen}
+          options={{ headerShown: false }}
         />
       </Stack.Navigator>
     </NavigationContainer>

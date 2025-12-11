@@ -14,6 +14,8 @@ import { REWARDS, getRankName } from '../../../utils/leveling';
 import DraggableBottomSheet from '../../../components/DraggableBottomSheet';
 import { GestureHandlerRootView, ScrollView } from 'react-native-gesture-handler';
 import GradientIcon from '../../../components/GradientIcon';
+import SpriteComponent from '../../../components/SpriteComponent';
+import { saveTip } from '../../../utils/tipHistory';
 import GradientText from '../../../components/GradientText';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { RootStackParamList } from '../../../navigation/Root';
@@ -40,7 +42,7 @@ export default function ProfileScreen() {
   const [activeTab, setActiveTab] = React.useState<'leveling' | 'posts' | 'likes'>('leveling');
 
   // Tip System
-  const { triggerManualTip } = usePlantTipSystem();
+  const { triggerManualTip, checkPlantHealth } = usePlantTipSystem();
   // We need to monitor activeTip to trigger the sequential logic
   // but triggers should probably be handled carefully to avoiding infinite loops
   // Simplest approach: "Test Tips" button manually sets a sequence.
@@ -122,11 +124,26 @@ export default function ProfileScreen() {
     // 1. Random Tip
     const randomTip = getRandomGeneralTip();
     useTipStore.getState().setActiveTip(randomTip);
+    saveTip(randomTip);
 
     // 2. Schedule Plant Tip
     setTimeout(() => {
-      triggerManualTip();
-    }, 5000); // 5 seconds to read
+      // Force a plant tip for demonstration
+      const plantTip = {
+        message: "Your Monstera Deliciosa is looking thirsty! (Test)",
+        severity: 'warning' as const
+      };
+      useTipStore.getState().setActiveTip(plantTip);
+      saveTip(plantTip);
+    }, 4000);
+  };
+
+  const handleScanTips = async () => {
+    // Manually trigger a real scan
+    const found = await checkPlantHealth();
+    if (!found) {
+      Alert.alert("All Good!", "Your plants look happy and healthy.");
+    }
   };
 
   useFocusEffect(
@@ -202,6 +219,18 @@ export default function ProfileScreen() {
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <FontAwesome6 name="gift" size={24} color={theme.colors.primary} style={{ marginRight: 8 }} />
                 <Text style={styles.plantsButtonText}>Test Lootbox</Text>
+              </View>
+              <GradientIcon name="chevron-right" size={14} />
+            </TouchableOpacity>
+
+            {/* Real Scan Button */}
+            <TouchableOpacity
+              style={[styles.plantsButton, { marginTop: 10 }]}
+              onPress={handleScanTips}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <FontAwesome6 name="magnifying-glass" size={24} color={theme.colors.primary} style={{ marginRight: 8 }} />
+                <Text style={styles.plantsButtonText}>Scan for Tips (Real Data)</Text>
               </View>
               <GradientIcon name="chevron-right" size={14} />
             </TouchableOpacity>
@@ -370,6 +399,9 @@ export default function ProfileScreen() {
             {/* Extra padding at bottom for scrolling */}
           </ScrollView>
         </DraggableBottomSheet>
+
+        {/* Tip Sprite Overlay */}
+        <SpriteComponent />
       </View>
     </GestureHandlerRootView>
   );
