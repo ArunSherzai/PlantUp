@@ -17,6 +17,8 @@ import GradientIcon from '../../../components/GradientIcon';
 import GradientText from '../../../components/GradientText';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { RootStackParamList } from '../../../navigation/Root';
+import { useSocialStats } from '../../../features/social/hooks/useSocialStats';
+import { usePlants } from '../../../features/plantlist/hooks/usePlants';
 
 const { width } = Dimensions.get('window');
 
@@ -24,6 +26,8 @@ export default function ProfileScreen() {
   const { theme } = useUnistyles();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { user, profile, fetchProfile } = useUserStore();
+  const { followersCount, friendsCount, refreshStats } = useSocialStats(user?.id);
+  const { plants, refreshPlants } = usePlants();
   const [activeTab, setActiveTab] = React.useState<'leveling' | 'posts' | 'likes'>('leveling');
 
   // Tip System
@@ -124,7 +128,10 @@ export default function ProfileScreen() {
       console.log('Current Level:', profile?.level);
       console.log('Username:', profile?.username);
       console.log('Plant Coins:', profile?.plant_coins);
+      console.log('Plant Coins:', profile?.plant_coins);
       fetchProfile();
+      refreshStats();
+      refreshPlants();
       console.log('Profile refreshed on focus');
     }, [])
   );
@@ -135,10 +142,10 @@ export default function ProfileScreen() {
 
   // Placeholder data for stats
   const stats = [
-    { label: 'Plants', value: 9 },
+    { label: 'Plants', value: plants.length },
     { label: 'Coins', value: profile?.plant_coins || 0 },
-    { label: 'Friends', value: 14 },
-    { label: 'Follower', value: '4.000' },
+    { label: 'Friends', value: friendsCount },
+    { label: 'Follower', value: followersCount },
   ];
 
   const handleClaimReward = (rewardTitle: string) => {
@@ -152,7 +159,7 @@ export default function ProfileScreen() {
         return (
           <>
             {/* Plants Button */}
-            <TouchableOpacity style={styles.plantsButton}>
+            <TouchableOpacity style={styles.plantsButton} onPress={() => navigation.navigate('UserPlants')}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <Image
                   source={require('../../../../assets/images/ProfilePlantIcon.png')}

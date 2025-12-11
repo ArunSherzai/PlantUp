@@ -13,6 +13,7 @@ import DirectMessagesScreen from '~/screens/Tab/directMessages/DirectMessagesScr
 import MessageDetailScreen from '~/screens/Tab/directMessages/MessageDetailScreen';
 import ShowPlantStats from '~/screens/Tab/plantStats/ShowPlantStats';
 import LootboxScreen from '~/screens/Tab/profileScreen/LootboxScreen';
+import UserPlantsScreen from '~/screens/Tab/profileScreen/UserPlantsScreen';
 
 export type RootStackParamList = {
   TabNavigator: undefined;
@@ -24,6 +25,7 @@ export type RootStackParamList = {
   MessageDetail: { id: string; name: string; avatar: any };
   PlantStats: { plantId: string; plantName?: string; onlyShowSelected?: boolean };
   Lootbox: { itemName?: string };
+  UserPlants: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -110,6 +112,13 @@ export default function RootStack() {
             options={{
               headerShown: false,
               presentation: 'transparentModal',
+            }}
+          />
+          <Stack.Screen
+            name="UserPlants"
+            component={UserPlantsScreen}
+            options={{
+              headerShown: false,
             }}
           />
         </Stack.Navigator>
