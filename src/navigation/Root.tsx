@@ -15,6 +15,8 @@ export type RootStackParamList = {
   Index: undefined;
   'Add a Plant': undefined;
   Settings: undefined;
+  CreatePost: undefined;
+  FeedPostDetail: { post: any }; // Using any to match Post interface roughly for now, or import it
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -40,6 +42,9 @@ const linking = {
     },
   },
 };
+
+import CreatePostScreen from '~/screens/Tab/createPostScreen/createPostScreen';
+import FeedPostDetailScreen from '~/screens/Tab/Feed/FeedPostDetailScreen';
 
 export default function RootStack() {
   const { theme } = useUnistyles();
@@ -75,6 +80,22 @@ export default function RootStack() {
           name="Settings"
           component={SettingsScreen}
           options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="CreatePost"
+          component={CreatePostScreen}
+          options={{
+            headerShown: false,
+            presentation: 'modal',
+          }}
+        />
+        <Stack.Screen
+          name="FeedPostDetail"
+          component={FeedPostDetailScreen}
+          options={{
+            headerShown: false,
+            // presentation: 'transparentModal', // Optional: if we want to see underlying feed, but standard stack is usually fine for "open new screen"
+          }}
         />
       </Stack.Navigator>
     </NavigationContainer>
