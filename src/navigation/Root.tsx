@@ -5,15 +5,8 @@ import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import TabNavigator from './tab-navigator';
 import AddPlantScreen from '~/screens/Plants/addPlant/addPlant';
-import { View } from 'react-native';
-import SpriteComponent from '~/components/SpriteComponent';
+import SettingsScreen from '~/screens/Tab/SettingsScreen/SettingsScreen';
 import AuthStack from './auth';
-
-import DirectMessagesScreen from '~/screens/Tab/directMessages/DirectMessagesScreen';
-import MessageDetailScreen from '~/screens/Tab/directMessages/MessageDetailScreen';
-import ShowPlantStats from '~/screens/Tab/plantStats/ShowPlantStats';
-import LootboxScreen from '~/screens/Tab/profileScreen/LootboxScreen';
-import UserPlantsScreen from '~/screens/Tab/profileScreen/UserPlantsScreen';
 
 export type RootStackParamList = {
   TabNavigator: undefined;
@@ -21,11 +14,7 @@ export type RootStackParamList = {
   Auth: undefined;
   Index: undefined;
   'Add a Plant': undefined;
-  DirectMessages: undefined;
-  MessageDetail: { id: string; name: string; avatar: any };
-  PlantStats: { plantId: string; plantName?: string; onlyShowSelected?: boolean };
-  Lootbox: { itemName?: string };
-  UserPlants: undefined;
+  Settings: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -35,7 +24,7 @@ const linking = {
   config: {
     screens: {
       Auth: {
-        path: 'auth',
+        path: 'TabNavigator',
         screens: {
           Login: 'login',
           ForgotPass: 'forgot-password',
@@ -48,8 +37,6 @@ const linking = {
         path: 'app',
         // add tabs if needed
       },
-      DirectMessages: 'messages',
-      MessageDetail: 'message/:id',
     },
   },
 };
@@ -59,71 +46,37 @@ export default function RootStack() {
 
   return (
     <NavigationContainer linking={linking}>
-      <View style={{ flex: 1 }}>
-        <Stack.Navigator
-          initialRouteName="Auth"
-          screenOptions={{
-            headerStyle: {
-              backgroundColor: theme.colors.background,
-            },
-            headerTitleStyle: {
-              color: theme.colors.text,
-            },
-            headerTintColor: theme.colors.accent,
-          }}>
-          <Stack.Screen name="Auth" component={AuthStack} options={{ headerShown: false }} />
-          <Stack.Screen
-            name="TabNavigator"
-            component={TabNavigator}
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="Add a Plant"
-            component={AddPlantScreen}
-            options={{
-              title: 'Add a Plant',
-              headerShown: false,
-            }}
-          />
-          <Stack.Screen
-            name="DirectMessages"
-            component={DirectMessagesScreen}
-            options={{
-              headerShown: false,
-            }}
-          />
-          <Stack.Screen
-            name="MessageDetail"
-            component={MessageDetailScreen}
-            options={{
-              headerShown: false,
-            }}
-          />
-          <Stack.Screen
-            name="PlantStats"
-            component={ShowPlantStats}
-            options={{
-              headerShown: false,
-            }}
-          />
-          <Stack.Screen
-            name="Lootbox"
-            component={LootboxScreen}
-            options={{
-              headerShown: false,
-              presentation: 'transparentModal',
-            }}
-          />
-          <Stack.Screen
-            name="UserPlants"
-            component={UserPlantsScreen}
-            options={{
-              headerShown: false,
-            }}
-          />
-        </Stack.Navigator>
-        <SpriteComponent />
-      </View>
+      <Stack.Navigator
+        initialRouteName="Auth"
+        screenOptions={{
+          headerStyle: {
+            backgroundColor: theme.colors.background,
+          },
+          headerTitleStyle: {
+            color: theme.colors.text,
+          },
+          headerTintColor: theme.colors.accent,
+        }}>
+        <Stack.Screen name="Auth" component={AuthStack} options={{ headerShown: false }} />
+        <Stack.Screen
+          name="TabNavigator"
+          component={TabNavigator}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="Add a Plant"
+          component={AddPlantScreen}
+          options={{
+            title: 'Add a Plant',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="Settings"
+          component={SettingsScreen}
+          options={{ headerShown: false }}
+        />
+      </Stack.Navigator>
     </NavigationContainer>
   );
 }
