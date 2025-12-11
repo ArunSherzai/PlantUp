@@ -1,83 +1,265 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { View, Dimensions, StyleSheet } from 'react-native';
-import { useUnistyles, StyleSheet as UnistylesSheet } from 'react-native-unistyles';
-import { db } from '../../../utils/supabase';
-import StreakBar from './StreakBar'; // Import the new StreakBar component
-
-const { height, width } = Dimensions.get('window');
+import React from 'react';
+import { View, Text } from 'react-native';
+import { StyleSheet as UnistylesSheet, useUnistyles } from 'react-native-unistyles';
+import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useUserStore } from '../../../stores/UserStore';
 
 export default function DailyStreakComponent() {
   const { theme } = useUnistyles();
-  const [streakLength, setStreakLength] = useState(0);
+  const { profile } = useUserStore();
 
-  const fetchStreakLength = useCallback(async () => {
-    try {
-      const {
-        data: { user },
-      } = await db.public.auth.getUser();
-      if (!user) return;
+  const streak = profile?.streak_length || 0;
+  
+  // Check if completed today
+  const lastDate = profile?.last_completed_date;
+  const isCompletedToday = lastDate === new Date().toISOString().split('T')[0];
+  
+  // Logic: Cycle of 10 days. 
+  // e.g. Day 12 -> 2 blocks filled in the Current Cycle [10-20]
+  const cycleProgress = streak % 10; 
+  // if streak is 10, 20, 30... it counts as full bar (10/10) before jumping to next tier
+  // visual fix: if cycleProgress is 0 but streak > 0, it means we just hit the milestone (10/10)
+  const visualProgress = (cycleProgress === 0 && streak > 0) ? 10 : cycleProgress;
 
-      const { data, error } = await db.user
-        .from('Users')
-        .select('last_completed_timestamp')
-        .eq('id', user.id);
+  const [timeLeft, setTimeLeft] = React.useState('');
 
-      if (error) throw error;
+  React.useEffect(() => {
+    const updateTimeLeft = () => {
+      const now = new Date();
+      const endOfDay = new Date();
+      endOfDay.setHours(23, 59, 59, 999);
+      
+      const diff = endOfDay.getTime() - now.getTime();
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      
+      setTimeLeft(`${hours}h ${minutes}m`);
+    };
 
-      const lastCompletedDate = new Date(data[0]?.last_completed_timestamp);
-      const today = new Date();
-      const timeDiff = Number(today) - Number(lastCompletedDate);
-      const diffInDays = Math.floor(timeDiff / (1000 * 3600 * 24));
-
-      setStreakLength(diffInDays >= 0 ? diffInDays + 1 : 0);
-    } catch (e) {
-      console.error('Error fetching streak length:', e);
-    }
+    updateTimeLeft();
+    const interval = setInterval(updateTimeLeft, 60000);
+    return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    fetchStreakLength();
-  }, [fetchStreakLength]);
+  const getNextMultiplier = (s: number) => {
+    if (s < 10) return 1.25;
+    if (s < 20) return 1.50;
+    if (s < 30) return 1.75;
+    if (s < 39) return 2.00;
+    return 2.0;
+  };
+  
+  const MAX_STREAK_CAP = 40;
+  const isMaxed = streak >= MAX_STREAK_CAP;
+  
+  const nextReward = getNextMultiplier(streak);
 
-  const renderStreakBlocks = () => {
+  const renderBlocks = () => {
     const blocks = [];
-    for (let i = 0; i < 9; i++) {
-      blocks.push(<View key={i} style={styles.streakBlock}></View>);
+    const totalBlocks = 10; 
+
+    for (let i = 1; i <= totalBlocks; i++) {
+        // If maxed, everything is filled
+      const isFilled = isMaxed ? true : i <= visualProgress;
+      const isLast = i === totalBlocks;
+
+      blocks.push(
+        <View key={i} style={[styles.blockContainer, { flex: isLast ? 1.5 : 1 }]}>
+          <View style={[styles.blockBase, isFilled && styles.blockFilled]}>
+             {isFilled && (
+                <LinearGradient
+                    // Gold Gradient if Maxed, else Green/Teal
+                  colors={isMaxed ? ['#FFD700', '#FDB931'] : ['#329D9C', '#56C596']}
+                  style={StyleSheet.absoluteFillObject}
+                />
+             )}
+             
+             {isLast && (
+               <View style={styles.rewardIconContainer}>
+                  <FontAwesome6 
+                     name={isMaxed ? "crown" : (isFilled ? "gift" : "lock")} 
+                     size={14} 
+                     color={isFilled ? (isMaxed ? "#783f04" : "white") : theme.colors.greyedOut} 
+                  />
+               </View>
+             )}
+          </View>
+        </View>
+      );
     }
     return blocks;
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.streakContainer}>{renderStreakBlocks()}</View>
-      {/* Add the StreakBar component and pass the current streak index */}
-      <StreakBar index={5} totalBlocks={9} />
-    </View>
+    <LinearGradient
+      colors={['rgba(45, 55, 72, 0.85)', 'rgba(26, 32, 44, 0.95)']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.container}
+    >
+      {/* TOP ROW: Streak Count & Reward Badge */}
+      <View style={styles.topRow}>
+        <View style={styles.streakBadge}>
+           {isCompletedToday ? (
+              <View style={styles.doneBadge}>
+                 <FontAwesome6 name="check" size={14} color="#00D988" />
+              </View>
+           ) : (
+              <FontAwesome6 name="fire" size={18} color={isMaxed ? "#FFD700" : "#FF512F"} solid />
+           )}
+           <Text style={[styles.streakText, isMaxed && { color: '#FFD700' }]}>{streak} Day Streak</Text>
+        </View>
+
+        {isMaxed ? (
+             <View style={styles.maxBadge}>
+                <Text style={styles.maxReachedText}>MAX REACHED</Text>
+             </View>
+        ) : (
+             <View style={styles.nextRewardBadge}>
+                <Text style={styles.nextRewardText}>Next: x{nextReward}</Text>
+             </View>
+        )}
+      </View>
+
+      {/* MIDDLE ROW: Status / Timer */}
+      <View style={styles.statusRow}>
+        {isCompletedToday ? (
+            <Text style={styles.completedText}>Daily Streak Extended!</Text>
+        ) : (
+            <Text style={styles.timeLeftText}>⏰ {timeLeft} remaining to extend</Text>
+        )}
+      </View>
+
+      {/* BOTTOM: Progress Bars */}
+      <View style={styles.barContainer}>
+        {renderBlocks()}
+      </View>
+      
+      <Text style={[styles.hintText, isMaxed && { color: '#FFD700', fontWeight: 'bold' }]}>
+         {isMaxed ? "Legendary Status! Max Multiplier Active" : `${10 - visualProgress} days until next multiplier upgrade`}
+      </Text>
+    </LinearGradient>
   );
 }
+
+const StyleSheet = UnistylesSheet;
 
 const styles = UnistylesSheet.create((theme) => ({
   container: {
     width: '100%',
-    height: 80, // Adjust to make room for the streak container
-    backgroundColor: theme.colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative', // Ensure that the streak bar is positioned absolutely within this container
+    paddingVertical: 15,
+    paddingHorizontal: 15,
+    borderRadius: 16,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 5,
   },
-  streakContainer: {
-    flexDirection: 'row', // Make sure the blocks are aligned in a row
+  topRow: {
+    flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    marginBottom: 12, // Space before bars
+  },
+  
+  // Badges & Text
+  streakBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  streakText: {
+    color: 'white',
+    fontWeight: '800',
+    fontSize: 18,
+    textShadowColor: 'rgba(0,0,0,0.1)',
+    textShadowRadius: 2,
+  },
+  doneBadge: {
+    backgroundColor: 'rgba(0, 217, 136, 0.2)',
+    padding: 4,
+    borderRadius: 8,
+  },
+  
+  // Status Text
+  completedText: {
+    color: '#00D988',
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  timeLeftText: {
+    color: '#FFD700', 
+    fontSize: 12,
+    fontWeight: '600',
+    opacity: 0.9,
+  },
+
+  // Reward Badges
+  maxBadge: {
+     backgroundColor: 'rgba(255, 215, 0, 0.1)',
+     paddingHorizontal: 8,
+     paddingVertical: 4,
+     borderRadius: 8,
+     borderWidth: 1,
+     borderColor: 'rgba(255, 215, 0, 0.3)',
+  },
+  maxReachedText: {
+    color: '#FFD700',
+    fontSize: 11,
+    fontWeight: '800',
+    textShadowColor: 'rgba(255, 215, 0, 0.3)',
+    textShadowRadius: 4,
+  },
+  nextRewardBadge: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  nextRewardText: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  
+  barContainer: {
+    flexDirection: 'row',
+    height: 12,
+    gap: 4,
+  },
+  blockContainer: {
+    height: '100%',
+  },
+  blockBase: {
     width: '100%',
     height: '100%',
-    position: 'relative',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 4,
+    overflow: 'hidden',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  streakBlock: {
-    width: '11.11%', // Adjust to make sure all blocks fit horizontally
-    height: '50%',
-    margin: 5,
-    borderRadius: 10,
-    backgroundColor: 'black',
+  blockFilled: {
+    // Gradient handled by LinearGradient child
+  },
+  rewardIconContainer: {
+    zIndex: 1,
+  },
+  
+  hintText: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 12,
+    marginTop: 8,
+    textAlign: 'center',
   },
 }));

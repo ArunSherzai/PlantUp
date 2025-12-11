@@ -7,9 +7,9 @@ import {
   ActivityIndicator,
   RefreshControl,
   Dimensions,
-  StatusBar,
   LayoutChangeEvent,
   SectionList,
+  Alert,
 } from 'react-native';
 import { useUnistyles, StyleSheet } from 'react-native-unistyles';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,7 +22,7 @@ import { db } from '../../../utils/supabase';
 import DraggableBottomSheet from '../../../components/DraggableBottomSheet';
 import { useUserStore } from '../../../stores/UserStore';
 import DailyStreakComponent from '~/features/ShowMissions/components/DailyStreak';
-import TimeLeft from '~/features/ShowMissions/components/TimeLeft';
+
 
 const { height } = Dimensions.get('window');
 
@@ -45,11 +45,22 @@ type UserQuest = {
   Quests: QuestData;
 };
 
+// --- HELPER --
+const getMultiplier = (streak: number) => {
+  if (streak < 10) return 1.0;
+  if (streak < 20) return 1.25;
+  if (streak < 30) return 1.50;
+  if (streak < 39) return 1.75;
+  return 2.0;
+};
+
 export default function ShowMissionsScreen() {
   const { theme } = useUnistyles();
   const [quests, setQuests] = useState<UserQuest[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  const { addXP, updateStreak, profile, fetchProfile } = useUserStore();
 
   // --- FETCH DATA ---
   const fetchQuests = useCallback(async () => {
@@ -94,31 +105,38 @@ export default function ShowMissionsScreen() {
 
   useEffect(() => {
     fetchQuests();
+    fetchProfile(); // Ensure profile is up to date for streak
   }, [fetchQuests]);
-
-  const { addXP } = useUserStore();
 
   // --- CLAIM LOGIC ---
   const handleClaim = useCallback(async (userQuestId: number) => {
     try {
       setLoading(true);
 
-      // Find the quest to get XP reward
-      const questToClaim = quests.find((q) => q.id === userQuestId);
-      if (!questToClaim) return;
-
-      // 1. Add XP to User Profile
-      await addXP(questToClaim.Quests.xp_reward);
-
-      // 2. Update DB status to 'claimed'
-      const { error } = await db.gamification
-        .from('User_quests')
-        .update({ status: 'claimed' })
-        .eq('id', userQuestId);
+      // Call RPC
+      const { data, error } = await db.public.rpc('claim_quest', {
+        user_quest_id: userQuestId,
+      });
 
       if (error) throw error;
 
-      // 3. Update Local State
+      const result = data as any;
+      if (!result.success) {
+        Alert.alert('Info', result.message || 'Could not claim quest.');
+        return;
+      }
+
+      // Update Local State
+      const gainedXP = result.xp_gained;
+      const newStreak = result.new_streak;
+      const multiplier = result.multiplier;
+
+      // 1. Update Profile Store
+      await addXP(gainedXP);
+      const todayDate = new Date().toISOString().split('T')[0];
+      updateStreak(newStreak, todayDate);
+
+      // 2. Update Quest List locally to avoid full refetch
       setQuests((currentQuests) =>
         currentQuests.map((q) => {
           if (q.id === userQuestId) {
@@ -128,14 +146,19 @@ export default function ShowMissionsScreen() {
         })
       );
 
-      alert(`Claimed ${questToClaim.Quests.xp_reward} XP!`);
+      // 3. Show Success Message
+      Alert.alert(
+        'Quest Claimed!',
+        `You earned ${gainedXP} XP!\nStreak: ${newStreak} days (${multiplier}x Multiplier)`
+      );
+
     } catch (e) {
       console.error('Error claiming:', e);
-      alert('Fehler beim Claimen.');
+      Alert.alert('Error', 'Failed to claim quest.');
     } finally {
       setLoading(false);
     }
-  }, [quests, addXP]);
+  }, [addXP, updateStreak]);
 
   // Listen filtern
   const dailyQuests = quests.filter((q) => {
@@ -157,6 +180,9 @@ export default function ShowMissionsScreen() {
       data: weeklyQuests.length > 0 ? weeklyQuests : [{ id: 'empty-weekly', type: 'empty' } as any],
     },
   ];
+
+  const currentStreak = profile?.streak_length || 0;
+  const currentMultiplier = getMultiplier(currentStreak);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -188,10 +214,7 @@ export default function ShowMissionsScreen() {
           </MaskedView>
 
           <View style={styles.wrapper}>
-            <TimeLeft />
-            <View style={styles.comingSoonBar}>
-              <DailyStreakComponent></DailyStreakComponent>
-            </View>
+            <DailyStreakComponent />
           </View>
         </View>
 
@@ -214,15 +237,10 @@ export default function ShowMissionsScreen() {
                 initialNumToRender={6} // Rendert genug für den ersten Blick.
                 maxToRenderPerBatch={4} // Lädt moderat nach beim Scrollen.
                 windowSize={7} // Behält ein bisschen was im Speicher (weniger Ruckeln beim Zurückscrollen).
-                // HILFT DER LISTE DIE GRÖSSE ZU SCHÄTZEN (Wichtig gegen Ruckeln!)
-                // Wir nehmen an: Header ~40px, Item ~110px
-                // (Wenn Items unterschiedlich hoch sind, diesen Block löschen, aber mit fixen Höhen ist es schneller)
-                // getItemLayout={(data, index) => (
-                //   {length: 110, offset: 110 * index, index}
-                // )}
-
+                
                 contentContainerStyle={{ paddingBottom: height * 0.5 }}
                 showsVerticalScrollIndicator={false}
+                ListHeaderComponent={<MultiplierBanner multiplier={currentMultiplier} />}
                 renderSectionHeader={({ section: { title } }) => (
                   <View style={styles.sectionHeaderContainer}>
                     <Text style={styles.sectionTitle}>{title}</Text>
@@ -245,7 +263,12 @@ export default function ShowMissionsScreen() {
                   // Echte Quest
                   return (
                     <View style={styles.itemWrapperMint}>
-                      <QuestCard quest={item} onClaim={() => handleClaim(item.id)} isLast={false} />
+                      <QuestCard 
+                        quest={item} 
+                        onClaim={() => handleClaim(item.id)} 
+                        isLast={false} 
+                        streakMultiplier={currentMultiplier}
+                      />
                     </View>
                   );
                 }}
@@ -255,6 +278,7 @@ export default function ShowMissionsScreen() {
                     onRefresh={() => {
                       setRefreshing(true);
                       fetchQuests();
+                      fetchProfile();
                     }}
                     tintColor={theme.colors.primary}
                   />
@@ -273,10 +297,12 @@ function QuestCard({
   quest,
   onClaim,
   isLast,
+  streakMultiplier,
 }: {
   quest: UserQuest;
   onClaim: () => void;
   isLast: boolean;
+  streakMultiplier: number;
 }) {
   if (!quest || !quest.Quests) return null;
 
@@ -290,6 +316,19 @@ function QuestCard({
   const plantName = quest.Plants?.nickname || 'your plant';
   const rawDesc = quest.Quests.description || '';
   const safeDescription = rawDesc.replace('{{plant_name}}', plantName);
+
+  // Multiplier Visuals
+  const hasMultiplier = streakMultiplier > 1.0;
+  // Rot/Orange Gradient Style
+  const fireColor = '#FF512F'; 
+  
+  const xpBgColor = '#FFF'; 
+  const xpBorderColor = hasMultiplier ? fireColor : '#329D9C';
+  const xpTextColor = hasMultiplier ? fireColor : '#329D9C';
+
+  // Calculate potential XP with multiplier for display
+  const baseXP = quest.Quests.xp_reward;
+  const displayXP = Math.floor(baseXP * streakMultiplier);
 
   return (
     <View style={[styles.card, isClaimed && { opacity: 0.6 }]}>
@@ -323,15 +362,24 @@ function QuestCard({
           </TouchableOpacity>
         ) : (
           !isClaimed && (
-            <View style={styles.xpContainer}>
+            <View style={[styles.xpContainer, { borderColor: xpBorderColor }]}>
+               {/* Subtle background for multiplier */}
+               {hasMultiplier && (
+                 <LinearGradient 
+                    colors={['rgba(221, 36, 118, 0.05)', 'rgba(255, 81, 47, 0.05)']}
+                    style={StyleSheet.absoluteFillObject}
+                 />
+               )}
               <FontAwesome6
-                name="star"
+                name={hasMultiplier ? "fire" : "star"}
                 size={12}
-                color="#329D9C"
+                color={xpTextColor}
                 style={{ marginRight: 4 }}
                 solid
               />
-              <Text style={styles.xpText}>{quest.Quests.xp_reward} XP</Text>
+              <Text style={[styles.xpText, { color: xpTextColor }]}>
+                 {displayXP} XP
+              </Text>
             </View>
           )
         )}
@@ -357,6 +405,31 @@ function QuestCard({
     </View>
   );
 }
+
+const MultiplierBanner = ({ multiplier }: { multiplier: number }) => {
+  if (multiplier <= 1.0) return null;
+
+  return (
+    <View style={styles.bannerContainer}>
+      <LinearGradient
+        colors={['#DD2476', '#FF512F']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={StyleSheet.absoluteFillObject}
+      />
+      <View style={styles.bannerContent}>
+        <View style={styles.bannerIconContainer}>
+          <FontAwesome6 name="fire" size={16} color="white" solid />
+        </View>
+        <View>
+          <Text style={styles.bannerTitle}>Streak Bonus Active!</Text>
+          <Text style={styles.bannerSubtitle}>You are earning {multiplier}x XP on all quests.</Text>
+        </View>
+        <Text style={styles.bannerMultiplier}>x{multiplier}</Text>
+      </View>
+    </View>
+  );
+};
 
 // --- STYLES ---
 const styles = StyleSheet.create((theme) => ({
@@ -437,9 +510,20 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: 12,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: theme.colors.primary,
+    // borderColor overwritten by logic
+    overflow: 'hidden', // for gradient bg
   },
-  xpText: { fontSize: 12, fontWeight: '700', color: theme.colors.primary },
+  xpText: { fontSize: 12, fontWeight: '700' },
+  
+  multiplierTag: {
+    backgroundColor: '#FF512F',
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    marginLeft: 6,
+  },
+  multiplierText: { color: 'white', fontSize: 9, fontWeight: 'bold' },
+
   claimButtonStyled: {
     width: 70,
     height: 32,
@@ -463,4 +547,49 @@ const styles = StyleSheet.create((theme) => ({
   },
   progressBarFill: { height: '100%', borderRadius: 5 },
   progressTextSubtle: { fontSize: 11, color: theme.colors.typography, fontWeight: '600' },
+  bannerContainer: {
+    marginHorizontal: 20,
+    marginTop: 10,
+    marginBottom: 20,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#FF512F',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  bannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
+  bannerIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  bannerTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: 'white',
+    marginBottom: 2,
+  },
+  bannerSubtitle: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.9)',
+    fontWeight: '500',
+  },
+  bannerMultiplier: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: 'white',
+    marginLeft: 'auto',
+    opacity: 0.9,
+    fontStyle: 'italic',
+  },
 }));
