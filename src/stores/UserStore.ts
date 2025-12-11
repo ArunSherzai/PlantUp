@@ -8,6 +8,8 @@ type UserProfile = {
   level: number;
   username: string;
   plant_coins: number;
+  title: string;
+  titlecolor: string;
 };
 
 type State = {
@@ -85,24 +87,52 @@ export const useUserStore = create<State>((set, get) => ({
       .eq('id', user.id)
       .single();
 
-    const [statsResult, userResult] = await Promise.all([statsPromise, userPromise]);
+    const titlePromise = db.gamification
+      .from('User_titles')
+      .select('titleid')
+      .eq('userid', user.id)
+      .eq('selected', true)
+      .single();
 
+    const [statsResult, userResult, titleResult] = await Promise.all([
+      statsPromise,
+      userPromise,
+      titlePromise,
+    ]);
+
+    console.log('userid:', user.id);
     console.log('Stats Result:', statsResult);
     console.log('User Result:', userResult);
+    console.log('Title Result:', titleResult);
 
     const statsData = statsResult.data;
     const statsError = statsResult.error;
     const userData = userResult.data;
+    const titleData = titleResult.data;
+
+    console.log(titleData?.titleid);
+
+    const { data: userTitle, error } = await db.gamification
+      .from('Titles')
+      .select('titlename, color')
+      .eq('id', titleData?.titleid)
+      .single();
+
+    if (error) console.error(error);
+
+    const userTitleData = userTitle;
+
+    console.log(userTitleData);
 
     let finalProfile: UserProfile = {
       xp: 0,
       level: 1,
       username: userData?.username || 'Gardener',
       plant_coins: userData?.plant_coins || 0,
+      title: userTitleData?.titlename,
+      titlecolor: userTitleData?.color,
     };
 
-    console.log(finalProfile);
-    // Handle Stats Logic (Create if missing)
     if (statsData) {
       finalProfile.xp = statsData.xp || 0;
       finalProfile.level = statsData.level || 1;

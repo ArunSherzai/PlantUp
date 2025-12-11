@@ -23,13 +23,7 @@ export default function ProfileScreen() {
   useFocusEffect(
     useCallback(() => {
       console.log('--- Profile Screen Focused ---');
-      console.log('User:', user);
-      console.log('Profile:', profile);
-      console.log('Current Level:', profile?.level);
-      console.log('Username:', profile?.username);
-      console.log('Plant Coins:', profile?.plant_coins);
       fetchProfile();
-      console.log('Profile refreshed on focus');
     }, [])
   );
 
@@ -46,7 +40,6 @@ export default function ProfileScreen() {
   ];
 
   const handleClaimReward = (rewardTitle: string) => {
-    // Rewards can be added here
     Alert.alert('Reward Claimed!', `You have claimed: ${rewardTitle}`);
   };
 
@@ -137,22 +130,32 @@ export default function ProfileScreen() {
             showsVerticalScrollIndicator={false}>
             {/* Profile Card */}
             <View style={styles.profileCard}>
-              <View style={styles.avatarContainer}>
-                <Image
-                  source={require('../../../../assets/images/Profilbild.png')}
-                  style={styles.avatar}
-                />
-              </View>
-              <View style={styles.userInfo}>
-                <View style={styles.nameRow}>
-                  <Text style={styles.userName}>
-                    {profile?.username.split('@')[0] || 'Gardener'}
-                  </Text>
-                  <GradientIcon name="pen" size={14} style={{ marginLeft: 8 }} />
+              {/* Top Row: Avatar + Name/Title */}
+              <View style={styles.topRow}>
+                <View style={styles.avatarContainer}>
+                  <Image
+                    source={require('../../../../assets/images/Profilbild.png')}
+                    style={styles.avatar}
+                  />
                 </View>
-                <Text style={styles.userBio}>Coole bio haha...</Text>
+
+                <View style={styles.userInfo}>
+                  <View style={styles.nameRow}>
+                    <Text style={styles.userName}>
+                      {profile?.username.split('@')[0] || 'Gardener'}
+                    </Text>
+                    <GradientIcon name="pen" size={14} style={{ marginLeft: 8 }} />
+                  </View>
+                  <Text style={styles.userTitle}>{profile?.title}</Text>
+                </View>
               </View>
+
+              {/* Bio Section (Below Top Row) */}
+              <Text style={styles.userBio}>
+                Coole bio haha... this is where the bio goes under the profile picture.
+              </Text>
             </View>
+
             {/* Stats Row */}
             <View style={styles.statsRow}>
               {stats.map((stat, index) => (
@@ -216,8 +219,6 @@ export default function ProfileScreen() {
 
             {/* Dynamic Content */}
             {renderContent()}
-
-            {/* Extra padding at bottom for scrolling */}
           </ScrollView>
         </DraggableBottomSheet>
       </View>
@@ -231,7 +232,7 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.background,
   },
   headerBg: {
-    height: '100%', // Cover full background initially
+    height: '100%',
     width: '100%',
     position: 'absolute',
     top: 0,
@@ -261,14 +262,22 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.background,
     borderRadius: 20,
     padding: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
+    // CHANGED: Use column so Bio sits under TopRow
+    flexDirection: 'column',
+    alignItems: 'flex-start',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
     marginBottom: 20,
+  },
+  topRow: {
+    // NEW: Wraps Avatar and Name info in a row
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 10, // Adds space between the avatar row and the bio
   },
   avatarContainer: {
     marginRight: 20,
@@ -281,6 +290,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   userInfo: {
     flex: 1,
+    justifyContent: 'center',
   },
   nameRow: {
     flexDirection: 'row',
@@ -291,10 +301,17 @@ const styles = StyleSheet.create((theme) => ({
     fontWeight: 'bold',
     color: theme.colors.text,
   },
-  userBio: {
+  userTitle: {
     fontSize: 14,
     color: theme.colors.typography,
     marginTop: 4,
+    fontWeight: '600',
+  },
+  userBio: {
+    fontSize: 14,
+    color: theme.colors.text,
+    lineHeight: 20,
+    marginTop: 5, // Extra spacing for the bio
   },
   actionRow: {
     flexDirection: 'row',
