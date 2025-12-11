@@ -19,6 +19,8 @@ import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { RootStackParamList } from '../../../navigation/Root';
 import { useSocialStats } from '../../../features/social/hooks/useSocialStats';
 import { usePlants } from '../../../features/plantlist/hooks/usePlants';
+import { usePosts } from '../../../hooks/usePosts';
+import MasonryFeedGrid from '../../../components/MasonryFeedGrid';
 
 const { width } = Dimensions.get('window');
 
@@ -28,6 +30,13 @@ export default function ProfileScreen() {
   const { user, profile, fetchProfile } = useUserStore();
   const { followersCount, friendsCount, refreshStats } = useSocialStats(user?.id);
   const { plants, refreshPlants } = usePlants();
+
+  // My Posts
+  const { posts: myPosts, loading: myPostsLoading, refreshPosts: refreshMyPosts } = usePosts({ userId: user?.id });
+
+  // Liked Posts
+  const { posts: likedPosts, loading: likedPostsLoading, refreshPosts: refreshLikedPosts } = usePosts({ likedBy: user?.id });
+
   const [activeTab, setActiveTab] = React.useState<'leveling' | 'posts' | 'likes'>('leveling');
 
   // Tip System
@@ -132,6 +141,8 @@ export default function ProfileScreen() {
       fetchProfile();
       refreshStats();
       refreshPlants();
+      refreshMyPosts();
+      refreshLikedPosts();
       console.log('Profile refreshed on focus');
     }, [])
   );
@@ -220,18 +231,30 @@ export default function ProfileScreen() {
         return (
           <>
             <Text style={styles.sectionTitle}>My Posts</Text>
-            <View style={styles.comingSoonContainer}>
-              <Text style={styles.comingSoonText}>Coming Soon</Text>
-            </View>
+            {myPostsLoading ? (
+              <View style={{ padding: 20 }}><Text style={{ color: theme.colors.typography }}>Loading...</Text></View>
+            ) : myPosts.length === 0 ? (
+              <View style={styles.comingSoonContainer}>
+                <Text style={styles.comingSoonText}>You haven't posted anything yet.</Text>
+              </View>
+            ) : (
+              <MasonryFeedGrid posts={myPosts} onPostPress={(item) => navigation.navigate('FeedPostDetail', { post: item })} />
+            )}
           </>
         );
       case 'likes':
         return (
           <>
             <Text style={styles.sectionTitle}>Liked Posts</Text>
-            <View style={styles.comingSoonContainer}>
-              <Text style={styles.comingSoonText}>Coming Soon</Text>
-            </View>
+            {likedPostsLoading ? (
+              <View style={{ padding: 20 }}><Text style={{ color: theme.colors.typography }}>Loading...</Text></View>
+            ) : likedPosts.length === 0 ? (
+              <View style={styles.comingSoonContainer}>
+                <Text style={styles.comingSoonText}>You haven't liked any posts yet.</Text>
+              </View>
+            ) : (
+              <MasonryFeedGrid posts={likedPosts} onPostPress={(item) => navigation.navigate('FeedPostDetail', { post: item })} />
+            )}
           </>
         );
     }

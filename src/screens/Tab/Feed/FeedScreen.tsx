@@ -8,7 +8,7 @@ import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import FeedCard from '../../../components/FeedCard';
 import DraggableBottomSheet from '../../../components/DraggableBottomSheet';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { useFeed } from '../../../hooks/useFeed';
+import { usePosts } from '../../../hooks/usePosts';
 import MasonryFeedGrid from '../../../components/MasonryFeedGrid';
 
 const { width } = Dimensions.get('window');
@@ -16,7 +16,7 @@ const { width } = Dimensions.get('window');
 export default function FeedScreen() {
     const { theme } = useUnistyles();
     const navigation = useNavigation<any>();
-    const { posts, loading, refreshFeed } = useFeed();
+    const { posts, loading, refreshPosts: refreshFeed } = usePosts();
     const [refreshing, setRefreshing] = useState(false);
 
     // Reload when screen is focused

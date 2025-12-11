@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import FeedCard from './FeedCard';
 import { getDisplayMedia } from '../utils/media';
-import { Post } from '../hooks/useFeed';
+import { Post } from '../hooks/usePosts';
 
 const GAP = 15;
 
