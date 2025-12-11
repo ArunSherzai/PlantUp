@@ -146,7 +146,15 @@ export default function ProfileScreen() {
                     </Text>
                     <GradientIcon name="pen" size={14} style={{ marginLeft: 8 }} />
                   </View>
-                  <Text style={styles.userTitle}>{profile?.title}</Text>
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      color: profile?.titlecolor,
+                      marginTop: 4,
+                      fontWeight: '600',
+                    }}>
+                    {profile?.title}
+                  </Text>
                 </View>
               </View>
 
@@ -301,12 +309,7 @@ const styles = StyleSheet.create((theme) => ({
     fontWeight: 'bold',
     color: theme.colors.text,
   },
-  userTitle: {
-    fontSize: 14,
-    color: theme.colors.typography,
-    marginTop: 4,
-    fontWeight: '600',
-  },
+
   userBio: {
     fontSize: 14,
     color: theme.colors.text,
