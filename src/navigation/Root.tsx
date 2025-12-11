@@ -5,6 +5,7 @@ import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import TabNavigator from './tab-navigator';
 import AddPlantScreen from '~/screens/Plants/addPlant/addPlant';
+import SettingsScreen from '~/screens/Tab/SettingsScreen/SettingsScreen';
 import AuthStack from './auth';
 
 export type RootStackParamList = {
@@ -13,6 +14,7 @@ export type RootStackParamList = {
   Auth: undefined;
   Index: undefined;
   'Add a Plant': undefined;
+  Settings: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -68,6 +70,11 @@ export default function RootStack() {
             title: 'Add a Plant',
             headerShown: false,
           }}
+        />
+        <Stack.Screen
+          name="Settings"
+          component={SettingsScreen}
+          options={{ headerShown: false }}
         />
       </Stack.Navigator>
     </NavigationContainer>

@@ -1,24 +1,33 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, Text, Image, TouchableOpacity, Dimensions, Alert } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useUnistyles, StyleSheet } from 'react-native-unistyles';
 import { LinearGradient } from 'expo-linear-gradient';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
+import { GestureHandlerRootView, ScrollView } from 'react-native-gesture-handler';
+
+// Eigene Imports
 import { useUserStore } from '../../../stores/UserStore';
 import RankCard from '../../../components/RankCard';
 import RewardItem from '../../../components/RewardItem';
 import { REWARDS, getRankName } from '../../../utils/leveling';
 import DraggableBottomSheet from '../../../components/DraggableBottomSheet';
-import { GestureHandlerRootView, ScrollView } from 'react-native-gesture-handler';
 import GradientIcon from '../../../components/GradientIcon';
 import GradientText from '../../../components/GradientText';
+
 
 const { width } = Dimensions.get('window');
 
 export default function ProfileScreen() {
   const { theme } = useUnistyles();
+  const navigation = useNavigation(); // Für den Back-Button
   const { user, profile, fetchProfile } = useUserStore();
-  const [activeTab, setActiveTab] = React.useState<'leveling' | 'posts' | 'likes'>('leveling');
+
+  // State für Tabs
+  const [activeTab, setActiveTab] = useState<'leveling' | 'posts' | 'likes'>('leveling');
+
+  // State für Settings Modal
+
 
   useFocusEffect(
     useCallback(() => {
@@ -113,10 +122,26 @@ export default function ProfileScreen() {
             style={styles.headerGradient}
             resizeMode="cover"
           />
+
           <View style={styles.headerContent}>
-            <TouchableOpacity style={styles.backButton}>
-              <FontAwesome6 name="chevron-left" size={20} color={theme.colors.textDark} />
-            </TouchableOpacity>
+            {/* Header Top Row: BackButton & Settings */}
+            <View style={styles.headerTopRow}>
+              <TouchableOpacity
+                style={styles.iconButton}
+                onPress={() => navigation.goBack()}
+              >
+                <FontAwesome6 name="chevron-left" size={20} color={theme.colors.textDark} />
+              </TouchableOpacity>
+
+              {/* Settings Button öffnet das Modal */}
+              <TouchableOpacity
+                style={styles.iconButton}
+                onPress={() => navigation.navigate('Settings' as never)}
+              >
+                <FontAwesome6 name="gear" size={24} color={theme.colors.textDark} />
+              </TouchableOpacity>
+            </View>
+
             <Text style={styles.headerTitle}>
               Your{'\n'}Growing{'\n'}Profile!
             </Text>
@@ -128,6 +153,7 @@ export default function ProfileScreen() {
           <ScrollView
             contentContainerStyle={[styles.sheetContent, { paddingBottom: 100 }]}
             showsVerticalScrollIndicator={false}>
+
             {/* Profile Card */}
             <View style={styles.profileCard}>
               {/* Top Row: Avatar + Name/Title */}
@@ -227,8 +253,13 @@ export default function ProfileScreen() {
 
             {/* Dynamic Content */}
             {renderContent()}
+
           </ScrollView>
         </DraggableBottomSheet>
+
+        {/* SETTINGS MODAL */}
+
+
       </View>
     </GestureHandlerRootView>
   );
@@ -252,9 +283,16 @@ const styles = StyleSheet.create((theme) => ({
     position: 'absolute',
     top: 50,
     left: 20,
+    right: 20, // Damit wir die volle Breite nutzen können
   },
-  backButton: {
+  headerTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between', // Icons links und rechts
+    alignItems: 'center',
     marginBottom: 20,
+  },
+  iconButton: {
+    padding: 8, // Größere Hitbox
   },
   headerTitle: {
     fontSize: 42,

@@ -7,18 +7,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 // HIER ANPASSEN:
 const iconMap: { [key: string]: keyof typeof FontAwesome6.glyphMap } = {
   PlantStats: 'chart-simple',
-
-  // ALT: 'Add a Plant': 'circle-plus',
-  // NEU: Der Key muss exakt so heißen wie im Tab-Navigator ('CreatePost')
   CreatePost: 'circle-plus',
-
   Missions: 'list-check',
   'Show Plants': 'seedling',
   Profile: 'user-large',
 };
 
 export default function NavigationBar({ state, descriptors, navigation }: any) {
-  // ... (Rest des Codes bleibt exakt gleich wie vorher)
   const { theme } = useUnistyles();
   const insets = useSafeAreaInsets();
   return (
