@@ -135,7 +135,7 @@ export default function ShowMissionsScreen() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [quests, addXP]);
 
   // Listen filtern
   const dailyQuests = quests.filter((q) => {
