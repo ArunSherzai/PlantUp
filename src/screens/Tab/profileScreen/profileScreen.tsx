@@ -5,6 +5,9 @@ import { useUnistyles, StyleSheet } from 'react-native-unistyles';
 import { LinearGradient } from 'expo-linear-gradient';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { useUserStore } from '../../../stores/UserStore';
+import { usePlantTipSystem } from '../../../hooks/usePlantTipSystem';
+import { useTipStore } from '../../../stores/TipStore';
+import { getRandomGeneralTip } from '../../../utils/tipResolver';
 import RankCard from '../../../components/RankCard';
 import RewardItem from '../../../components/RewardItem';
 import { REWARDS, getRankName } from '../../../utils/leveling';
@@ -19,6 +22,96 @@ export default function ProfileScreen() {
   const { theme } = useUnistyles();
   const { user, profile, fetchProfile } = useUserStore();
   const [activeTab, setActiveTab] = React.useState<'leveling' | 'posts' | 'likes'>('leveling');
+
+  // Tip System
+  const { triggerManualTip } = usePlantTipSystem();
+  // We need to monitor activeTip to trigger the sequential logic
+  // but triggers should probably be handled carefully to avoiding infinite loops
+  // Simplest approach: "Test Tips" button manually sets a sequence.
+
+  const handleTestTips = () => {
+    // 1. Trigger random tip
+    const randomTip = getRandomGeneralTip();
+    useTipStore.getState().setActiveTip(randomTip);
+
+    // 2. Wait for dismissal (we can poll or use a timeout for simulation, 
+    // but better is to subscribe. For this simple test feature, 
+    // let's just wait a few seconds or trigger the second one after a delay?)
+    // User asked: "when i click it it triggers a random tip and then a plant specific tip right after"
+    // "Right after" could mean immediately replacing it, or waiting for close.
+    // Let's assume waiting for close is better UX, but "right after" usually implies automatic sequencing.
+    // If I just fire the random tip, the user sees it.
+    // If I want to show another one "right after", I should probably wait for the first one to be closed.
+
+    // Hacky but effective for a test button: 
+    // Override the dismiss behavior TEMPORARILY or just use a timeout?
+    // Let's use a timeout for the second tip to appear after the first one is likely read, 
+    // OR just rely on the user closing the first one?
+
+    // Actually, to implement "trigger A then trigger B", we need to know when A is gone.
+    // Let's just trigger the Plant Tip manually, but we need to know WHICH plant.
+    // The hook `triggerManualTip` uses the *latest scanned* plant.
+
+    // Let's try this: Show Random Tip. Then 5 seconds later (or upon close), show Plant Tip.
+    // Since we don't have an easy "onClose" callback chain here without global event bus,
+    // let's just trigger the Plant Tip immediately after the user dismisses the random one?
+    // No, the store doesn't have a callback.
+
+    // Alternative: Just fire the Plant Tip. The `SpriteComponent` will show the active tip.
+    // If we simply overwrite it, the user won't see the first one.
+
+    // Refined Plan for Button:
+    // 1. Trigger Random Tip.
+    // 2. Set complete "Plant Tip" logic to run via `triggerManualTip` but we need to make sure 
+    // it happens *after* the random tip.
+
+    // Let's rely on a simple alert or proper queue? 
+    // The user wants a button to TEST it. so let's just trigger the PLANT tip, 
+    // because the random tip triggers automatically anyway?
+    // User request: "triggers a random tip and then a plant specific tip right after"
+
+    Alert.alert(
+      "Test Tips Sequence",
+      "I will show a Random Tip now. When you close it, click this button again to see a Plant Tip? Or should I force it?",
+      [
+        {
+          text: "Random Tip", onPress: () => {
+            const tip = getRandomGeneralTip();
+            useTipStore.getState().setActiveTip(tip);
+          }
+        },
+        { text: "Plant Tip", onPress: () => triggerManualTip() },
+        {
+          text: "Both (Sequence)", onPress: () => {
+            // Show Random
+            const tip = getRandomGeneralTip();
+            useTipStore.getState().setActiveTip(tip);
+
+            // Queue Plant Tip? We don't have a queue.
+            // Let's just set a timeout to replace it after 3 seconds for demo purposes
+            setTimeout(() => {
+              triggerManualTip();
+            }, 4000);
+          }
+        }
+      ]
+    );
+  };
+  // Re-reading request: "add a test tips buttons... when i click it it triggers a random tip and then a plant specific tip right after"
+  // Let's implement the "Sequence" logic directly on press without the Alert, 
+  // but maybe using a smart subscriber would be over-engineering.
+  // 3-4 seconds delay seems like a good "right after" interpretation for a test button.
+
+  const onRunTestSequence = () => {
+    // 1. Random Tip
+    const randomTip = getRandomGeneralTip();
+    useTipStore.getState().setActiveTip(randomTip);
+
+    // 2. Schedule Plant Tip
+    setTimeout(() => {
+      triggerManualTip();
+    }, 5000); // 5 seconds to read
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -64,6 +157,18 @@ export default function ProfileScreen() {
                   resizeMode="contain"
                 />
                 <Text style={styles.plantsButtonText}>Plants</Text>
+              </View>
+              <GradientIcon name="chevron-right" size={14} />
+            </TouchableOpacity>
+
+            {/* Test Tips Button */}
+            <TouchableOpacity
+              style={[styles.plantsButton, { marginTop: 10 }]}
+              onPress={onRunTestSequence}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <FontAwesome6 name="vial" size={24} color={theme.colors.primary} style={{ marginRight: 8 }} />
+                <Text style={styles.plantsButtonText}>Test Tips (Random then Plant)</Text>
               </View>
               <GradientIcon name="chevron-right" size={14} />
             </TouchableOpacity>

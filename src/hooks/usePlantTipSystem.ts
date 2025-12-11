@@ -1,17 +1,21 @@
-import { useEffect, useState, useRef } from 'react';
-import { Alert } from 'react-native';
+import { useEffect } from 'react';
 import { db } from '../utils/supabase';
 import { getTriggeredTip, getRandomGeneralTip, PlantDataInput, TipObject } from '../utils/tipResolver';
 import { saveTip } from '../utils/tipHistory';
+import { useTipStore } from '../stores/TipStore';
 
 export function usePlantTipSystem() {
-    const [activePlantTip, setActivePlantTip] = useState<TipObject | null>(null);
-    const latestPlantDataRef = useRef<PlantDataInput | null>(null);
-    const latestThresholdsRef = useRef<any | null>(null);
+    const {
+        setActiveTip,
+        activeTip,
+        latestPlantData,
+        setLatestPlantData,
+        setLatestThresholds
+    } = useTipStore();
 
     // Helper to save tip history
     const setAndSaveTip = (tip: TipObject | null) => {
-        setActivePlantTip(tip);
+        setActiveTip(tip);
         if (tip) {
             saveTip(tip);
         }
@@ -21,8 +25,6 @@ export function usePlantTipSystem() {
     useEffect(() => {
         const checkPlantHealth = async () => {
             try {
-
-
                 const { data: { user } } = await db.public.auth.getUser();
                 if (!user) return;
 
@@ -60,8 +62,8 @@ export function usePlantTipSystem() {
                     const thresholds = Array.isArray(plant.plant_data) ? plant.plant_data[0] : plant.plant_data;
 
                     // Store for manual trigger
-                    latestPlantDataRef.current = plantData;
-                    latestThresholdsRef.current = thresholds;
+                    setLatestPlantData(plantData);
+                    setLatestThresholds(thresholds);
 
                     // Check for tips
                     const tip = getTriggeredTip(plantData, thresholds);
@@ -70,7 +72,13 @@ export function usePlantTipSystem() {
                         setAndSaveTip(tip);
                         break;
                     } else {
-                        setActivePlantTip(null);
+                        // Only clear if *this* poll found nothing, but maybe another process handles active tips?
+                        // For now, let's keep original behavior: if no tip found in poll, clear active.
+                        // Be careful not to fight with manual triggers.
+                        // Active tip might have been set by something else.
+                        // Let's only clear if we previously set a plant tip.
+                        // For simplicity, we stick to the original logic:
+                        setActiveTip(null);
                     }
                 }
 
@@ -91,19 +99,21 @@ export function usePlantTipSystem() {
     // 2. General Tips Timer
     useEffect(() => {
         const interval = setInterval(() => {
-            if (!activePlantTip) {
+            if (!activeTip) {
                 const randomTip = getRandomGeneralTip();
                 setAndSaveTip(randomTip);
             }
         }, 30 * 60 * 1000); // 30 minutes
 
         return () => clearInterval(interval);
-    }, [activePlantTip]);
+    }, [activeTip]);
 
     // 3. Manual Trigger
     const triggerManualTip = () => {
-        if (latestPlantDataRef.current) {
-            const tip = getTriggeredTip(latestPlantDataRef.current, latestThresholdsRef.current);
+        const { latestPlantData, latestThresholds } = useTipStore.getState();
+
+        if (latestPlantData) {
+            const tip = getTriggeredTip(latestPlantData, latestThresholds);
             if (tip) {
                 setAndSaveTip(tip);
                 return;
@@ -115,13 +125,13 @@ export function usePlantTipSystem() {
     };
 
     const dismissTip = () => {
-        setActivePlantTip(null);
+        setActiveTip(null);
     };
 
     return {
         triggerManualTip,
-        activePlantTip,
+        activeTip, // Expose for backward compat if needed, though components should use store directly
         dismissTip,
-        latestPlantData: latestPlantDataRef.current
+        latestPlantData
     };
 }

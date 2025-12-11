@@ -4,11 +4,11 @@ import { usePlantTipSystem } from '../hooks/usePlantTipSystem';
 import TipNotification from './TipNotification';
 
 export default function SpriteComponent() {
-    const { triggerManualTip, activePlantTip, dismissTip } = usePlantTipSystem();
+    const { triggerManualTip, activeTip, dismissTip } = usePlantTipSystem();
 
     return (
         <>
-            <TipNotification tip={activePlantTip} onClose={dismissTip} />
+            <TipNotification tip={activeTip} onClose={dismissTip} />
 
         </>
     );
