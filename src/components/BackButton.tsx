@@ -6,35 +6,36 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { useNavigation } from '@react-navigation/native';
 
-interface BackButtonProps extends TouchableOpacityProps{
-  
+interface BackButtonProps extends TouchableOpacityProps {
+  iconColor?: string;
 }
 
 export default function BackButton({
   style,
+  iconColor,
   ...props
-} : BackButtonProps) {
+}: BackButtonProps) {
 
-    const { theme } = useUnistyles();
-    const navigation = useNavigation();
+  const { theme } = useUnistyles();
+  const navigation = useNavigation();
 
   return (
     <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.8} style={[styles.container, style]} {...props}>
-      <FontAwesome6 name="angle-left" size={24} style={styles.button} />
+      <FontAwesome6 name="angle-left" size={24} style={[styles.button, iconColor ? { color: iconColor } : {}]} />
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create((theme) => ({
   container: {
-      height: 40,
-      width: "10%",
-      alignItems: "center",
-      justifyContent: "center",
-      borderRadius: 30,
-    },
-    button: {
-      color: theme.colors.text
-    },
+    height: 40,
+    width: "20%",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 15,
+  },
+  button: {
+    color: theme.colors.text
+  },
 }));
 

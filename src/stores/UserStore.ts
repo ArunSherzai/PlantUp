@@ -8,6 +8,7 @@ type UserProfile = {
   level: number;
   username: string;
   plant_coins: number;
+  profile_image?: string;
 };
 
 type State = {

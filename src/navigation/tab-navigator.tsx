@@ -10,7 +10,7 @@ import NavigationBar from '../components/NavigationBar';
 import PlantListScreen from '~/screens/Tab/plantList/PlantListScreen';
 // ALT: import AddPlantScreen from '~/screens/Plants/addPlant/addPlant';
 // NEU: Importiere den neuen Screen (Pfad ggf. anpassen, wenn er woanders liegt!)
-import CreatePostScreen from '~/screens/Tab/createPostScreen/createPostScreen';
+import FeedScreen from '~/screens/Tab/Feed/FeedScreen';
 
 import ShowMissionsScreen from '~/screens/Tab/showMissionsScreen/showMissionsScreen';
 import ProfileScreen from '~/screens/Tab/profileScreen/profileScreen';
@@ -49,16 +49,17 @@ export default function TabLayout({ navigation }: Props) {
       />
 
       {/* --- HIER GEÄNDERT: Create Post statt Add a Plant --- */}
+      {/* --- HIER GEÄNDERT: Feed Screen --- */}
       <Tab.Screen
-        name="CreatePost"
-        component={CreatePostScreen}
+        name="Feed"
+        component={FeedScreen}
         options={{
-          title: 'Create Post',
+          title: 'Feed',
           headerShown: false,
-          // Wir nutzen 'plus-circle' (FontAwesome Name), das passt gut
-          tabBarIcon: ({ color }) => <TabBarIcon name="plus-circle" color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon name="rss" color={color} />, // or list-alt or similar
         }}
       />
+      {/* --------------------------------------------------- */}
       {/* --------------------------------------------------- */}
 
       <Tab.Screen
