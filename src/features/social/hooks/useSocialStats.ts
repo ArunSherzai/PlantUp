@@ -3,6 +3,7 @@ import { db } from '../../../utils/supabase';
 
 export function useSocialStats(userId: string | undefined) {
     const [followersCount, setFollowersCount] = useState(0);
+    const [followingCount, setFollowingCount] = useState(0);
     const [friendsCount, setFriendsCount] = useState(0);
 
     const fetchStats = async () => {
@@ -38,6 +39,9 @@ export function useSocialStats(userId: string | undefined) {
                     mutuals++;
                 }
             });
+            // 5. Following Count
+            setFollowingCount(followingIds.size);
+
             setFriendsCount(mutuals);
 
         } catch (error) {
@@ -49,5 +53,5 @@ export function useSocialStats(userId: string | undefined) {
         fetchStats();
     }, [userId]);
 
-    return { followersCount, friendsCount, refreshStats: fetchStats };
+    return { followersCount, followingCount, friendsCount, refreshStats: fetchStats };
 }

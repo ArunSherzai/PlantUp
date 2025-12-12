@@ -1,9 +1,11 @@
 import React, { useCallback } from 'react';
 import { View, Text, FlatList, Image, TouchableOpacity, Dimensions } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, useRoute, RouteProp } from '@react-navigation/native';
 import { usePlants } from '../../../features/plantlist/hooks/usePlants';
 import GradientIcon from '../../../components/GradientIcon';
+import { RootStackParamList } from '../../../navigation/Root';
+import { useUserStore } from '../../../stores/UserStore';
 
 const { width } = Dimensions.get('window');
 const COLUMN_COUNT = 3;
@@ -13,12 +15,24 @@ const ITEM_WIDTH = (width - (SPACING * (COLUMN_COUNT + 1))) / COLUMN_COUNT;
 export default function UserPlantsScreen() {
     const { theme } = useUnistyles();
     const navigation = useNavigation();
-    const { plants, refreshPlants } = usePlants();
+    const route = useRoute<RouteProp<RootStackParamList, 'UserPlants'>>();
+    const paramsUserId = route.params?.userId;
+
+    const { user: currentUser } = useUserStore();
+    const targetUserId = paramsUserId || currentUser?.id;
+    const isOwner = targetUserId === currentUser?.id;
+
+    // We can fetch the username for the header if it's another user
+    // Or just use generic "User's Plants" if not passed.
+    // Ideally we might want to fetch profile briefly or pass username in params.
+    // For now: "My Plants" vs "Plants"
+
+    const { plants, refreshPlants } = usePlants(targetUserId);
 
     useFocusEffect(
         useCallback(() => {
             refreshPlants();
-        }, [])
+        }, [targetUserId])
     );
 
     const renderItem = ({ item }: { item: any }) => {
@@ -55,7 +69,7 @@ export default function UserPlantsScreen() {
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                     <GradientIcon name="chevron-left" size={24} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>My Plants</Text>
+                <Text style={styles.headerTitle}>{isOwner ? "My Plants" : "Plants"}</Text>
                 <View style={{ width: 24 }} /> {/* Spacer for centering */}
             </View>
 

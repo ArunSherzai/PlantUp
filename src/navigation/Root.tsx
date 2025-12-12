@@ -17,9 +17,11 @@ export type RootStackParamList = {
   Settings: undefined;
   CreatePost: undefined;
   FeedPostDetail: { post: any }; // Using any to match Post interface roughly for now, or import it
-  UserPlants: undefined;
+  UserPlants: { userId?: string };
   Lootbox: { itemName: string };
   MessageDetail: { id: string; name: string; avatar: any };
+  Connections: { initialTab: 'followers' | 'following' };
+  PublicProfile: { userId: string };
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -51,6 +53,8 @@ import FeedPostDetailScreen from '~/screens/Tab/Feed/FeedPostDetailScreen';
 import UserPlantsScreen from '~/screens/Tab/profileScreen/UserPlantsScreen';
 import LootboxScreen from '~/screens/Tab/profileScreen/LootboxScreen';
 import MessageDetailScreen from '~/screens/Tab/directMessages/MessageDetailScreen';
+import ConnectionsScreen from '../screens/Tab/profileScreen/ConnectionsScreen';
+import PublicProfileScreen from '~/screens/Tab/profileScreen/PublicProfileScreen';
 
 export default function RootStack() {
   const { theme } = useUnistyles();
@@ -119,6 +123,16 @@ export default function RootStack() {
         <Stack.Screen
           name="MessageDetail"
           component={MessageDetailScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="Connections"
+          component={ConnectionsScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="PublicProfile"
+          component={PublicProfileScreen}
           options={{ headerShown: false }}
         />
       </Stack.Navigator>

@@ -11,6 +11,8 @@ const iconMap: { [key: string]: keyof typeof FontAwesome6.glyphMap } = {
   Missions: 'list-check',
   'Show Plants': 'seedling',
   Profile: 'user-large',
+  DirectMessages: 'envelope',
+  Feed: 'house',
 };
 
 export default function NavigationBar({ state, descriptors, navigation }: any) {

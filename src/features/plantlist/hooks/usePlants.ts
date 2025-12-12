@@ -3,17 +3,23 @@ import { db } from '../../../utils/supabase';
 import { PlantItem } from '../types/plant.types';
 import { customGradients } from '../constants/plantGradient';
 
-export function usePlants() {
+export function usePlants(userId?: string) {
   const [plants, setPlants] = useState<PlantItem[]>([]);
 
   const refreshPlants = async () => {
-    const { data: userData } = await db.public.auth.getUser();
-    const userId = userData?.user?.id;
+    let targetId = userId;
+
+    if (!targetId) {
+      const { data: userData } = await db.public.auth.getUser();
+      targetId = userData?.user?.id;
+    }
+
+    if (!targetId) return;
 
     const { data, error } = await db.social
       .from('Plants')
       .select('id, nickname, description')
-      .eq('user_id', userId);
+      .eq('user_id', targetId);
 
     if (error) {
       console.log('Reload error:', error);
@@ -33,7 +39,7 @@ export function usePlants() {
 
   useEffect(() => {
     refreshPlants();
-  }, []);
+  }, [userId]);
 
   return { plants, refreshPlants };
 }
