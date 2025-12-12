@@ -9,6 +9,10 @@ type UserProfile = {
   username: string;
   plant_coins: number;
   profile_image?: string;
+  streak_length: number;
+  last_completed_date: string | null;
+  title?: string;
+  titlecolor?: string;
 };
 
 type State = {
@@ -17,6 +21,7 @@ type State = {
   setUser: (user: User | null) => void;
   setProfile: (profile: UserProfile | null) => void;
   addXP: (amount: number) => Promise<void>;
+  updateStreak: (newStreak: number, lastDate: string) => void;
   fetchProfile: () => Promise<void>;
   addPlantCoins: (coins: number) => Promise<void>;
 };
@@ -75,14 +80,14 @@ export const useUserStore = create<State>((set, get) => ({
     // 1. Fetch Gamification Stats
     const statsPromise = db.gamification
       .from('player_stats')
-      .select('xp, level')
+      .select('xp, level, streak_length, last_completed_date')
       .eq('user_id', user.id)
       .single();
 
     // 2. Fetch Username from User Schema
     const userPromise = db.user
       .from('Users')
-      .select('username, plant_coins')
+      .select('username, plant_coins, title, title_color')
       .eq('id', user.id)
       .single();
 
@@ -100,6 +105,10 @@ export const useUserStore = create<State>((set, get) => ({
       level: 1,
       username: userData?.username || 'Gardener',
       plant_coins: userData?.plant_coins || 0,
+      streak_length: 0,
+      last_completed_date: null,
+      title: userData?.title || 'Newbie',
+      titlecolor: userData?.title_color || '#2ecc71',
     };
 
     console.log(finalProfile);
@@ -107,17 +116,21 @@ export const useUserStore = create<State>((set, get) => ({
     if (statsData) {
       finalProfile.xp = statsData.xp || 0;
       finalProfile.level = statsData.level || 1;
+      finalProfile.streak_length = statsData.streak_length || 0;
+      finalProfile.last_completed_date = statsData.last_completed_date || null;
     } else if (statsError && statsError.code === 'PGRST116') {
       console.log('Profile stats not found, creating new player_stats...');
       const { data: newData } = await db.gamification
         .from('player_stats')
-        .insert([{ user_id: user.id, xp: 0, level: 1 }])
+        .insert([{ user_id: user.id, xp: 0, level: 1, streak_length: 0 }])
         .select()
         .single();
 
       if (newData) {
         finalProfile.xp = newData.xp;
         finalProfile.level = newData.level;
+        finalProfile.streak_length = newData.streak_length;
+        finalProfile.last_completed_date = newData.last_completed_date;
       }
     }
 
@@ -134,7 +147,7 @@ export const useUserStore = create<State>((set, get) => ({
     // Optimistic update
     set({ profile: { ...profile, xp: newXP, level: newLevel } });
 
-    // Sync to DB
+    // Sync to DB (Only xp/level update here, streak is handled via RPC usually)
     const { error } = await db.gamification
       .from('player_stats')
       .update({ xp: newXP, level: newLevel })
@@ -144,4 +157,10 @@ export const useUserStore = create<State>((set, get) => ({
       console.error('Failed to update XP:', error);
     }
   },
+
+  updateStreak: (newStreak: number, lastDate: string) => {
+    const { profile } = get();
+    if (!profile) return;
+    set({ profile: { ...profile, streak_length: newStreak, last_completed_date: lastDate } });
+  }
 }));
