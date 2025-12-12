@@ -13,31 +13,43 @@ type UserProfile = {
   last_completed_date: string | null;
   title?: string;
   titlecolor?: string;
+  active_boost_end_time: string | null; // Restored
   plants_count: number;
   followers_count: number;
   following_count: number;
 };
 
+type InventoryItem = {
+  item_id: string;
+  quantity: number;
+};
+
 type State = {
   user: User | null;
   profile: UserProfile | null;
+  inventory: InventoryItem[]; // Restored
   setUser: (user: User | null) => void;
   setProfile: (profile: UserProfile | null) => void;
   addXP: (amount: number) => Promise<void>;
   updateStreak: (newStreak: number, lastDate: string) => void;
   fetchProfile: () => Promise<void>;
+  fetchInventory: () => Promise<void>; // Restored
+  activateBooster: (itemId: string) => Promise<{ success: boolean; message?: string }>; // Restored
   addPlantCoins: (coins: number) => Promise<void>;
 };
 
 export const useUserStore = create<State>((set, get) => ({
   user: null,
   profile: null,
+  inventory: [], // Restored
+
   setUser: (user) => {
     set({ user });
     if (user) {
       get().fetchProfile();
+      get().fetchInventory(); // Restored call
     } else {
-      set({ profile: null });
+      set({ profile: null, inventory: [] });
     }
   },
   setProfile: (profile) => set({ profile }),
@@ -76,6 +88,51 @@ export const useUserStore = create<State>((set, get) => ({
     console.log('Updated user coins:', updatedUser);
   },
 
+  fetchInventory: async () => {
+    const { user } = get();
+    if (!user) return;
+
+    const { data, error } = await db.gamification
+      .from('user_inventory')
+      .select('item_id, quantity')
+      .eq('user_id', user.id);
+
+    if (error) {
+      console.error('Error fetching inventory:', error);
+      return;
+    }
+
+    if (data) {
+      set({ inventory: data });
+    }
+  },
+
+  activateBooster: async (itemId: string) => {
+    const { user, fetchProfile, fetchInventory } = get();
+    if (!user) return { success: false, message: 'User not logged in' };
+
+    try {
+      const { data, error } = await db.public.rpc('use_xp_booster', {
+        p_item_id: itemId,
+      });
+
+      if (error) throw error;
+
+      const result = data as any;
+
+      if (result.success) {
+        // Refresh profile to get new end time and inventory to get new quantity
+        await Promise.all([fetchProfile(), fetchInventory()]);
+        return { success: true };
+      } else {
+        return { success: false, message: result.message };
+      }
+    } catch (e: any) {
+      console.error('Error activating booster:', e);
+      return { success: false, message: e.message || 'Unknown error' };
+    }
+  },
+
   fetchProfile: async () => {
     const { user } = get();
     if (!user) return;
@@ -83,7 +140,7 @@ export const useUserStore = create<State>((set, get) => ({
     // 1. Fetch Gamification Stats
     const statsPromise = db.gamification
       .from('player_stats')
-      .select('xp, level, streak_length, last_completed_date')
+      .select('xp, level, streak_length, last_completed_date, active_boost_end_time') // Added active_boost_end_time
       .eq('user_id', user.id)
       .single();
 
@@ -147,6 +204,7 @@ export const useUserStore = create<State>((set, get) => ({
       plant_coins: userData?.plant_coins || 0,
       streak_length: 0,
       last_completed_date: null,
+      active_boost_end_time: null,
       title: titleInfo?.titlename || 'Newbie',
       titlecolor: titleInfo?.color || '#2ecc71',
       plants_count: plantsResult.count || 0,
@@ -161,6 +219,7 @@ export const useUserStore = create<State>((set, get) => ({
       finalProfile.level = statsData.level || 1;
       finalProfile.streak_length = statsData.streak_length || 0;
       finalProfile.last_completed_date = statsData.last_completed_date || null;
+      finalProfile.active_boost_end_time = statsData.active_boost_end_time || null;
     } else if (statsError && statsError.code === 'PGRST116') {
       console.log('Profile stats not found, creating new player_stats...');
       const { data: newData } = await db.gamification
@@ -174,6 +233,7 @@ export const useUserStore = create<State>((set, get) => ({
         finalProfile.level = newData.level;
         finalProfile.streak_length = newData.streak_length;
         finalProfile.last_completed_date = newData.last_completed_date;
+        // active_boost_end_time is null by default in DB
       }
     }
 

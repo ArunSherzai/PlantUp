@@ -22,6 +22,7 @@ import { db } from '../../../utils/supabase';
 import DraggableBottomSheet from '../../../components/DraggableBottomSheet';
 import { useUserStore } from '../../../stores/UserStore';
 import DailyStreakComponent from '~/features/ShowMissions/components/DailyStreak';
+import BoosterWidget from '~/features/ShowMissions/components/BoosterWidget';
 import { PlantCoinBox } from '../../../components/PlantCoinBox';
 
 
@@ -47,7 +48,7 @@ type UserQuest = {
 };
 
 // --- HELPER --
-const getMultiplier = (streak: number) => {
+const getStreakMultiplier = (streak: number) => {
   if (streak < 10) return 1.0;
   if (streak < 20) return 1.25;
   if (streak < 30) return 1.50;
@@ -61,7 +62,7 @@ export default function ShowMissionsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const { addXP, updateStreak, profile, fetchProfile } = useUserStore();
+  const { addXP, updateStreak, profile, fetchProfile, fetchInventory } = useUserStore();
 
   // --- FETCH DATA ---
   const fetchQuests = useCallback(async () => {
@@ -182,8 +183,15 @@ export default function ShowMissionsScreen() {
     },
   ];
 
+  // --- MULTIPLIER CALCULATION ---
   const currentStreak = profile?.streak_length || 0;
-  const currentMultiplier = getMultiplier(currentStreak);
+  const streakMultiplier = getStreakMultiplier(currentStreak);
+  
+  const boostEndTime = profile?.active_boost_end_time;
+  const isBoostActive = boostEndTime && new Date(boostEndTime) > new Date();
+  const boostMultiplier = isBoostActive ? 0.5 : 0;
+
+  const totalMultiplier = streakMultiplier + boostMultiplier;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -201,6 +209,11 @@ export default function ShowMissionsScreen() {
         <View style={styles.headerWrapper}>
           <View style={{ alignSelf: 'flex-start', marginBottom: 10 }}>
             <Text style={styles.brandText}>PlantUp</Text>
+          </View>
+          
+          {/* Top Right Booster Widget */}
+          <View style={{ position: 'absolute', top: 5, right: 20, zIndex: 100 }}>
+             <BoosterWidget />
           </View>
 
           <MaskedView
@@ -241,7 +254,7 @@ export default function ShowMissionsScreen() {
 
                 contentContainerStyle={{ paddingBottom: height * 0.5 }}
                 showsVerticalScrollIndicator={false}
-                ListHeaderComponent={<MultiplierBanner multiplier={currentMultiplier} />}
+                ListHeaderComponent={<MultiplierBanner multiplier={totalMultiplier} isBoosterActive={!!isBoostActive} />}
                 renderSectionHeader={({ section: { title } }) => (
                   <View style={styles.sectionHeaderContainer}>
                     <Text style={styles.sectionTitle}>{title}</Text>
@@ -268,7 +281,7 @@ export default function ShowMissionsScreen() {
                         quest={item}
                         onClaim={() => handleClaim(item.id)}
                         isLast={false}
-                        streakMultiplier={currentMultiplier}
+                        multiplier={totalMultiplier}
                       />
                     </View>
                   );
@@ -280,6 +293,7 @@ export default function ShowMissionsScreen() {
                       setRefreshing(true);
                       fetchQuests();
                       fetchProfile();
+                      fetchInventory(); // Added to refresh booster data
                     }}
                     tintColor={theme.colors.primary}
                   />
@@ -289,8 +303,7 @@ export default function ShowMissionsScreen() {
           </View>
         </DraggableBottomSheet>
 
-        {/* COIN STATS */}
-        <PlantCoinBox />
+
       </View>
     </GestureHandlerRootView>
   );
@@ -301,12 +314,12 @@ function QuestCard({
   quest,
   onClaim,
   isLast,
-  streakMultiplier,
+  multiplier,
 }: {
   quest: UserQuest;
   onClaim: () => void;
   isLast: boolean;
-  streakMultiplier: number;
+  multiplier: number;
 }) {
   if (!quest || !quest.Quests) return null;
 
@@ -322,7 +335,7 @@ function QuestCard({
   const safeDescription = rawDesc.replace('{{plant_name}}', plantName);
 
   // Multiplier Visuals
-  const hasMultiplier = streakMultiplier > 1.0;
+  const hasMultiplier = multiplier > 1.0;
   // Rot/Orange Gradient Style
   const fireColor = '#FF512F';
 
@@ -332,7 +345,7 @@ function QuestCard({
 
   // Calculate potential XP with multiplier for display
   const baseXP = quest.Quests.xp_reward;
-  const displayXP = Math.floor(baseXP * streakMultiplier);
+  const displayXP = Math.floor(baseXP * multiplier);
 
   return (
     <View style={[styles.card, isClaimed && { opacity: 0.6 }]}>
@@ -410,8 +423,21 @@ function QuestCard({
   );
 }
 
-const MultiplierBanner = ({ multiplier }: { multiplier: number }) => {
+const MultiplierBanner = ({ multiplier, isBoosterActive }: { multiplier: number, isBoosterActive: boolean }) => {
   if (multiplier <= 1.0) return null;
+
+  // Dynamic text
+  let title = "XP Bonus Active! 🔥";
+  let subtitle = `You're earning ${multiplier}x XP on all quests!`;
+
+  if (isBoosterActive && multiplier > 1.5) { 
+      // Both active (e.g. 1.25 streak + 0.5 boost = 1.75)
+      title = "Mega XP Boost! 🚀";
+      subtitle = `Booster & Streak combined: ${multiplier}x XP!`;
+  } else if (isBoosterActive) {
+      title = "Fertilizer Boost Active! 🌱";
+      subtitle = `Your values are boosted by +0.5x!`;
+  }
 
   return (
     <View style={styles.bannerContainer}>
@@ -426,8 +452,8 @@ const MultiplierBanner = ({ multiplier }: { multiplier: number }) => {
           <FontAwesome6 name="fire" size={16} color="white" solid />
         </View>
         <View style={{ flex: 1, paddingRight: 10 }}>
-          <Text style={styles.bannerTitle}>Streak Bonus Active!</Text>
-          <Text style={styles.bannerSubtitle}>You are earning {multiplier}x XP on all quests.</Text>
+          <Text style={styles.bannerTitle}>{title}</Text>
+          <Text style={styles.bannerSubtitle}>{subtitle}</Text>
         </View>
         <Text style={styles.bannerMultiplier}>x{multiplier}</Text>
       </View>
