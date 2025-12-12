@@ -110,20 +110,35 @@ export const useUserStore = create<State>((set, get) => ({
       .select('*', { count: 'exact', head: true })
       .eq('follower_id', user.id);
 
-    const [statsResult, userResult, plantsResult, followersResult, followingResult] = await Promise.all([
+    // 4. Fetch Title (Selected)
+    const titlePromise = db.gamification
+      .from('User_titles')
+      // Implicit join with Titles table using foreign key
+      .select('selected, Titles (titlename, color)')
+      .eq('userid', user.id)
+      .eq('selected', true)
+      .maybeSingle(); // Use maybeSingle to avoid error if no title selected
+
+    const [statsResult, userResult, plantsResult, followersResult, followingResult, titleResult] = await Promise.all([
       statsPromise,
       userPromise,
       plantsPromise,
       followersPromise,
-      followingPromise
+      followingPromise,
+      titlePromise
     ]);
 
     console.log('Stats Result:', statsResult);
     console.log('User Result:', userResult);
+    console.log('Title Result:', titleResult);
 
     const statsData = statsResult.data;
     const statsError = statsResult.error;
-    const userData = userResult.data;
+    let userData = userResult.data;
+    const titleData = titleResult.data;
+
+    // Helper to extract title info safely
+    const titleInfo = titleData?.Titles as unknown as { titlename: string; color: string } | null;
 
     let finalProfile: UserProfile = {
       xp: 0,
@@ -132,8 +147,8 @@ export const useUserStore = create<State>((set, get) => ({
       plant_coins: userData?.plant_coins || 0,
       streak_length: 0,
       last_completed_date: null,
-      title: userData?.title || 'Newbie',
-      titlecolor: userData?.title_color || '#2ecc71',
+      title: titleInfo?.titlename || 'Newbie',
+      titlecolor: titleInfo?.color || '#2ecc71',
       plants_count: plantsResult.count || 0,
       followers_count: followersResult.count || 0,
       following_count: followingResult.count || 0,
@@ -162,30 +177,33 @@ export const useUserStore = create<State>((set, get) => ({
       }
     }
 
-    // Handle User Data Logic (Create if missing)
-    if (!userData) {
-      console.log('User record not found, creating new User...');
-      const defaultUsername = user.email?.split('@')[0] || 'Gardener';
+    // Retry fetching user data (Supabase trigger might verify creation)
+    let retries = 5;
+    while (!userData && retries > 0) {
+      console.log(`User record not found, retrying in 1s... (${retries} attempts left)`);
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      const { data: newUser, error: createError } = await db.user
+      const retryResult = await db.user
         .from('Users')
-        .insert([{
-          id: user.id,
-          username: defaultUsername,
-          plant_coins: 0
-        }])
-        .select()
+        .select('username, plant_coins')
+        .eq('id', user.id)
         .single();
 
-      if (createError) {
-        console.error('Failed to create new user record:', createError);
-      } else if (newUser) {
-        finalProfile.username = newUser.username;
-        finalProfile.plant_coins = newUser.plant_coins;
-        finalProfile.title = newUser.title;
-        finalProfile.titlecolor = newUser.title_color;
+      userData = retryResult.data;
+      if (retryResult.error && retryResult.error.code !== 'PGRST116') {
+        console.error('Error retrying user fetch:', retryResult.error);
       }
+      retries--;
     }
+
+    if (!userData) {
+      console.warn('User record still not found after retries.');
+    }
+
+    // Check if title was fetched in retry or initially? 
+    // Title is fetched separate from User retry loop above, so we rely on titleResult
+    // which was fetched in parallel. If user didn't exist, title likely didn't either.
+    // If needed, we could retry title fetch here too, but for now we rely on defaults.
 
     set({ profile: finalProfile });
   },

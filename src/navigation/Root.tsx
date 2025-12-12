@@ -22,6 +22,7 @@ export type RootStackParamList = {
   MessageDetail: { id: string; name: string; avatar: any };
   Connections: { initialTab: 'followers' | 'following'; userId?: string };
   PublicProfile: { userId: string };
+  DirectMessages: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -55,6 +56,7 @@ import LootboxScreen from '~/screens/Tab/profileScreen/LootboxScreen';
 import MessageDetailScreen from '~/screens/Tab/directMessages/MessageDetailScreen';
 import ConnectionsScreen from '../screens/Tab/profileScreen/ConnectionsScreen';
 import PublicProfileScreen from '~/screens/Tab/profileScreen/PublicProfileScreen';
+import DirectMessagesScreen from '~/screens/Tab/directMessages/DirectMessagesScreen';
 import SpriteComponent from '~/components/SpriteComponent';
 import { View } from 'react-native';
 
@@ -136,6 +138,11 @@ export default function RootStack() {
           <Stack.Screen
             name="PublicProfile"
             component={PublicProfileScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="DirectMessages"
+            component={DirectMessagesScreen}
             options={{ headerShown: false }}
           />
         </Stack.Navigator>
