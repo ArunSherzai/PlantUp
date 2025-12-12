@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Dimensions, Image } from 'react-native';
+import { View, Text, TouchableOpacity, Dimensions } from 'react-native';
+import { Image } from 'expo-image';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../../../navigation/Root';
@@ -44,7 +45,7 @@ export default function LootboxScreen() {
                             <Image
                                 source={require('../../../../assets/animations/opening lootbox.gif')}
                                 style={styles.gifStyle}
-                                resizeMode="contain"
+                                contentFit="contain"
                             />
                             <Text style={styles.stateText}>Opening...</Text>
                         </View>
@@ -54,7 +55,7 @@ export default function LootboxScreen() {
                             <Image
                                 source={require('../../../../assets/animations/gettingitem.gif')}
                                 style={styles.gifStyle}
-                                resizeMode="contain"
+                                contentFit="contain"
                             />
                             <Text style={styles.stateText}>New Item:</Text>
                             <Text style={styles.itemNameText}>{itemName}</Text>

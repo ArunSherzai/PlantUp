@@ -1,13 +1,13 @@
 
 import React from 'react';
-import { Text, TextStyle } from 'react-native';
+import { Text, TextStyle, StyleProp } from 'react-native';
 import MaskedView from '@react-native-masked-view/masked-view';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useUnistyles } from 'react-native-unistyles';
 
 interface GradientTextProps {
     text: string | number;
-    style?: TextStyle;
+    style?: StyleProp<TextStyle>;
 }
 
 export default function GradientText({ text, style }: GradientTextProps) {

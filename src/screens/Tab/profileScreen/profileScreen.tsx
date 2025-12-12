@@ -1,30 +1,59 @@
-import React, { useCallback } from 'react';
-import { View, ActivityIndicator } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, Image, ScrollView, TouchableOpacity, Alert, ActivityIndicator, StyleSheet } from 'react-native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useUnistyles } from 'react-native-unistyles';
+import { LinearGradient } from 'expo-linear-gradient';
+import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+
 import { useUserStore } from '../../../stores/UserStore';
-import UserProfile from '../../../components/UserProfile';
+import DraggableBottomSheet from '../../../components/DraggableBottomSheet';
+import GradientIcon from '../../../components/GradientIcon';
+import GradientText from '../../../components/GradientText';
+import RankCard from '../../../components/RankCard';
+import RewardItem from '../../../components/RewardItem';
+import { REWARDS, getRankName } from '../../../utils/leveling';
+import PostListTab from './components/PostListTab';
 
 export default function ProfileScreen() {
-  const { user, fetchProfile } = useUserStore();
+  const { theme } = useUnistyles();
+  const navigation = useNavigation<any>();
+  const { user, profile, fetchProfile } = useUserStore();
+  const [activeTab, setActiveTab] = useState('leveling');
 
   useFocusEffect(
     useCallback(() => {
       if (user) fetchProfile();
-    }, [user])
+    }, [user, fetchProfile])
   );
 
   if (!user) {
-    return <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator /></View>;
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
   }
 
-  return <UserProfile userId={user.id} isOwner={true} />;
-}
+  // Derived Values
+  const currentLevel = profile?.level || 1;
+  const currentXP = profile?.xp || 0;
+  const currentRank = getRankName(currentLevel);
+
   // Placeholder data for stats
   const stats = [
-    { label: 'Plants', value: 9 },
+    { label: 'Plants', value: profile?.plants_count || 0 },
     { label: 'Coins', value: profile?.plant_coins || 0 },
-    { label: 'Friends', value: 14 },
-    { label: 'Follower', value: '4.000' },
+    {
+      label: 'Following',
+      value: profile?.following_count || 0,
+      onPress: () => navigation.navigate('Connections', { initialTab: 'following' })
+    },
+    {
+      label: 'Follower',
+      value: profile?.followers_count || 0,
+      onPress: () => navigation.navigate('Connections', { initialTab: 'followers' })
+    },
   ];
 
   const handleClaimReward = (rewardTitle: string) => {
@@ -36,15 +65,17 @@ export default function ProfileScreen() {
       case 'leveling':
         return (
           <>
-            {/* Plants Button */}
-            <TouchableOpacity style={styles.plantsButton}>
+            <TouchableOpacity
+              style={[styles.plantsButton, { backgroundColor: theme.colors.background }]}
+              onPress={() => navigation.navigate('UserPlants', { userId: user.id })}
+            >
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <Image
                   source={require('../../../../assets/images/ProfilePlantIcon.png')}
                   style={{ width: 24, height: 24, marginRight: 8 }}
                   resizeMode="contain"
                 />
-                <Text style={styles.plantsButtonText}>Plants</Text>
+                <Text style={[styles.plantsButtonText, { color: theme.colors.text }]}>Plants</Text>
               </View>
               <GradientIcon name="chevron-right" size={14} />
             </TouchableOpacity>
@@ -53,7 +84,7 @@ export default function ProfileScreen() {
             <RankCard level={currentLevel} xp={currentXP} rankName={currentRank} />
 
             {/* Rewards Section */}
-            <Text style={styles.sectionTitle}>Rewards</Text>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Rewards</Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -73,27 +104,25 @@ export default function ProfileScreen() {
       case 'posts':
         return (
           <>
-            <Text style={styles.sectionTitle}>My Posts</Text>
-            <View style={styles.comingSoonContainer}>
-              <Text style={styles.comingSoonText}>Coming Soon</Text>
-            </View>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>My Posts</Text>
+            <PostListTab userId={user.id} emptyMessage="You haven't posted anything yet." />
           </>
         );
       case 'likes':
         return (
           <>
-            <Text style={styles.sectionTitle}>Liked Posts</Text>
-            <View style={styles.comingSoonContainer}>
-              <Text style={styles.comingSoonText}>Coming Soon</Text>
-            </View>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Liked Posts</Text>
+            <PostListTab likedBy={user.id} emptyMessage="You haven't liked any posts yet." />
           </>
         );
+      default:
+        return null;
     }
   };
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         {/* Header Background */}
         <View style={styles.headerBg}>
           <Image
@@ -112,16 +141,16 @@ export default function ProfileScreen() {
                 <FontAwesome6 name="chevron-left" size={20} color={theme.colors.textDark} />
               </TouchableOpacity>
 
-              {/* Settings Button öffnet das Modal */}
+              {/* Settings Button */}
               <TouchableOpacity
                 style={styles.iconButton}
-                onPress={() => navigation.navigate('Settings' as never)}
+                onPress={() => navigation.navigate('Settings')}
               >
                 <FontAwesome6 name="gear" size={24} color={theme.colors.textDark} />
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.headerTitle}>
+            <Text style={[styles.headerTitle, { color: theme.colors.textDark }]}>
               Your{'\n'}Growing{'\n'}Profile!
             </Text>
           </View>
@@ -134,27 +163,27 @@ export default function ProfileScreen() {
             showsVerticalScrollIndicator={false}>
 
             {/* Profile Card */}
-            <View style={styles.profileCard}>
+            <View style={[styles.profileCard, { backgroundColor: theme.colors.background }]}>
               {/* Top Row: Avatar + Name/Title */}
               <View style={styles.topRow}>
                 <View style={styles.avatarContainer}>
                   <Image
                     source={require('../../../../assets/images/Profilbild.png')}
-                    style={styles.avatar}
+                    style={[styles.avatar, { backgroundColor: theme.colors.greyedOut }]}
                   />
                 </View>
 
                 <View style={styles.userInfo}>
                   <View style={styles.nameRow}>
-                    <Text style={styles.userName}>
-                      {profile?.username.split('@')[0] || 'Gardener'}
+                    <Text style={[styles.userName, { color: theme.colors.text }]}>
+                      {profile?.username || user?.email?.split('@')[0] || 'Gardener'}
                     </Text>
                     <GradientIcon name="pen" size={14} style={{ marginLeft: 8 }} />
                   </View>
                   <Text
                     style={{
                       fontSize: 14,
-                      color: profile?.titlecolor,
+                      color: profile?.titlecolor || theme.colors.text,
                       marginTop: 4,
                       fontWeight: '600',
                     }}>
@@ -164,23 +193,26 @@ export default function ProfileScreen() {
               </View>
 
               {/* Bio Section (Below Top Row) */}
-              <Text style={styles.userBio}>
-                Coole bio haha... this is where the bio goes under the profile picture.
+              <Text style={[styles.userBio, { color: theme.colors.text }]}>
+                Coole bio haha...
               </Text>
             </View>
 
             {/* Stats Row */}
-            <View style={styles.statsRow}>
-              {stats.map((stat, index) => (
-                <View key={index} style={styles.statItem}>
-                  <GradientText text={stat.value} style={styles.statValue} />
-                  <Text style={styles.statLabel}>{stat.label}</Text>
-                </View>
-              ))}
+            <View style={[styles.statsRow, { backgroundColor: theme.colors.background }]}>
+              {stats.map((stat, index) => {
+                const Wrapper = stat.onPress ? TouchableOpacity : View;
+                return (
+                  <Wrapper key={index} style={styles.statItem} onPress={stat.onPress}>
+                    <GradientText text={String(stat.value)} style={[styles.statValue, { color: theme.colors.primary }]} />
+                    <Text style={[styles.statLabel, { color: theme.colors.typography }]}>{stat.label}</Text>
+                  </Wrapper>
+                );
+              })}
             </View>
 
             {/* Action Buttons */}
-            <View style={styles.actionRow}>
+            <View style={[styles.actionRow, { backgroundColor: theme.colors.background }]}>
               <TouchableOpacity
                 style={styles.actionButton}
                 onPress={() => setActiveTab('leveling')}>
@@ -235,19 +267,14 @@ export default function ProfileScreen() {
 
           </ScrollView>
         </DraggableBottomSheet>
-
-        {/* SETTINGS MODAL */}
-
-
       </View>
     </GestureHandlerRootView>
   );
 }
 
-const styles = StyleSheet.create((theme) => ({
+const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
   },
   headerBg: {
     height: '100%',
@@ -262,21 +289,20 @@ const styles = StyleSheet.create((theme) => ({
     position: 'absolute',
     top: 50,
     left: 20,
-    right: 20, // Damit wir die volle Breite nutzen können
+    right: 20,
   },
   headerTopRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between', // Icons links und rechts
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
   },
   iconButton: {
-    padding: 8, // Größere Hitbox
+    padding: 8,
   },
   headerTitle: {
     fontSize: 42,
     fontWeight: '900',
-    color: theme.colors.textDark,
     lineHeight: 46,
   },
   sheetContent: {
@@ -284,10 +310,8 @@ const styles = StyleSheet.create((theme) => ({
     paddingTop: 20,
   },
   profileCard: {
-    backgroundColor: theme.colors.background,
     borderRadius: 20,
     padding: 20,
-    // CHANGED: Use column so Bio sits under TopRow
     flexDirection: 'column',
     alignItems: 'flex-start',
     shadowColor: '#000',
@@ -298,11 +322,10 @@ const styles = StyleSheet.create((theme) => ({
     marginBottom: 20,
   },
   topRow: {
-    // NEW: Wraps Avatar and Name info in a row
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
-    marginBottom: 10, // Adds space between the avatar row and the bio
+    marginBottom: 10,
   },
   avatarContainer: {
     marginRight: 20,
@@ -311,7 +334,6 @@ const styles = StyleSheet.create((theme) => ({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: theme.colors.greyedOut,
   },
   userInfo: {
     flex: 1,
@@ -324,20 +346,16 @@ const styles = StyleSheet.create((theme) => ({
   userName: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: theme.colors.text,
   },
-
   userBio: {
     fontSize: 14,
-    color: theme.colors.text,
     lineHeight: 20,
-    marginTop: 5, // Extra spacing for the bio
+    marginTop: 5,
   },
   actionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 20,
-    backgroundColor: theme.colors.background,
     borderRadius: 15,
     padding: 15,
     shadowColor: '#000',
@@ -360,7 +378,6 @@ const styles = StyleSheet.create((theme) => ({
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: theme.colors.background,
     borderRadius: 20,
     padding: 20,
     marginBottom: 15,
@@ -376,15 +393,12 @@ const styles = StyleSheet.create((theme) => ({
   statValue: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: theme.colors.primary,
   },
   statLabel: {
     fontSize: 12,
-    color: theme.colors.typography,
     marginTop: 2,
   },
   plantsButton: {
-    backgroundColor: theme.colors.background,
     borderRadius: 15,
     padding: 15,
     flexDirection: 'row',
@@ -400,12 +414,10 @@ const styles = StyleSheet.create((theme) => ({
   plantsButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: theme.colors.text,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: theme.colors.text,
     marginTop: 10,
     marginBottom: 10,
   },
@@ -414,19 +426,16 @@ const styles = StyleSheet.create((theme) => ({
     marginBottom: 250,
   },
   comingSoonContainer: {
-    backgroundColor: theme.colors.surface + 'B3', // 70% opacity
     borderRadius: 15,
     padding: 30,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: theme.colors.greyedOut,
     borderStyle: 'dashed',
   },
   comingSoonText: {
     fontSize: 16,
-    color: theme.colors.typography,
     fontStyle: 'italic',
   },
-}));
+});

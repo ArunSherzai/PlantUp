@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Image, FlatList, Dimensions, StatusBar, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, FlatList, TextInput, Image, Dimensions, useWindowDimensions, StatusBar } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
-import { StackScreenProps } from '@react-navigation/stack';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../../../navigation/Root';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useConnections } from '../../../features/social/hooks/useConnections';
 import { useUserStore } from '../../../stores/UserStore';
 
-type Props = StackScreenProps<RootStackParamList, 'Connections'>;
+type ConnectionsRouteProp = RouteProp<RootStackParamList, 'Connections'>;
+type ConnectionsNavigationProp = StackNavigationProp<RootStackParamList>;
 
 type UserConnection = {
     id: string;
@@ -187,14 +189,24 @@ const styles = StyleSheet.create((theme: any) => ({
 
 // ... (keep styles) 
 
-export default function ConnectionsScreen({ navigation, route }: Props) {
-    const { initialTab } = route.params;
+export default function ConnectionsScreen() {
     const { theme } = useUnistyles();
+    const navigation = useNavigation<any>();
+    const route = useRoute<ConnectionsRouteProp>();
+    // Get params
+    const { initialTab, userId } = route.params || {};
+
+    const layout = useWindowDimensions();
+    const [index, setIndex] = useState(0);
+
     const [activeTab, setActiveTab] = useState<'followers' | 'following'>(initialTab);
     const [searchQuery, setSearchQuery] = useState('');
 
     // Real Data Hook
-    const { followers, following, loading, refreshConnections, followUser, unfollowUser } = useConnections();
+    const { user } = useUserStore();
+    const { followers, following, loading, refreshConnections, followUser, unfollowUser } = useConnections(userId);
+
+    const isOwner = !userId || userId === user?.id;
 
     // Transform data for UI
     const getStatus = (userId: string, isFollowerTab: boolean): 'following' | 'not_following' | 'friends' => {
@@ -268,38 +280,40 @@ export default function ConnectionsScreen({ navigation, route }: Props) {
                     </View>
                 </View>
 
-                <View style={styles.actionButtons}>
-                    {activeTab === 'followers' && (
-                        <TouchableOpacity style={styles.removeButton}>
-                            <Text style={styles.removeButtonText}>Remove</Text>
-                        </TouchableOpacity>
-                    )}
+                {isOwner && (
+                    <View style={styles.actionButtons}>
+                        {activeTab === 'followers' && (
+                            <TouchableOpacity style={styles.removeButton}>
+                                <Text style={styles.removeButtonText}>Remove</Text>
+                            </TouchableOpacity>
+                        )}
 
-                    <TouchableOpacity
-                        style={[styles.mainButton, { backgroundColor: buttonConfig.bg }]}
-                        onPress={async () => {
-                            if (activeTab === 'followers') {
-                                // In Followers list
-                                if (item.status === 'not_following') {
-                                    // Action: Follow Back
-                                    await followUser(item.id);
+                        <TouchableOpacity
+                            style={[styles.mainButton, { backgroundColor: buttonConfig.bg }]}
+                            onPress={async () => {
+                                if (activeTab === 'followers') {
+                                    // In Followers list
+                                    if (item.status === 'not_following') {
+                                        // Action: Follow Back
+                                        await followUser(item.id);
+                                    } else {
+                                        // Action: Following/Friends -> Unfollow
+                                        // Design choice: Does clicking "Following" unfollow? Usually yes, or opens a modal.
+                                        // For now, simple toggle:
+                                        await unfollowUser(item.id);
+                                    }
                                 } else {
-                                    // Action: Following/Friends -> Unfollow
-                                    // Design choice: Does clicking "Following" unfollow? Usually yes, or opens a modal.
-                                    // For now, simple toggle:
+                                    // In Following list
+                                    // Action: Check if we are following (we are, since it's the following list)
+                                    // So action is Unfollow
                                     await unfollowUser(item.id);
                                 }
-                            } else {
-                                // In Following list
-                                // Action: Check if we are following (we are, since it's the following list)
-                                // So action is Unfollow
-                                await unfollowUser(item.id);
-                            }
-                        }}
-                    >
-                        <Text style={styles.mainButtonText}>{buttonConfig.text}</Text>
-                    </TouchableOpacity>
-                </View>
+                            }}
+                        >
+                            <Text style={styles.mainButtonText}>{buttonConfig.text}</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
             </TouchableOpacity>
         );
     };

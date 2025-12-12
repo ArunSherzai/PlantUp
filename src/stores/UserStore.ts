@@ -13,6 +13,9 @@ type UserProfile = {
   last_completed_date: string | null;
   title?: string;
   titlecolor?: string;
+  plants_count: number;
+  followers_count: number;
+  following_count: number;
 };
 
 type State = {
@@ -87,11 +90,33 @@ export const useUserStore = create<State>((set, get) => ({
     // 2. Fetch Username from User Schema
     const userPromise = db.user
       .from('Users')
-      .select('username, plant_coins, title, title_color')
+      .select('username, plant_coins')
       .eq('id', user.id)
       .single();
 
-    const [statsResult, userResult] = await Promise.all([statsPromise, userPromise]);
+    // 3. Fetch Counts
+    const plantsPromise = db.social
+      .from('Plants')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id);
+
+    const followersPromise = db.social
+      .from('follows')
+      .select('*', { count: 'exact', head: true })
+      .eq('following_id', user.id);
+
+    const followingPromise = db.social
+      .from('follows')
+      .select('*', { count: 'exact', head: true })
+      .eq('follower_id', user.id);
+
+    const [statsResult, userResult, plantsResult, followersResult, followingResult] = await Promise.all([
+      statsPromise,
+      userPromise,
+      plantsPromise,
+      followersPromise,
+      followingPromise
+    ]);
 
     console.log('Stats Result:', statsResult);
     console.log('User Result:', userResult);
@@ -103,12 +128,15 @@ export const useUserStore = create<State>((set, get) => ({
     let finalProfile: UserProfile = {
       xp: 0,
       level: 1,
-      username: userData?.username || 'Gardener',
+      username: userData?.username || user.email?.split('@')[0] || 'Gardener',
       plant_coins: userData?.plant_coins || 0,
       streak_length: 0,
       last_completed_date: null,
       title: userData?.title || 'Newbie',
       titlecolor: userData?.title_color || '#2ecc71',
+      plants_count: plantsResult.count || 0,
+      followers_count: followersResult.count || 0,
+      following_count: followingResult.count || 0,
     };
 
     console.log(finalProfile);
@@ -131,6 +159,31 @@ export const useUserStore = create<State>((set, get) => ({
         finalProfile.level = newData.level;
         finalProfile.streak_length = newData.streak_length;
         finalProfile.last_completed_date = newData.last_completed_date;
+      }
+    }
+
+    // Handle User Data Logic (Create if missing)
+    if (!userData) {
+      console.log('User record not found, creating new User...');
+      const defaultUsername = user.email?.split('@')[0] || 'Gardener';
+
+      const { data: newUser, error: createError } = await db.user
+        .from('Users')
+        .insert([{
+          id: user.id,
+          username: defaultUsername,
+          plant_coins: 0
+        }])
+        .select()
+        .single();
+
+      if (createError) {
+        console.error('Failed to create new user record:', createError);
+      } else if (newUser) {
+        finalProfile.username = newUser.username;
+        finalProfile.plant_coins = newUser.plant_coins;
+        finalProfile.title = newUser.title;
+        finalProfile.titlecolor = newUser.title_color;
       }
     }
 

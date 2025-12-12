@@ -10,10 +10,6 @@ import { useSocialStats } from '../features/social/hooks/useSocialStats';
 import { usePlants } from '../features/plantlist/hooks/usePlants';
 import { usePosts } from '../hooks/usePosts';
 import { useConnections } from '../features/social/hooks/useConnections';
-import { usePlantTipSystem } from '../hooks/usePlantTipSystem';
-import { useTipStore } from '../stores/TipStore';
-import { getRandomGeneralTip } from '../utils/tipResolver';
-import { saveTip } from '../utils/tipHistory';
 import MasonryFeedGrid from './MasonryFeedGrid';
 import DraggableBottomSheet from './DraggableBottomSheet';
 import { GestureHandlerRootView, ScrollView } from 'react-native-gesture-handler';
@@ -47,32 +43,9 @@ export default function UserProfile({ userId, isOwner }: Props) {
     const { posts: likedPosts, loading: likedPostsLoading, refreshPosts: refreshLikedPosts } = usePosts({ likedBy: userId });
 
     // For Follow/Unfollow logic if looking at someone else
-    const { following, followUser, unfollowUser, refreshConnections } = useConnections();
+    const { following, followUser, unfollowUser, refreshConnections } = useConnections(userId);
 
-    // Tip System Imports
-    const { triggerManualTip, checkPlantHealth } = usePlantTipSystem();
 
-    const onRunTestSequence = () => {
-        const randomTip = getRandomGeneralTip();
-        useTipStore.getState().setActiveTip(randomTip);
-        saveTip(randomTip);
-
-        setTimeout(() => {
-            const plantTip = {
-                message: "Your Monstera Deliciosa is looking thirsty! (Test)",
-                severity: 'warning' as const
-            };
-            useTipStore.getState().setActiveTip(plantTip);
-            saveTip(plantTip);
-        }, 4000);
-    };
-
-    const handleScanTips = async () => {
-        const found = await checkPlantHealth();
-        if (!found) {
-            Alert.alert("All Good!", "Your plants look happy and healthy.");
-        }
-    };
 
 
     const [activeTab, setActiveTab] = React.useState<'leveling' | 'posts' | 'likes'>('leveling');
@@ -104,8 +77,8 @@ export default function UserProfile({ userId, isOwner }: Props) {
     const stats = [
         { label: 'Plants', value: plants.length, onPress: () => navigation.navigate('UserPlants', { userId }) },
         { label: 'Coins', value: profile?.plant_coins || 0 },
-        { label: 'Following', value: followingCount, onPress: () => navigation.navigate('Connections', { initialTab: 'following' }) }, // TODO: Pass userId
-        { label: 'Follower', value: followersCount, onPress: () => navigation.navigate('Connections', { initialTab: 'followers' }) }, // TODO: Pass userId
+        { label: 'Following', value: followingCount, onPress: () => navigation.navigate('Connections', { initialTab: 'following', userId }) },
+        { label: 'Follower', value: followersCount, onPress: () => navigation.navigate('Connections', { initialTab: 'followers', userId }) },
     ];
 
     const renderContent = () => {
@@ -127,39 +100,7 @@ export default function UserProfile({ userId, isOwner }: Props) {
                                     <GradientIcon name="chevron-right" size={14} />
                                 </TouchableOpacity>
 
-                                {/* Test Buttons only for owner */}
-                                <TouchableOpacity
-                                    style={[styles.plantsButton, { marginTop: 10 }]}
-                                    onPress={onRunTestSequence}
-                                >
-                                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                        <FontAwesome6 name="vial" size={24} color={theme.colors.primary} style={{ marginRight: 8 }} />
-                                        <Text style={styles.plantsButtonText}>Test Tips (Random then Plant)</Text>
-                                    </View>
-                                    <GradientIcon name="chevron-right" size={14} />
-                                </TouchableOpacity>
 
-                                <TouchableOpacity
-                                    style={[styles.plantsButton, { marginTop: 10 }]}
-                                    onPress={() => navigation.navigate('Lootbox', { itemName: 'Test Box' })}
-                                >
-                                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                        <FontAwesome6 name="gift" size={24} color={theme.colors.primary} style={{ marginRight: 8 }} />
-                                        <Text style={styles.plantsButtonText}>Test Lootbox</Text>
-                                    </View>
-                                    <GradientIcon name="chevron-right" size={14} />
-                                </TouchableOpacity>
-
-                                <TouchableOpacity
-                                    style={[styles.plantsButton, { marginTop: 10 }]}
-                                    onPress={handleScanTips}
-                                >
-                                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                        <FontAwesome6 name="magnifying-glass" size={24} color={theme.colors.primary} style={{ marginRight: 8 }} />
-                                        <Text style={styles.plantsButtonText}>Scan for Tips (Real Data)</Text>
-                                    </View>
-                                    <GradientIcon name="chevron-right" size={14} />
-                                </TouchableOpacity>
                             </>
                         )}
                         {!isCurrentUser && plants.length > 0 && (
@@ -291,7 +232,7 @@ export default function UserProfile({ userId, isOwner }: Props) {
                                 key={index}
                                 style={styles.statItem}
                                 onPress={stat.onPress}
-                                disabled={!stat.onPress || !isCurrentUser} // Disable nav for other users for now
+                                disabled={!stat.onPress}
                             >
                                 <GradientText text={stat.value} style={styles.statValue} />
                                 <Text style={styles.statLabel}>{stat.label}</Text>

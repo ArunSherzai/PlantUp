@@ -18,10 +18,14 @@ import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { useNavigation } from '@react-navigation/native';
 import { db } from '../../../utils/supabase';
 import { useUserStore } from '../../../stores/UserStore';
+import { useTipStore } from '../../../stores/TipStore';
+import { usePlantTipSystem } from '../../../hooks/usePlantTipSystem';
+import { getRandomGeneralTip } from '../../../utils/tipResolver';
+import { saveTip } from '../../../utils/tipHistory';
 
 export default function SettingsScreen() {
     const { theme } = useUnistyles();
-    const navigation = useNavigation();
+    const navigation = useNavigation<any>();
     const { user, profile, fetchProfile } = useUserStore();
 
 
@@ -32,6 +36,31 @@ export default function SettingsScreen() {
 
     const [loadingUser, setLoadingUser] = useState(false);
     const [loadingPw, setLoadingPw] = useState(false);
+
+    // Test Logic moved from UserProfile
+    const { triggerManualTip, checkPlantHealth } = usePlantTipSystem();
+
+    const onRunTestSequence = () => {
+        const randomTip = getRandomGeneralTip();
+        useTipStore.getState().setActiveTip(randomTip);
+        saveTip(randomTip);
+
+        setTimeout(() => {
+            const plantTip = {
+                message: "Your Monstera Deliciosa is looking thirsty! (Test)",
+                severity: 'warning' as const
+            };
+            useTipStore.getState().setActiveTip(plantTip);
+            saveTip(plantTip);
+        }, 4000);
+    };
+
+    const handleScanTips = async () => {
+        const found = await checkPlantHealth();
+        if (!found) {
+            Alert.alert("All Good!", "Your plants look happy and healthy.");
+        }
+    };
 
     // Use UnistylesRuntime.themeName directly for truth to avoid sync issues
     const isDarkMode = UnistylesRuntime.themeName === 'dark';
@@ -276,6 +305,26 @@ export default function SettingsScreen() {
                         </View>
                     )}
 
+                    {/* DEVELOPER TOOLS */}
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Developer Tools</Text>
+
+                        <TouchableOpacity style={styles.devButton} onPress={onRunTestSequence}>
+                            <FontAwesome6 name="vial" size={16} color={theme.colors.primary} style={{ marginRight: 10 }} />
+                            <Text style={styles.label}>Test Tips (Random then Plant)</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity style={styles.devButton} onPress={() => navigation.navigate('Lootbox', { itemName: 'Test Box' })}>
+                            <FontAwesome6 name="gift" size={16} color={theme.colors.primary} style={{ marginRight: 10 }} />
+                            <Text style={styles.label}>Test Lootbox</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity style={styles.devButton} onPress={handleScanTips}>
+                            <FontAwesome6 name="magnifying-glass" size={16} color={theme.colors.primary} style={{ marginRight: 10 }} />
+                            <Text style={styles.label}>Scan for Tips (Real Data)</Text>
+                        </TouchableOpacity>
+                    </View>
+
                     {/* SIGN OUT */}
                     <TouchableOpacity style={styles.dangerButton} onPress={handleSignOut}>
                         <FontAwesome6 name="arrow-right-from-bracket" color="#fff" size={18} style={{ marginRight: 8 }} />
@@ -398,5 +447,12 @@ const styles = StyleSheet.create((theme: any) => ({
         color: "#fff",
         fontWeight: "bold",
         fontSize: 16,
+    },
+    devButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#EEE',
     },
 }));

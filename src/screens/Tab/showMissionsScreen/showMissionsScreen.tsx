@@ -22,6 +22,7 @@ import { db } from '../../../utils/supabase';
 import DraggableBottomSheet from '../../../components/DraggableBottomSheet';
 import { useUserStore } from '../../../stores/UserStore';
 import DailyStreakComponent from '~/features/ShowMissions/components/DailyStreak';
+import { PlantCoinBox } from '../../../components/PlantCoinBox';
 
 
 const { height, width } = Dimensions.get('window');
@@ -287,6 +288,9 @@ export default function ShowMissionsScreen() {
             )}
           </View>
         </DraggableBottomSheet>
+
+        {/* COIN STATS */}
+        <PlantCoinBox />
       </View>
     </GestureHandlerRootView>
   );

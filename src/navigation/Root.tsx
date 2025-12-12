@@ -20,7 +20,7 @@ export type RootStackParamList = {
   UserPlants: { userId?: string };
   Lootbox: { itemName: string };
   MessageDetail: { id: string; name: string; avatar: any };
-  Connections: { initialTab: 'followers' | 'following' };
+  Connections: { initialTab: 'followers' | 'following'; userId?: string };
   PublicProfile: { userId: string };
 };
 

@@ -9,22 +9,24 @@ export type ConnectionUser = {
     avatar_url?: string; // Optional
 };
 
-export function useConnections() {
+export function useConnections(targetUserId?: string) {
     const { user } = useUserStore();
     const [followers, setFollowers] = useState<ConnectionUser[]>([]);
     const [following, setFollowing] = useState<ConnectionUser[]>([]);
     const [loading, setLoading] = useState(false);
 
+    const activeUserId = targetUserId || user?.id;
+
     const fetchConnections = async () => {
-        if (!user) return;
+        if (!user || !activeUserId) return;
         setLoading(true);
         try {
-            // 1. Fetch Followers (people who follow me)
+            // 1. Fetch Followers (people who follow activeUserId)
             // Manual Fetch Strategy for safety:
             // Get IDs -> Fetch Users
 
             // RE-FETCHING PURE IDS
-            const { data: rawFollowers } = await db.social.from('follows').select('follower_id').eq('following_id', user.id);
+            const { data: rawFollowers } = await db.social.from('follows').select('follower_id').eq('following_id', activeUserId);
             const followerIds = rawFollowers?.map(f => f.follower_id) || [];
 
             let followersList: ConnectionUser[] = [];
@@ -38,8 +40,8 @@ export function useConnections() {
             }
             setFollowers(followersList);
 
-            // 2. Fetch Following (people I follow)
-            const { data: rawFollowing } = await db.social.from('follows').select('following_id').eq('follower_id', user.id);
+            // 2. Fetch Following (people activeUserId follows)
+            const { data: rawFollowing } = await db.social.from('follows').select('following_id').eq('follower_id', activeUserId);
             const followingIds = rawFollowing?.map(f => f.following_id) || [];
 
             let followingList: ConnectionUser[] = [];
@@ -59,12 +61,12 @@ export function useConnections() {
         }
     };
 
-    const followUser = async (targetUserId: string) => {
+    const followUser = async (targetId: string) => {
         if (!user) return;
         try {
             const { error } = await db.social.from('follows').insert({
                 follower_id: user.id,
-                following_id: targetUserId
+                following_id: targetId
             });
             if (error) throw error;
             await fetchConnections();
@@ -73,12 +75,12 @@ export function useConnections() {
         }
     };
 
-    const unfollowUser = async (targetUserId: string) => {
+    const unfollowUser = async (targetId: string) => {
         if (!user) return;
         try {
             const { error } = await db.social.from('follows').delete().match({
                 follower_id: user.id,
-                following_id: targetUserId
+                following_id: targetId
             });
             if (error) throw error;
             await fetchConnections();
@@ -89,7 +91,7 @@ export function useConnections() {
 
     useEffect(() => {
         fetchConnections();
-    }, [user]);
+    }, [user, activeUserId]);
 
     return { followers, following, loading, refreshConnections: fetchConnections, followUser, unfollowUser };
 }
