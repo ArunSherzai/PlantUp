@@ -24,7 +24,7 @@ import { useUserStore } from '../../../stores/UserStore';
 import DailyStreakComponent from '~/features/ShowMissions/components/DailyStreak';
 
 
-const { height } = Dimensions.get('window');
+const { height, width } = Dimensions.get('window');
 
 // --- TYPES ---
 type QuestData = {
@@ -203,7 +203,7 @@ export default function ShowMissionsScreen() {
           </View>
 
           <MaskedView
-            style={{ height: 100, width: '100%' }}
+            style={{ height: 110, width: '100%', marginBottom: 10 }}
             maskElement={<Text style={styles.headerTitle}>Quests and{'\n'}Daily Rewards!</Text>}>
             <LinearGradient
               colors={['#FFFFFF', '#E0F7FA']}
@@ -237,7 +237,7 @@ export default function ShowMissionsScreen() {
                 initialNumToRender={6} // Rendert genug für den ersten Blick.
                 maxToRenderPerBatch={4} // Lädt moderat nach beim Scrollen.
                 windowSize={7} // Behält ein bisschen was im Speicher (weniger Ruckeln beim Zurückscrollen).
-                
+
                 contentContainerStyle={{ paddingBottom: height * 0.5 }}
                 showsVerticalScrollIndicator={false}
                 ListHeaderComponent={<MultiplierBanner multiplier={currentMultiplier} />}
@@ -263,10 +263,10 @@ export default function ShowMissionsScreen() {
                   // Echte Quest
                   return (
                     <View style={styles.itemWrapperMint}>
-                      <QuestCard 
-                        quest={item} 
-                        onClaim={() => handleClaim(item.id)} 
-                        isLast={false} 
+                      <QuestCard
+                        quest={item}
+                        onClaim={() => handleClaim(item.id)}
+                        isLast={false}
                         streakMultiplier={currentMultiplier}
                       />
                     </View>
@@ -320,9 +320,9 @@ function QuestCard({
   // Multiplier Visuals
   const hasMultiplier = streakMultiplier > 1.0;
   // Rot/Orange Gradient Style
-  const fireColor = '#FF512F'; 
-  
-  const xpBgColor = '#FFF'; 
+  const fireColor = '#FF512F';
+
+  const xpBgColor = '#FFF';
   const xpBorderColor = hasMultiplier ? fireColor : '#329D9C';
   const xpTextColor = hasMultiplier ? fireColor : '#329D9C';
 
@@ -363,13 +363,13 @@ function QuestCard({
         ) : (
           !isClaimed && (
             <View style={[styles.xpContainer, { borderColor: xpBorderColor }]}>
-               {/* Subtle background for multiplier */}
-               {hasMultiplier && (
-                 <LinearGradient 
-                    colors={['rgba(221, 36, 118, 0.05)', 'rgba(255, 81, 47, 0.05)']}
-                    style={StyleSheet.absoluteFillObject}
-                 />
-               )}
+              {/* Subtle background for multiplier */}
+              {hasMultiplier && (
+                <LinearGradient
+                  colors={['rgba(221, 36, 118, 0.05)', 'rgba(255, 81, 47, 0.05)']}
+                  style={StyleSheet.absoluteFillObject}
+                />
+              )}
               <FontAwesome6
                 name={hasMultiplier ? "fire" : "star"}
                 size={12}
@@ -378,7 +378,7 @@ function QuestCard({
                 solid
               />
               <Text style={[styles.xpText, { color: xpTextColor }]}>
-                 {displayXP} XP
+                {displayXP} XP
               </Text>
             </View>
           )
@@ -421,7 +421,7 @@ const MultiplierBanner = ({ multiplier }: { multiplier: number }) => {
         <View style={styles.bannerIconContainer}>
           <FontAwesome6 name="fire" size={16} color="white" solid />
         </View>
-        <View>
+        <View style={{ flex: 1, paddingRight: 10 }}>
           <Text style={styles.bannerTitle}>Streak Bonus Active!</Text>
           <Text style={styles.bannerSubtitle}>You are earning {multiplier}x XP on all quests.</Text>
         </View>
@@ -445,14 +445,14 @@ const styles = StyleSheet.create((theme) => ({
   bgImage: { width: '100%', height: '100%' },
   headerWrapper: {
     position: 'absolute',
-    top: '8%',
+    top: height < 850 ? 40 : '6%',
     left: 0,
     right: 0,
     paddingHorizontal: 20,
     alignItems: 'center',
   },
   brandText: { color: 'rgba(255,255,255,0.9)', fontWeight: '600', fontSize: 18 },
-  headerTitle: { fontSize: 40, fontWeight: '900', color: 'white', lineHeight: 44 },
+  headerTitle: { fontSize: width < 380 ? 32 : 40, fontWeight: '900', color: 'white', lineHeight: width < 380 ? 36 : 44 },
   comingSoonBar: {
     borderRadius: 18,
     height: 60,
@@ -464,7 +464,7 @@ const styles = StyleSheet.create((theme) => ({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.4)',
   },
-  wrapper: { height: 100, width: '100%', flexDirection: 'column' },
+  wrapper: { width: '100%', flexDirection: 'column' },
 
   sectionHeaderContainer: { marginBottom: 10 },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', color: theme.colors.text, textAlign: 'center' },
@@ -514,7 +514,7 @@ const styles = StyleSheet.create((theme) => ({
     overflow: 'hidden', // for gradient bg
   },
   xpText: { fontSize: 12, fontWeight: '700' },
-  
+
   multiplierTag: {
     backgroundColor: '#FF512F',
     borderRadius: 8,

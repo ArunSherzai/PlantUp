@@ -10,6 +10,8 @@ type UserProfile = {
   plant_coins: number;
   streak_length: number;
   last_completed_date: string | null;
+  title?: string;
+  titlecolor?: string;
 };
 
 type State = {
@@ -84,7 +86,7 @@ export const useUserStore = create<State>((set, get) => ({
     // 2. Fetch Username from User Schema
     const userPromise = db.user
       .from('Users')
-      .select('username, plant_coins')
+      .select('username, plant_coins, title, title_color')
       .eq('id', user.id)
       .single();
 
@@ -104,6 +106,8 @@ export const useUserStore = create<State>((set, get) => ({
       plant_coins: userData?.plant_coins || 0,
       streak_length: 0,
       last_completed_date: null,
+      title: userData?.title || 'Newbie',
+      titlecolor: userData?.title_color || '#2ecc71',
     };
 
     console.log(finalProfile);

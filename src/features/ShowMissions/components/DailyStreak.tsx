@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, Dimensions } from 'react-native';
 import { StyleSheet as UnistylesSheet, useUnistyles } from 'react-native-unistyles';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,14 +10,14 @@ export default function DailyStreakComponent() {
   const { profile } = useUserStore();
 
   const streak = profile?.streak_length || 0;
-  
+
   // Check if completed today
   const lastDate = profile?.last_completed_date;
   const isCompletedToday = lastDate === new Date().toISOString().split('T')[0];
-  
+
   // Logic: Cycle of 10 days. 
   // e.g. Day 12 -> 2 blocks filled in the Current Cycle [10-20]
-  const cycleProgress = streak % 10; 
+  const cycleProgress = streak % 10;
   // if streak is 10, 20, 30... it counts as full bar (10/10) before jumping to next tier
   // visual fix: if cycleProgress is 0 but streak > 0, it means we just hit the milestone (10/10)
   const visualProgress = (cycleProgress === 0 && streak > 0) ? 10 : cycleProgress;
@@ -29,11 +29,11 @@ export default function DailyStreakComponent() {
       const now = new Date();
       const endOfDay = new Date();
       endOfDay.setHours(23, 59, 59, 999);
-      
+
       const diff = endOfDay.getTime() - now.getTime();
       const hours = Math.floor(diff / (1000 * 60 * 60));
       const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      
+
       setTimeLeft(`${hours}h ${minutes}m`);
     };
 
@@ -49,41 +49,41 @@ export default function DailyStreakComponent() {
     if (s < 39) return 2.00;
     return 2.0;
   };
-  
+
   const MAX_STREAK_CAP = 40;
   const isMaxed = streak >= MAX_STREAK_CAP;
-  
+
   const nextReward = getNextMultiplier(streak);
 
   const renderBlocks = () => {
     const blocks = [];
-    const totalBlocks = 10; 
+    const totalBlocks = 10;
 
     for (let i = 1; i <= totalBlocks; i++) {
-        // If maxed, everything is filled
+      // If maxed, everything is filled
       const isFilled = isMaxed ? true : i <= visualProgress;
       const isLast = i === totalBlocks;
 
       blocks.push(
         <View key={i} style={[styles.blockContainer, { flex: isLast ? 1.5 : 1 }]}>
           <View style={[styles.blockBase, isFilled && styles.blockFilled]}>
-             {isFilled && (
-                <LinearGradient
-                    // Gold Gradient if Maxed, else Green/Teal
-                  colors={isMaxed ? ['#FFD700', '#FDB931'] : ['#329D9C', '#56C596']}
-                  style={StyleSheet.absoluteFillObject}
+            {isFilled && (
+              <LinearGradient
+                // Gold Gradient if Maxed, else Green/Teal
+                colors={isMaxed ? ['#FFD700', '#FDB931'] : ['#329D9C', '#56C596']}
+                style={StyleSheet.absoluteFillObject}
+              />
+            )}
+
+            {isLast && (
+              <View style={styles.rewardIconContainer}>
+                <FontAwesome6
+                  name={isMaxed ? "crown" : (isFilled ? "gift" : "lock")}
+                  size={14}
+                  color={isFilled ? (isMaxed ? "#783f04" : "white") : theme.colors.greyedOut}
                 />
-             )}
-             
-             {isLast && (
-               <View style={styles.rewardIconContainer}>
-                  <FontAwesome6 
-                     name={isMaxed ? "crown" : (isFilled ? "gift" : "lock")} 
-                     size={14} 
-                     color={isFilled ? (isMaxed ? "#783f04" : "white") : theme.colors.greyedOut} 
-                  />
-               </View>
-             )}
+              </View>
+            )}
           </View>
         </View>
       );
@@ -101,33 +101,33 @@ export default function DailyStreakComponent() {
       {/* TOP ROW: Streak Count & Reward Badge */}
       <View style={styles.topRow}>
         <View style={styles.streakBadge}>
-           {isCompletedToday ? (
-              <View style={styles.doneBadge}>
-                 <FontAwesome6 name="check" size={14} color="#00D988" />
-              </View>
-           ) : (
-              <FontAwesome6 name="fire" size={18} color={isMaxed ? "#FFD700" : "#FF512F"} solid />
-           )}
-           <Text style={[styles.streakText, isMaxed && { color: '#FFD700' }]}>{streak} Day Streak</Text>
+          {isCompletedToday ? (
+            <View style={styles.doneBadge}>
+              <FontAwesome6 name="check" size={14} color="#00D988" />
+            </View>
+          ) : (
+            <FontAwesome6 name="fire" size={18} color={isMaxed ? "#FFD700" : "#FF512F"} solid />
+          )}
+          <Text style={[styles.streakText, isMaxed && { color: '#FFD700' }]}>{streak} Day Streak</Text>
         </View>
 
         {isMaxed ? (
-             <View style={styles.maxBadge}>
-                <Text style={styles.maxReachedText}>MAX REACHED</Text>
-             </View>
+          <View style={styles.maxBadge}>
+            <Text style={styles.maxReachedText}>MAX REACHED</Text>
+          </View>
         ) : (
-             <View style={styles.nextRewardBadge}>
-                <Text style={styles.nextRewardText}>Next: x{nextReward}</Text>
-             </View>
+          <View style={styles.nextRewardBadge}>
+            <Text style={styles.nextRewardText}>Next: x{nextReward}</Text>
+          </View>
         )}
       </View>
 
       {/* MIDDLE ROW: Status / Timer */}
       <View style={styles.statusRow}>
         {isCompletedToday ? (
-            <Text style={styles.completedText}>Daily Streak Extended!</Text>
+          <Text style={styles.completedText}>Daily Streak Extended!</Text>
         ) : (
-            <Text style={styles.timeLeftText}>⏰ {timeLeft} remaining to extend</Text>
+          <Text style={styles.timeLeftText}>⏰ {timeLeft} remaining to extend</Text>
         )}
       </View>
 
@@ -135,9 +135,9 @@ export default function DailyStreakComponent() {
       <View style={styles.barContainer}>
         {renderBlocks()}
       </View>
-      
+
       <Text style={[styles.hintText, isMaxed && { color: '#FFD700', fontWeight: 'bold' }]}>
-         {isMaxed ? "Legendary Status! Max Multiplier Active" : `${10 - visualProgress} days until next multiplier upgrade`}
+        {isMaxed ? "Legendary Status! Max Multiplier Active" : `${10 - visualProgress} days until next multiplier upgrade`}
       </Text>
     </LinearGradient>
   );
@@ -145,10 +145,13 @@ export default function DailyStreakComponent() {
 
 const StyleSheet = UnistylesSheet;
 
+const { width } = Dimensions.get('window');
+const isSmallDevice = width < 380;
+
 const styles = UnistylesSheet.create((theme) => ({
   container: {
     width: '100%',
-    paddingVertical: 15,
+    paddingVertical: isSmallDevice ? 10 : 15, // Reduced padding on small devices
     paddingHorizontal: 15,
     borderRadius: 16,
     marginBottom: 10,
@@ -168,9 +171,9 @@ const styles = UnistylesSheet.create((theme) => ({
   },
   statusRow: {
     flexDirection: 'row',
-    marginBottom: 12, // Space before bars
+    marginBottom: isSmallDevice ? 8 : 12,
   },
-  
+
   // Badges & Text
   streakBadge: {
     flexDirection: 'row',
@@ -180,7 +183,7 @@ const styles = UnistylesSheet.create((theme) => ({
   streakText: {
     color: 'white',
     fontWeight: '800',
-    fontSize: 18,
+    fontSize: isSmallDevice ? 16 : 18,
     textShadowColor: 'rgba(0,0,0,0.1)',
     textShadowRadius: 2,
   },
@@ -189,7 +192,7 @@ const styles = UnistylesSheet.create((theme) => ({
     padding: 4,
     borderRadius: 8,
   },
-  
+
   // Status Text
   completedText: {
     color: '#00D988',
@@ -198,7 +201,7 @@ const styles = UnistylesSheet.create((theme) => ({
     letterSpacing: 0.5,
   },
   timeLeftText: {
-    color: '#FFD700', 
+    color: '#FFD700',
     fontSize: 12,
     fontWeight: '600',
     opacity: 0.9,
@@ -206,12 +209,12 @@ const styles = UnistylesSheet.create((theme) => ({
 
   // Reward Badges
   maxBadge: {
-     backgroundColor: 'rgba(255, 215, 0, 0.1)',
-     paddingHorizontal: 8,
-     paddingVertical: 4,
-     borderRadius: 8,
-     borderWidth: 1,
-     borderColor: 'rgba(255, 215, 0, 0.3)',
+    backgroundColor: 'rgba(255, 215, 0, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.3)',
   },
   maxReachedText: {
     color: '#FFD700',
@@ -231,11 +234,11 @@ const styles = UnistylesSheet.create((theme) => ({
     fontSize: 12,
     fontWeight: '600',
   },
-  
+
   barContainer: {
     flexDirection: 'row',
-    height: 12,
-    gap: 4,
+    height: isSmallDevice ? 10 : 14,
+    gap: isSmallDevice ? 3 : 5, // Dynamic gap
   },
   blockContainer: {
     height: '100%',
@@ -255,7 +258,7 @@ const styles = UnistylesSheet.create((theme) => ({
   rewardIconContainer: {
     zIndex: 1,
   },
-  
+
   hintText: {
     color: 'rgba(255,255,255,0.6)',
     fontSize: 12,
