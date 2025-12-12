@@ -55,87 +55,92 @@ import LootboxScreen from '~/screens/Tab/profileScreen/LootboxScreen';
 import MessageDetailScreen from '~/screens/Tab/directMessages/MessageDetailScreen';
 import ConnectionsScreen from '../screens/Tab/profileScreen/ConnectionsScreen';
 import PublicProfileScreen from '~/screens/Tab/profileScreen/PublicProfileScreen';
+import SpriteComponent from '~/components/SpriteComponent';
+import { View } from 'react-native';
 
 export default function RootStack() {
   const { theme } = useUnistyles();
 
   return (
     <NavigationContainer linking={linking}>
-      <Stack.Navigator
-        initialRouteName="Auth"
-        screenOptions={{
-          headerStyle: {
-            backgroundColor: theme.colors.background,
-          },
-          headerTitleStyle: {
-            color: theme.colors.text,
-          },
-          headerTintColor: theme.colors.accent,
-        }}>
-        <Stack.Screen name="Auth" component={AuthStack} options={{ headerShown: false }} />
-        <Stack.Screen
-          name="TabNavigator"
-          component={TabNavigator}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="Add a Plant"
-          component={AddPlantScreen}
-          options={{
-            title: 'Add a Plant',
-            headerShown: false,
-          }}
-        />
-        <Stack.Screen
-          name="Settings"
-          component={SettingsScreen}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="CreatePost"
-          component={CreatePostScreen}
-          options={{
-            headerShown: false,
-            presentation: 'modal',
-          }}
-        />
-        <Stack.Screen
-          name="FeedPostDetail"
-          component={FeedPostDetailScreen}
-          options={{
-            headerShown: false,
-            // presentation: 'transparentModal', // Optional: if we want to see underlying feed, but standard stack is usually fine for "open new screen"
-          }}
-        />
-        <Stack.Screen
-          name="UserPlants"
-          component={UserPlantsScreen}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="Lootbox"
-          component={LootboxScreen}
-          options={{
-            headerShown: false,
-            presentation: 'transparentModal',
-          }}
-        />
-        <Stack.Screen
-          name="MessageDetail"
-          component={MessageDetailScreen}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="Connections"
-          component={ConnectionsScreen}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="PublicProfile"
-          component={PublicProfileScreen}
-          options={{ headerShown: false }}
-        />
-      </Stack.Navigator>
+      <View style={{ flex: 1 }}>
+        <Stack.Navigator
+          initialRouteName="Auth"
+          screenOptions={{
+            headerStyle: {
+              backgroundColor: theme.colors.background,
+            },
+            headerTitleStyle: {
+              color: theme.colors.text,
+            },
+            headerTintColor: theme.colors.accent,
+          }}>
+          <Stack.Screen name="Auth" component={AuthStack} options={{ headerShown: false }} />
+          <Stack.Screen
+            name="TabNavigator"
+            component={TabNavigator}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Add a Plant"
+            component={AddPlantScreen}
+            options={{
+              title: 'Add a Plant',
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="Settings"
+            component={SettingsScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="CreatePost"
+            component={CreatePostScreen}
+            options={{
+              headerShown: false,
+              presentation: 'modal',
+            }}
+          />
+          <Stack.Screen
+            name="FeedPostDetail"
+            component={FeedPostDetailScreen}
+            options={{
+              headerShown: false,
+              // presentation: 'transparentModal', // Optional: if we want to see underlying feed, but standard stack is usually fine for "open new screen"
+            }}
+          />
+          <Stack.Screen
+            name="UserPlants"
+            component={UserPlantsScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Lootbox"
+            component={LootboxScreen}
+            options={{
+              headerShown: false,
+              presentation: 'transparentModal',
+            }}
+          />
+          <Stack.Screen
+            name="MessageDetail"
+            component={MessageDetailScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Connections"
+            component={ConnectionsScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="PublicProfile"
+            component={PublicProfileScreen}
+            options={{ headerShown: false }}
+          />
+        </Stack.Navigator>
+        <SpriteComponent />
+      </View>
     </NavigationContainer>
   );
 }

@@ -161,7 +161,7 @@ const stylesheet = (theme: any) =>
       alignItems: 'center',
     },
     headerBg: {
-      height: '100%',
+      height: '55%',
       width: '100%',
       position: 'absolute',
       top: 0,

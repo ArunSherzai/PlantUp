@@ -442,7 +442,7 @@ const styles = StyleSheet.create((theme) => ({
     top: 0,
     left: 0,
     width: '100%',
-    height: '70%',
+    height: '55%',
     justifyContent: 'flex-end',
     zIndex: -1,
   },

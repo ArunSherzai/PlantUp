@@ -59,9 +59,12 @@ export default function HomeScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <ImageBackground
+      <Image
         source={require('../../../assets/images/homeScreenBackground.png')}
-        style={styles.backgroundImage}>
+        style={styles.backgroundImage}
+        resizeMode="cover"
+      />
+      <View style={{ flex: 1, paddingTop: 20 }}>
         <View style={styles.topBar}>
           <FontAwesome name="search" size={22} color={theme.colors.textDark} />
         </View>
@@ -87,15 +90,17 @@ export default function HomeScreen() {
             showsVerticalScrollIndicator={false}
           />
         </View>
-      </ImageBackground>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create((theme) => ({
   backgroundImage: {
-    flex: 1,
-    paddingTop: 20,
+    width: '100%',
+    height: '55%',
+    position: 'absolute',
+    top: 0,
   },
   rewardImageLeft: {
     width: 50,

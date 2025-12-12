@@ -244,7 +244,7 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     headerBg: {
-        height: '100%',
+        height: '55%',
         width: '100%',
         position: 'absolute',
         top: 0,

@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, TextInput, FlatList, Image, TouchableOpacity, S
 import { useUnistyles } from 'react-native-unistyles';
 import { StackScreenProps } from '@react-navigation/stack';
 import { RootStackParamList } from '../../../navigation/Root';
+import FontAwesome6 from '@expo/vector-icons/FontAwesome6'; // Import FontAwesome6
+import DeveloperMenu from '../../../components/DeveloperMenu'; // Import DeveloperMenu
 
 type Props = StackScreenProps<RootStackParamList, 'DirectMessages'>;
 
@@ -54,6 +56,7 @@ export default function DirectMessagesScreen() {
     const { theme } = useUnistyles();
     const [searchQuery, setSearchQuery] = useState('');
     const [sprigTip, setSprigTip] = useState<StoredTip | null>(null);
+    const [showDevMenu, setShowDevMenu] = useState(false); // State for dev menu
 
     useFocusEffect(
         React.useCallback(() => {
@@ -117,10 +120,14 @@ export default function DirectMessagesScreen() {
             <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
             {/* Header Section */}
-            <View style={[styles.header]}>
+            <View style={styles.header}>
                 <View style={styles.headerContent}>
                     <Text style={[styles.headerLargeTitle, { paddingVertical: 70 }]}>Connect with{'\n'}Others!</Text>
                 </View>
+                {/* Bug Icon for Dev Menu */}
+                <TouchableOpacity onPress={() => setShowDevMenu(true)} style={styles.bugButton}>
+                    <FontAwesome6 name="bug" size={24} color="#FFF" />
+                </TouchableOpacity>
             </View>
 
             {/* Content Section (White Card) */}
@@ -151,6 +158,9 @@ export default function DirectMessagesScreen() {
                     contentContainerStyle={styles.listContent}
                 />
             </View>
+
+            <DeveloperMenu visible={showDevMenu} onClose={() => setShowDevMenu(false)} />
+
         </ImageBackground>
     );
 }
@@ -167,6 +177,13 @@ const styles = StyleSheet.create({
     headerContent: {
         paddingHorizontal: 20,
         paddingTop: 60, // Adjust for status bar
+    },
+    bugButton: {
+        position: 'absolute',
+        top: 60,
+        right: 20,
+        padding: 10,
+        zIndex: 10,
     },
     headerTitle: {
         color: '#FFF',
