@@ -13,7 +13,7 @@ type UserProfile = {
   last_completed_date: string | null;
   title?: string;
   titlecolor?: string;
-  active_boost_end_time: string | null; // Restored
+  active_boost_end_time: string | null;
   plants_count: number;
   followers_count: number;
   following_count: number;
@@ -35,6 +35,7 @@ type State = {
   fetchProfile: () => Promise<void>;
   fetchInventory: () => Promise<void>; // Restored
   activateBooster: (itemId: string) => Promise<{ success: boolean; message?: string }>; // Restored
+  activateStreakFreeze: () => Promise<{ success: boolean; message?: string }>; // Added
   addPlantCoins: (coins: number) => Promise<void>;
 };
 
@@ -90,7 +91,9 @@ export const useUserStore = create<State>((set, get) => ({
 
   fetchInventory: async () => {
     const { user } = get();
-    if (!user) return;
+    if (!user) {
+      return;
+    }
 
     const { data, error } = await db.gamification
       .from('user_inventory')
@@ -98,7 +101,7 @@ export const useUserStore = create<State>((set, get) => ({
       .eq('user_id', user.id);
 
     if (error) {
-      console.error('Error fetching inventory:', error);
+      console.error('[UserStore] Error fetching inventory:', error);
       return;
     }
 
@@ -133,6 +136,31 @@ export const useUserStore = create<State>((set, get) => ({
     }
   },
 
+  activateStreakFreeze: async () => {
+    const { user, fetchProfile, fetchInventory } = get();
+    if (!user) return { success: false, message: 'User not logged in' };
+
+    try {
+      const { data, error } = await db.public.rpc('use_streak_freeze', {
+        p_item_id: 'streak_freeze_24h',
+      });
+
+      if (error) throw error;
+
+      const result = data as any;
+
+      if (result.success) {
+        await Promise.all([fetchProfile(), fetchInventory()]);
+        return { success: true };
+      } else {
+        return { success: false, message: result.message };
+      }
+    } catch (e: any) {
+      console.error('Error activating freeze:', e);
+      return { success: false, message: e.message || 'Unknown error' };
+    }
+  },
+
   fetchProfile: async () => {
     const { user } = get();
     if (!user) return;
@@ -140,7 +168,7 @@ export const useUserStore = create<State>((set, get) => ({
     // 1. Fetch Gamification Stats
     const statsPromise = db.gamification
       .from('player_stats')
-      .select('xp, level, streak_length, last_completed_date, active_boost_end_time') // Added active_boost_end_time
+      .select('xp, level, streak_length, last_completed_date, active_boost_end_time')
       .eq('user_id', user.id)
       .single();
 

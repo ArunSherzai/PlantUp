@@ -1,30 +1,42 @@
-import React from 'react';
-import { View, Text, Dimensions } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, Dimensions, TouchableOpacity, Alert, Image } from 'react-native';
 import { StyleSheet as UnistylesSheet, useUnistyles } from 'react-native-unistyles';
-import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { LinearGradient } from 'expo-linear-gradient';
+import { FontAwesome6 } from '@expo/vector-icons';
 import { useUserStore } from '../../../stores/UserStore';
 
+const FREEZE_ITEM_ID = 'streak_freeze_24h';
+const freezeButtonImg = require('../../../../assets/images/freezeButton.png');
+
 export default function DailyStreakComponent() {
+
   const { theme } = useUnistyles();
-  const { profile } = useUserStore();
+  const { profile, inventory, activateStreakFreeze, fetchInventory } = useUserStore();
 
   const streak = profile?.streak_length || 0;
+
+  // Refresh inventory on mount to ensure we see new items
+  useEffect(() => {
+    fetchInventory();
+  }, []);
+
+  const freezeItem = inventory.find(i => i.item_id === FREEZE_ITEM_ID);
+  const ownedFreezeQuantity = freezeItem?.quantity || 0;
 
   // Check if completed today
   const lastDate = profile?.last_completed_date;
   const isCompletedToday = lastDate === new Date().toISOString().split('T')[0];
 
-  // Logic: Cycle of 10 days. 
-  // e.g. Day 12 -> 2 blocks filled in the Current Cycle [10-20]
+  // Auto-Protection: Active if user has item AND hasn't completed today's quest
+  const isProtected = !isCompletedToday && ownedFreezeQuantity > 0;
+
+  // ... cycle progress logic ...
   const cycleProgress = streak % 10;
-  // if streak is 10, 20, 30... it counts as full bar (10/10) before jumping to next tier
-  // visual fix: if cycleProgress is 0 but streak > 0, it means we just hit the milestone (10/10)
   const visualProgress = (cycleProgress === 0 && streak > 0) ? 10 : cycleProgress;
 
-  const [timeLeft, setTimeLeft] = React.useState('');
+  const [timeLeft, setTimeLeft] = useState('');
 
-  React.useEffect(() => {
+  useEffect(() => {
     const updateTimeLeft = () => {
       const now = new Date();
       const endOfDay = new Date();
@@ -52,7 +64,6 @@ export default function DailyStreakComponent() {
 
   const MAX_STREAK_CAP = 40;
   const isMaxed = streak >= MAX_STREAK_CAP;
-
   const nextReward = getNextMultiplier(streak);
 
   const renderBlocks = () => {
@@ -98,28 +109,37 @@ export default function DailyStreakComponent() {
       end={{ x: 1, y: 1 }}
       style={styles.container}
     >
-      {/* TOP ROW: Streak Count & Reward Badge */}
-      <View style={styles.topRow}>
+
+      {/* TOP ROW: Streak Count (Protected or Normal) */}
+      <View style={[styles.topRow, { justifyContent: 'space-between' }]}>
         <View style={styles.streakBadge}>
           {isCompletedToday ? (
             <View style={styles.doneBadge}>
               <FontAwesome6 name="check" size={14} color="#00D988" />
             </View>
-          ) : (
-            <FontAwesome6 name="fire" size={18} color={isMaxed ? "#FFD700" : "#FF512F"} solid />
+          ) : !isProtected && (
+            <FontAwesome6 
+                name="fire" 
+                size={18} 
+                color={isMaxed ? "#FFD700" : "#FF512F"} 
+                solid 
+            />
           )}
-          <Text style={[styles.streakText, isMaxed && { color: '#FFD700' }]}>{streak} Day Streak</Text>
+          <Text style={[styles.streakText, isMaxed && { color: '#FFD700' }, isProtected && { color: '#A5F2F3' }]}>
+            {isProtected ? '❄️ Streak Frozen ❄️' : `${streak} Day Streak`}
+          </Text>
         </View>
 
-        {isMaxed ? (
-          <View style={styles.maxBadge}>
-            <Text style={styles.maxReachedText}>MAX REACHED</Text>
-          </View>
-        ) : (
-          <View style={styles.nextRewardBadge}>
-            <Text style={styles.nextRewardText}>Next: x{nextReward}</Text>
-          </View>
-        )}
+        {/* Status Badge: Protected OR Next Reward */}
+        {isProtected && !isCompletedToday ? (
+             <View style={styles.frozenStatusBadge}>
+               <Text style={styles.frozenStatusText}>PROTECTED</Text>
+             </View>
+        ) : (!isMaxed && (
+             <View style={styles.nextRewardBadge}>
+               <Text style={styles.nextRewardText}>Next: x{nextReward}</Text>
+             </View>
+        ))}
       </View>
 
       {/* MIDDLE ROW: Status / Timer */}
@@ -127,7 +147,9 @@ export default function DailyStreakComponent() {
         {isCompletedToday ? (
           <Text style={styles.completedText}>Daily Streak Extended!</Text>
         ) : (
-          <Text style={styles.timeLeftText}>⏰ {timeLeft} remaining to extend</Text>
+          <Text style={styles.timeLeftText}>
+             {`⏰ ${timeLeft} remaining`}
+          </Text>
         )}
       </View>
 
@@ -136,9 +158,12 @@ export default function DailyStreakComponent() {
         {renderBlocks()}
       </View>
 
-      <Text style={[styles.hintText, isMaxed && { color: '#FFD700', fontWeight: 'bold' }]}>
-        {isMaxed ? "Legendary Status! Max Multiplier Active" : `${10 - visualProgress} days until next multiplier upgrade`}
-      </Text>
+      {/* FOOTER: Hint Text */}
+      <View style={{ marginTop: 12, justifyContent: 'center' }}>
+          <Text style={[styles.hintText, isMaxed && { color: '#FFD700', fontWeight: 'bold' }, { textAlign: 'center', width: '100%' }]}>
+            {isMaxed ? "Legendary Status! Max Multiplier Active" : `${10 - visualProgress} days until next multiplier upgrade`}
+          </Text>
+      </View>
     </LinearGradient>
   );
 }
@@ -151,7 +176,7 @@ const isSmallDevice = width < 380;
 const styles = UnistylesSheet.create((theme) => ({
   container: {
     width: '100%',
-    paddingVertical: isSmallDevice ? 10 : 15, // Reduced padding on small devices
+    paddingVertical: isSmallDevice ? 10 : 15,
     paddingHorizontal: 15,
     borderRadius: 16,
     marginBottom: 10,
@@ -171,6 +196,8 @@ const styles = UnistylesSheet.create((theme) => ({
   },
   statusRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: isSmallDevice ? 8 : 12,
   },
 
@@ -183,7 +210,7 @@ const styles = UnistylesSheet.create((theme) => ({
   streakText: {
     color: 'white',
     fontWeight: '800',
-    fontSize: isSmallDevice ? 16 : 18,
+    fontSize: isSmallDevice ? 18 : 22,
     textShadowColor: 'rgba(0,0,0,0.1)',
     textShadowRadius: 2,
   },
@@ -196,49 +223,71 @@ const styles = UnistylesSheet.create((theme) => ({
   // Status Text
   completedText: {
     color: '#00D988',
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
     letterSpacing: 0.5,
   },
   timeLeftText: {
     color: '#FFD700',
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
     opacity: 0.9,
   },
 
   // Reward Badges
   maxBadge: {
-    backgroundColor: 'rgba(255, 215, 0, 0.1)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 215, 0, 0.3)',
+    // Removed container styles
   },
   maxReachedText: {
     color: '#FFD700',
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '800',
-    textShadowColor: 'rgba(255, 215, 0, 0.3)',
-    textShadowRadius: 4,
+    letterSpacing: 1,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
   nextRewardBadge: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(255, 215, 0, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.5)',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: 12,
   },
   nextRewardText: {
-    color: 'rgba(255,255,255,0.9)',
+    color: '#FFD700',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: 'bold',
+  },
+
+
+  frozenStatusBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: 'rgba(165, 242, 243, 0.15)',
+      borderWidth: 1,
+      borderColor: 'rgba(165, 242, 243, 0.5)',
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 12,
+  },
+  frozenStatusText: {
+      color: '#A5F2F3',
+      fontSize: 12,
+      fontWeight: 'bold',
+      letterSpacing: 1,
   },
 
   barContainer: {
     flexDirection: 'row',
     height: isSmallDevice ? 10 : 14,
-    gap: isSmallDevice ? 3 : 5, // Dynamic gap
+    gap: isSmallDevice ? 3 : 5,
+  },
+  
+  // Progress Bar
+  progressContainer: {
+    height: '100%',
   },
   blockContainer: {
     height: '100%',
@@ -261,7 +310,7 @@ const styles = UnistylesSheet.create((theme) => ({
 
   hintText: {
     color: 'rgba(255,255,255,0.6)',
-    fontSize: 12,
+    fontSize: 14,
     marginTop: 8,
     textAlign: 'center',
   },
