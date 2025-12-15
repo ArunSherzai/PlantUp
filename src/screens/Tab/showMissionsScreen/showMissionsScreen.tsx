@@ -23,7 +23,6 @@ import DraggableBottomSheet from '../../../components/DraggableBottomSheet';
 import { useUserStore } from '../../../stores/UserStore';
 import DailyStreakComponent from '~/features/ShowMissions/components/DailyStreak';
 import BoosterWidget from '~/features/ShowMissions/components/BoosterWidget';
-import { PlantCoinBox } from '../../../components/PlantCoinBox';
 
 
 const { height, width } = Dimensions.get('window');
@@ -107,8 +106,21 @@ export default function ShowMissionsScreen() {
 
   useEffect(() => {
     fetchQuests();
-    fetchProfile(); // Ensure profile is up to date for streak
+    fetchProfile(); 
   }, [fetchQuests]);
+
+  // Alert for Rescued Streak
+  useEffect(() => {
+    if (profile?.streak_rescued_date) {
+        const today = new Date().toISOString().split('T')[0];
+        if (profile.streak_rescued_date === today) {
+            Alert.alert(
+                'Streak Rescued! ❄️', 
+                'You missed a day, but your streak was saved by a Freeze item!'
+            );
+        }
+    }
+  }, [profile?.streak_rescued_date]);
 
   // --- CLAIM LOGIC ---
   const handleClaim = useCallback(async (userQuestId: number) => {

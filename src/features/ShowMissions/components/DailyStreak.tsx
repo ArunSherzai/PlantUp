@@ -6,12 +6,11 @@ import { FontAwesome6 } from '@expo/vector-icons';
 import { useUserStore } from '../../../stores/UserStore';
 
 const FREEZE_ITEM_ID = 'streak_freeze_24h';
-const freezeButtonImg = require('../../../../assets/images/freezeButton.png');
 
 export default function DailyStreakComponent() {
 
   const { theme } = useUnistyles();
-  const { profile, inventory, activateStreakFreeze, fetchInventory } = useUserStore();
+  const { profile, inventory, fetchInventory } = useUserStore();
 
   const streak = profile?.streak_length || 0;
 
@@ -126,20 +125,31 @@ export default function DailyStreakComponent() {
             />
           )}
           <Text style={[styles.streakText, isMaxed && { color: '#FFD700' }, isProtected && { color: '#A5F2F3' }]}>
-            {isProtected ? '❄️ Streak Frozen ❄️' : `${streak} Day Streak`}
+            {isProtected ? `❄️ Frozen (${streak}) ❄️` : `${streak} Day Streak`}
           </Text>
         </View>
 
-        {/* Status Badge: Protected OR Next Reward */}
-        {isProtected && !isCompletedToday ? (
-             <View style={styles.frozenStatusBadge}>
-               <Text style={styles.frozenStatusText}>PROTECTED</Text>
-             </View>
-        ) : (!isMaxed && (
-             <View style={styles.nextRewardBadge}>
-               <Text style={styles.nextRewardText}>Next: x{nextReward}</Text>
-             </View>
-        ))}
+        {/* RIGHT SIDE: Freeze Count or Reward */}
+        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+            {/* Freeze Item Count Badge */}
+            {ownedFreezeQuantity > 0 && (
+                <View style={styles.freezeCountBadge}>
+                    <FontAwesome6 name="snowflake" size={12} color="#A5F2F3" />
+                    <Text style={styles.freezeCountText}>{ownedFreezeQuantity}</Text>
+                </View>
+            )}
+
+            {/* Status Badge: Protected OR Next Reward */}
+            {isProtected && !isCompletedToday ? (
+                <View style={styles.frozenStatusBadge}>
+                <Text style={styles.frozenStatusText}>PROTECTED</Text>
+                </View>
+            ) : (!isMaxed && (
+                <View style={styles.nextRewardBadge}>
+                <Text style={styles.nextRewardText}>Next: x{nextReward}</Text>
+                </View>
+            ))}
+        </View>
       </View>
 
       {/* MIDDLE ROW: Status / Timer */}
@@ -277,6 +287,23 @@ const styles = UnistylesSheet.create((theme) => ({
       fontSize: 12,
       fontWeight: 'bold',
       letterSpacing: 1,
+  },
+  
+  freezeCountBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: 'rgba(165, 242, 243, 0.1)',
+      borderWidth: 1,
+      borderColor: 'rgba(165, 242, 243, 0.3)',
+      paddingHorizontal: 6,
+      paddingVertical: 4,
+      borderRadius: 12,
+      gap: 4,
+  },
+  freezeCountText: {
+      color: '#A5F2F3',
+      fontSize: 12,
+      fontWeight: 'bold',
   },
 
   barContainer: {
