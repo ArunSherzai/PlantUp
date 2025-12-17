@@ -4,6 +4,7 @@ import { Image } from 'expo-image';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../../../navigation/Root';
+import { db } from '~/utils/supabase';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -17,19 +18,91 @@ export default function LootboxScreen() {
     const itemName = route.params?.itemName || 'Rare Plant';
 
     const [showReward, setShowReward] = useState(false);
+    const [rewardItem, setRewardItem] = useState<any>(null);
+    const [isDuplicate, setIsDuplicate] = useState(false);
 
     useEffect(() => {
         setShowReward(false);
-        // After 3 seconds (approx length of opening gif), transition to reward screen
-        const timer = setTimeout(() => {
-            setShowReward(true);
-        }, 3000);
+        setRewardItem(null);
+        setIsDuplicate(false);
 
-        return () => clearTimeout(timer);
+        const fetchDataAndWait = async () => {
+            // 1. Min wait time for animation
+            const timerPromise = new Promise(resolve => setTimeout(resolve, 3000));
+            // 2. Fetch data
+            const fetchPromise = pullBorder();
+
+            // 3. Wait for both
+            const [_, fetchedBorder] = await Promise.all([timerPromise, fetchPromise]);
+
+            if (fetchedBorder) {
+                setRewardItem(fetchedBorder);
+            }
+            setShowReward(true);
+        };
+
+        fetchDataAndWait();
     }, []);
 
     const handleClose = () => {
         navigation.goBack();
+    };
+
+
+    const pullBorder = async () => {
+        try {
+            // 1. Get current user
+            const { data: { user }, error: userError } = await db.public.auth.getUser();
+            if (userError || !user) throw new Error("No user found");
+
+            // 2. Call RPC to get a random border
+            // The function is in the gamification schema and requires parameters.
+            const { data, error: rpcError } = await (db.gamification as any)
+                .rpc('get_random_border', {
+                    target_schema: 'gamification',
+                    target_table: 'Cosmetic_avatar_borders'
+                })
+                .single();
+
+            const border = data as any; // Cast so we can access properties. Ideally define an interface.
+
+            if (rpcError) throw rpcError;
+            if (!border) throw new Error("No border returned");
+
+            console.log('Random Border:', border);
+
+            // 3. Award the border to the user
+            const { error: insertError } = await db.gamification
+                .from('User_owned_border')
+                .insert({
+                    user_id: user.id,
+                    border_id: border.id,
+                });
+
+            if (insertError) {
+                // Check for unique key violation (Postgres code 23505)
+                if (insertError.code === '23505') {
+                    console.log('Duplicate border! Awarding 500 coins instead.');
+
+                    // Award 500 coins using require to avoid circular deps if any, or just import
+                    const { useUserStore } = require('~/stores/UserStore');
+                    await useUserStore.getState().addPlantCoins(500);
+
+                    // Mark as duplicate so UI knows
+                    setIsDuplicate(true);
+                } else {
+                    console.warn('Error awarding border:', insertError);
+                }
+            } else {
+                console.log('Border awarded to user successfully');
+                setIsDuplicate(false);
+            }
+
+            return border;
+        } catch (err) {
+            console.error('Error in lootbox flow:', err);
+            return null;
+        }
     };
 
     return (
@@ -52,13 +125,40 @@ export default function LootboxScreen() {
                     ) : (
                         // State 2: Reward Reveal
                         <View style={styles.stateContainer}>
-                            <Image
-                                source={require('../../../../assets/animations/gettingitem.gif')}
-                                style={styles.gifStyle}
-                                contentFit="contain"
-                            />
-                            <Text style={styles.stateText}>New Item:</Text>
-                            <Text style={styles.itemNameText}>{itemName}</Text>
+                            <View style={styles.rewardWrapper}>
+                                <Image
+                                    source={require('../../../../assets/animations/gettingitem.gif')}
+                                    style={styles.gifStyle}
+                                    contentFit="contain"
+                                />
+                                {isDuplicate ? (
+                                    <Image
+                                        source={require('../../../../assets/images/plantupcoin.png')}
+                                        style={styles.rewardImageOverlay}
+                                        contentFit="contain"
+                                    />
+                                ) : (
+                                    rewardItem?.media_url && (
+                                        <Image
+                                            source={{ uri: rewardItem.media_url }}
+                                            style={styles.rewardImageOverlay}
+                                            contentFit="contain"
+                                        />
+                                    )
+                                )}
+                            </View>
+
+                            {isDuplicate ? (
+                                <>
+                                    <Text style={styles.stateText}>Duplicate!</Text>
+                                    <Text style={styles.coinText}>+500 Plant Coins</Text>
+                                </>
+                            ) : (
+                                <>
+                                    <Text style={styles.stateText}>New Item:</Text>
+                                    <Text style={styles.itemNameText}>{rewardItem?.name || itemName}</Text>
+                                </>
+                            )}
                         </View>
                     )}
                 </View>
@@ -111,7 +211,18 @@ const styles = StyleSheet.create((theme) => ({
     gifStyle: {
         width: 200,
         height: 200,
+    },
+    rewardWrapper: {
+        position: 'relative',
+        alignItems: 'center',
+        justifyContent: 'center',
         marginBottom: 20,
+    },
+    rewardImageOverlay: {
+        position: 'absolute',
+        width: 200,
+        height: 200,
+        zIndex: 10,
     },
     stateText: {
         fontSize: 22,
@@ -125,6 +236,15 @@ const styles = StyleSheet.create((theme) => ({
         fontWeight: '900',
         color: theme.colors.primary || '#4CAF50',
         textAlign: 'center',
+    },
+    coinText: {
+        fontSize: 24,
+        fontWeight: '900',
+        color: '#FFD700', // Gold color for coins
+        textAlign: 'center',
+        textShadowColor: 'rgba(0, 0, 0, 0.1)',
+        textShadowOffset: { width: 1, height: 1 },
+        textShadowRadius: 2,
     },
     closeButton: {
         backgroundColor: theme.colors.primary || '#000',
