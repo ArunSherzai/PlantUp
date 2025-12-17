@@ -24,6 +24,7 @@ export type RootStackParamList = {
   PublicProfile: { userId: string };
   DirectMessages: undefined;
   BorderInventory: undefined;
+  PlantStats: { plantId: string; onlyShowSelected?: boolean };
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -46,6 +47,7 @@ const linking = {
         path: 'app',
         // add tabs if needed
       },
+      PlantStats: 'plant-stats/:plantId',
     },
   },
 };
@@ -61,6 +63,7 @@ import DirectMessagesScreen from '~/screens/Tab/directMessages/DirectMessagesScr
 import SpriteComponent from '~/components/SpriteComponent';
 import { View } from 'react-native';
 import BorderInventoryScreen from '~/screens/Tab/profileScreen/BorderInventoryScreen';
+import ShowPlantStats from '~/screens/Tab/plantStats/ShowPlantStats';
 
 export default function RootStack() {
   const { theme } = useUnistyles();
@@ -150,6 +153,11 @@ export default function RootStack() {
           <Stack.Screen
             name="BorderInventory"
             component={BorderInventoryScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="PlantStats"
+            component={ShowPlantStats}
             options={{ headerShown: false }}
           />
         </Stack.Navigator>
