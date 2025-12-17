@@ -3,6 +3,16 @@ import { User } from '@supabase/supabase-js';
 import { db } from '../utils/supabase';
 import { getLevelFromXP } from '../utils/leveling';
 
+type Border = {
+  id: string;
+  name: string;
+  rarity: string;
+  media_url: string;
+  unlock_type: string;
+  unlock_value: number;
+  is_equipped?: boolean;
+};
+
 type UserProfile = {
   xp: number;
   level: number;
@@ -18,6 +28,7 @@ type UserProfile = {
   plants_count: number;
   followers_count: number;
   following_count: number;
+  equipped_border?: Border | null;
 };
 
 type InventoryItem = {
@@ -29,6 +40,7 @@ type State = {
   user: User | null;
   profile: UserProfile | null;
   inventory: InventoryItem[];
+  ownedBorders: Border[];
   setUser: (user: User | null) => void;
   setProfile: (profile: UserProfile | null) => void;
   addXP: (amount: number) => Promise<void>;
@@ -38,20 +50,24 @@ type State = {
   activateBooster: (itemId: string) => Promise<{ success: boolean; message?: string }>;
   checkStreakRescue: () => Promise<void>;
   addPlantCoins: (coins: number) => Promise<void>;
+  fetchBorders: () => Promise<void>;
+  equipBorder: (borderId: string | null) => Promise<void>;
 };
 
 export const useUserStore = create<State>((set, get) => ({
   user: null,
   profile: null,
   inventory: [],
+  ownedBorders: [],
 
   setUser: (user) => {
     set({ user });
     if (user) {
       get().fetchProfile();
       get().fetchInventory();
+      get().fetchBorders();
     } else {
-      set({ profile: null, inventory: [] });
+      set({ profile: null, inventory: [], ownedBorders: [] });
     }
   },
   setProfile: (profile) => set({ profile }),
@@ -195,13 +211,22 @@ export const useUserStore = create<State>((set, get) => ({
       .eq('selected', true)
       .maybeSingle();
 
-    const [statsResult, userResult, plantsResult, followersResult, followingResult, titleResult] = await Promise.all([
+    // 5. Fetch Equipped Border
+    const borderPromise = db.gamification
+      .from('User_owned_border')
+      .select('is_equipped, Cosmetic_avatar_borders (*)')
+      .eq('user_id', user.id)
+      .eq('is_equipped', true)
+      .maybeSingle();
+
+    const [statsResult, userResult, plantsResult, followersResult, followingResult, titleResult, borderResult] = await Promise.all([
       statsPromise,
       userPromise,
       plantsPromise,
       followersPromise,
       followingPromise,
-      titlePromise
+      titlePromise,
+      borderPromise
     ]);
 
     // Debug Logs
@@ -214,6 +239,11 @@ export const useUserStore = create<State>((set, get) => ({
     let userData = userResult.data;
     const titleData = titleResult.data;
     const titleInfo = titleData?.Titles as unknown as { titlename: string; color: string } | null;
+
+    // Process Border
+    let equippedBorderData = borderResult.data?.Cosmetic_avatar_borders as unknown as Border | null;
+    // No signed URL needed anymore as media_url is public/direct
+
 
     let finalProfile: UserProfile = {
       xp: 0,
@@ -229,6 +259,7 @@ export const useUserStore = create<State>((set, get) => ({
       plants_count: plantsResult.count || 0,
       followers_count: followersResult.count || 0,
       following_count: followingResult.count || 0,
+      equipped_border: equippedBorderData,
     };
 
     if (statsData) {
@@ -277,8 +308,6 @@ export const useUserStore = create<State>((set, get) => ({
       }
     }
 
-    // Quick retry for user data if needed... (simplified here for brevity, keeping original logic if preferred but this is cleaner)
-    // For now assuming userData works or is optional
     set({ profile: finalProfile });
   },
 
@@ -303,5 +332,104 @@ export const useUserStore = create<State>((set, get) => ({
     const { profile } = get();
     if (!profile) return;
     set({ profile: { ...profile, streak_length: newStreak, last_completed_date: lastDate } });
+  },
+
+  fetchBorders: async () => {
+    const { user } = get();
+    if (!user) return;
+
+    try {
+      console.log('[UserStore] fetchBorders: Starting manual two-step fetch...');
+
+      // Step 1: Get owned border IDs and equipped status
+      const { data: ownedData, error: ownedError } = await db.gamification
+        .from('User_owned_border')
+        .select('border_id, is_equipped')
+        .eq('user_id', user.id);
+
+      if (ownedError) {
+        console.error('[UserStore] Error fetching owned borders:', ownedError);
+        return;
+      }
+
+      if (!ownedData || ownedData.length === 0) {
+        console.log('[UserStore] No borders owned.');
+        set({ ownedBorders: [] });
+        return;
+      }
+
+      const borderIds = ownedData.map((item: any) => item.border_id);
+      console.log('[UserStore] Fetching details for IDs:', borderIds);
+
+      // Step 2: Fetch details for these IDs
+      const { data: bordersData, error: bordersError } = await db.gamification
+        .from('Cosmetic_avatar_borders')
+        .select('*')
+        .in('id', borderIds);
+      console.log('[UserStore] Fetching details for IDs:', bordersData);
+      if (bordersError) {
+        console.error('[UserStore] Error fetching border details:', bordersError);
+        return;
+      }
+
+      if (!bordersData) {
+        set({ ownedBorders: [] });
+        return;
+      }
+
+      // Step 3: Merge data
+      const mergedBorders: Border[] = bordersData.map((border: any) => {
+        // Find ownership info
+        const ownership = ownedData.find((o: any) => o.border_id === border.id);
+        
+        return {
+          ...border,
+          media_url: border.media_url, // Explicitly map media_url
+          is_equipped: ownership ? ownership.is_equipped : false
+        };
+      });
+
+      console.log(`[UserStore] Successfully loaded ${mergedBorders.length} borders.`);
+      set({ ownedBorders: mergedBorders });
+
+    } catch (error) {
+      console.error('[UserStore] Fatal error in fetchBorders:', error);
+    }
+  },
+
+  equipBorder: async (borderId: string | null) => {
+    const { user, ownedBorders, fetchProfile } = get();
+    if (!user) return;
+
+    // Optimistic Update
+    const newBorders = ownedBorders.map(b => ({
+      ...b,
+      is_equipped: b.id === borderId
+    }));
+    set({ ownedBorders: newBorders });
+
+    // 1. Unequip all
+    await db.gamification
+      .from('User_owned_border')
+      .update({ is_equipped: false })
+      .eq('user_id', user.id);
+
+    // 2. Equip new (only if borderId is not null)
+    if (borderId) {
+      const { error } = await db.gamification
+        .from('User_owned_border')
+        .update({ is_equipped: true })
+        .eq('user_id', user.id)
+        .eq('border_id', borderId);
+
+      if (error) {
+        console.error('Error equipping border:', error);
+        // Revert optimization would go here (fetchBorders())
+        get().fetchBorders();
+        return;
+      }
+    }
+
+    await fetchProfile(); // Update profile to show new border
   }
 }));
