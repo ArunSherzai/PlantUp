@@ -27,6 +27,30 @@ import BoosterWidget from '~/features/ShowMissions/components/BoosterWidget';
 
 const { height, width } = Dimensions.get('window');
 
+// --- RESPONSIVE LAYOUT CONSTANTS ---
+const isSmallScreen = height < 740; // Increased threshold
+const isMediumScreen = height >= 740 && height < 850;
+
+// 1. Header Top Position & Title Height
+// Make header higher up on small screens to save space
+const HEADER_TOP = isSmallScreen ? 10 : (isMediumScreen ? 40 : '6%');
+const HEADER_TOP_PIXELS = typeof HEADER_TOP === 'number' ? HEADER_TOP : height * 0.06;
+
+const TITLE_HEIGHT = isSmallScreen ? 90 : 110;
+
+// 2. Reserved Top Space Calculation
+// Header + Title (110) + StreakCard (~160) + Desired Gap (30)
+const STREAK_CARD_HEIGHT_EST = 170; // Safe estimate including margins
+const REQUIRED_TOP_SPACE = HEADER_TOP_PIXELS + TITLE_HEIGHT + STREAK_CARD_HEIGHT_EST + 20;
+
+// 3. Dynamic Bottom Sheet Height
+// Calculate how much space is left for the sheet (in percentage 0.0 - 1.0)
+const AVAILABLE_SHEET_PCT = 1 - (REQUIRED_TOP_SPACE / height);
+
+// Clamp: Max 0.55 (don't cover more than 55%), Min 0.35 (ensure at least 35% visible)
+// This guarantees the sheet is pushed down if space is tight.
+const SHEET_INITIAL_HEIGHT = Math.min(Math.max(AVAILABLE_SHEET_PCT, 0.35), 0.55);
+
 // --- TYPES ---
 type QuestData = {
   id: number;
@@ -219,9 +243,8 @@ export default function ShowMissionsScreen() {
 
         {/* HEADER */}
         <View style={styles.headerWrapper}>
-          <View style={{ alignSelf: 'flex-start', marginBottom: 10 }}>
-            <Text style={styles.brandText}>PlantUp</Text>
-          </View>
+          {/* Spacer to replace 'PlantUp' text and keep layout consistent */}
+          <View style={{ height: 32, marginBottom: 10 }} />
           
           {/* Top Right Booster Widget */}
           <View style={{ position: 'absolute', top: 5, right: 20, zIndex: 100 }}>
@@ -229,7 +252,7 @@ export default function ShowMissionsScreen() {
           </View>
 
           <MaskedView
-            style={{ height: 110, width: '100%', marginBottom: 10 }}
+            style={{ height: TITLE_HEIGHT, width: '100%', marginBottom: 10 }}
             maskElement={<Text style={styles.headerTitle}>Quests and{'\n'}Daily Rewards!</Text>}>
             <LinearGradient
               colors={['#FFFFFF', '#E0F7FA']}
@@ -245,7 +268,7 @@ export default function ShowMissionsScreen() {
         </View>
 
         {/* DRAGGABLE BOTTOM SHEET */}
-        <DraggableBottomSheet initialHeight={0.55} maxHeight={0.75}>
+        <DraggableBottomSheet initialHeight={SHEET_INITIAL_HEIGHT} maxHeight={0.75}>
           <View style={{ flex: 1, paddingHorizontal: 20 }}>
             {loading && !refreshing ? (
               <ActivityIndicator
@@ -487,7 +510,7 @@ const styles = StyleSheet.create((theme) => ({
   bgImage: { width: '100%', height: '100%' },
   headerWrapper: {
     position: 'absolute',
-    top: height < 850 ? 40 : '6%',
+    top: HEADER_TOP,
     left: 0,
     right: 0,
     paddingHorizontal: 20,

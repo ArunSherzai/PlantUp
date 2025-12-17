@@ -37,9 +37,12 @@
     "expo-splash-screen": "~0.29.24",
     "expo-status-bar": "~2.0.1",
     "expo-system-ui": "~4.0.9",
+    "expo-video": "~2.0.6",
+    "expo-video-thumbnails": "~9.0.3",
     "expo-web-browser": "~14.0.2",
     "react": "18.3.1",
     "react-native": "0.76.9",
+    "react-native-compressor": "^1.13.0",
     "react-native-edge-to-edge": "1.4.3",
     "react-native-gesture-handler": "~2.20.2",
     "react-native-gifted-charts": "^1.4.61",
@@ -53,8 +56,7 @@
     "react-native-svg": "15.8.0",
     "react-native-unistyles": "3.0.0-beta.8",
     "victory-native": "^41.17.1",
-    "zustand": "^4.5.1",
-    "expo-video": "~2.0.6"
+    "zustand": "^4.5.1"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

@@ -89,7 +89,7 @@ export default function DailyStreakComponent() {
               <View style={styles.rewardIconContainer}>
                 <FontAwesome6
                   name={isMaxed ? "crown" : (isFilled ? "gift" : "lock")}
-                  size={14}
+                  size={isSmallDevice ? 10 : 14}
                   color={isFilled ? (isMaxed ? "#783f04" : "white") : theme.colors.greyedOut}
                 />
               </View>
@@ -180,13 +180,14 @@ export default function DailyStreakComponent() {
 
 const StyleSheet = UnistylesSheet;
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 const isSmallDevice = width < 380;
+const isShortDevice = height < 700;
 
 const styles = UnistylesSheet.create((theme) => ({
   container: {
     width: '100%',
-    paddingVertical: isSmallDevice ? 10 : 15,
+    paddingVertical: (isSmallDevice || isShortDevice) ? 10 : 15,
     paddingHorizontal: 15,
     borderRadius: 16,
     marginBottom: 10,
@@ -208,7 +209,7 @@ const styles = UnistylesSheet.create((theme) => ({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: isSmallDevice ? 8 : 12,
+    marginBottom: (isSmallDevice || isShortDevice) ? 8 : 12,
   },
 
   // Badges & Text
@@ -309,7 +310,7 @@ const styles = UnistylesSheet.create((theme) => ({
   barContainer: {
     flexDirection: 'row',
     height: isSmallDevice ? 10 : 14,
-    gap: isSmallDevice ? 3 : 5,
+    gap: (isSmallDevice || isShortDevice) ? 3 : 5,
   },
   
   // Progress Bar

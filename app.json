@@ -30,7 +30,8 @@
           }
         }
       ],
-      "expo-video"
+      "expo-video",
+      "react-native-compressor"
     ],
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",

@@ -24,6 +24,8 @@ import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
+import * as VideoThumbnails from 'expo-video-thumbnails';
+import { Video } from 'react-native-compressor';
 
 import { db } from '../../../utils/supabase';
 
@@ -42,6 +44,7 @@ export default function CreatePostScreen() {
   const [username, setUsername] = useState('Loading...');
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
 
   // Modal State
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
@@ -53,6 +56,7 @@ export default function CreatePostScreen() {
     mimeType?: string;
     name?: string;
     sensorData?: any;
+    thumbnailUri?: string; // New field for thumbnail
   } | null>(null);
 
   const profileImage = require('../../../../assets/images/Profilbild.png');
@@ -95,7 +99,7 @@ export default function CreatePostScreen() {
       setMedia({
         uri: asset.uri,
         type: asset.type === 'video' ? 'video' : 'image',
-        mimeType: asset.type === 'video' ? 'video/mp4' : 'image/jpeg',
+        mimeType: asset.mimeType || (asset.type === 'video' ? 'video/mp4' : 'image/jpeg'),
         name: asset.fileName || `upload.${asset.type === 'video' ? 'mp4' : 'jpg'}`,
       });
     }
@@ -179,6 +183,9 @@ export default function CreatePostScreen() {
     }
 
     setLoading(true);
+    setProgress(0);
+    // Keep track of uploaded files to delete them if something fails
+    const uploadedPaths: string[] = [];
 
     try {
       let finalUrl = null;
@@ -198,31 +205,109 @@ export default function CreatePostScreen() {
         const fileName = `${Date.now()}.${ext}`;
         const filePath = `${userId}/${fileName}`;
 
+        // 1. COMPRESSION & UPLOAD MAIN MEDIA
+        let uploadUri = media.uri;
+
+        if (media.type === 'video') {
+           try {
+             console.log('Compressing video...');
+             const compressedUri = await Video.compress(
+               media.uri,
+               {
+                 compressionMethod: 'auto',
+                 minimumFileSizeForCompress: 2, // MB
+                 getCancellationId: (cancellationId: string) => console.log('compression id', cancellationId),
+               },
+               (progress: number) => {
+                 // Map 0-1 to 0-40%
+                 setProgress(Math.round(progress * 40));
+               }
+             );
+             
+             // Strip file:// prefix if compressor returns it on some versions/platforms (safety check)
+             uploadUri = compressedUri.startsWith('file://') ? compressedUri : `file://${compressedUri}`;
+             console.log('Compression success. New URI:', uploadUri);
+           } catch (e) {
+             console.warn('Compression failed, falling back to original file:', e);
+           }
+        }
+
         const uploadUrl = `${supabaseUrl}/storage/v1/object/post-media/${filePath}`;
 
-        const uploadResult = await FileSystem.uploadAsync(uploadUrl, media.uri, {
-          httpMethod: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': media.mimeType || 'application/octet-stream',
-          },
-          uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-        });
+        console.log('Uploading media to:', uploadUrl);
 
-        if (uploadResult.status !== 200) {
-          console.log('Upload error:', uploadResult.body);
-          throw new Error('Upload failed: ' + uploadResult.body);
+        // Upload Task for Progress (40% -> 100%)
+        const uploadTask = FileSystem.createUploadTask(
+          uploadUrl,
+          uploadUri,
+          {
+            httpMethod: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': media.mimeType || 'application/octet-stream',
+            },
+            uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+          },
+          (data) => {
+            const { totalBytesSent, totalBytesExpectedToSend } = data;
+            const uploadPercentage = totalBytesSent / totalBytesExpectedToSend;
+            // Map 0-1 to 40-100
+            const totalProgress = 40 + Math.round(uploadPercentage * 60);
+            setProgress(totalProgress);
+          }
+        );
+
+        const uploadResult = await uploadTask.uploadAsync();
+
+        if (!uploadResult || uploadResult.status !== 200) {
+          console.log('Upload error (Main):', uploadResult?.body);
+          throw new Error('Upload failed: ' + uploadResult?.body);
         }
+        uploadedPaths.push(filePath);
 
         const { data } = db.public.storage.from('post-media').getPublicUrl(filePath);
         finalUrl = data.publicUrl;
         finalType = media.type;
+
+        // 2. If Video -> Generate & Upload Thumbnail
+        if (media.type === 'video') {
+          try {
+            console.log('Generating thumbnail...');
+            // Use uploaded URI (compressed) for thumbnail to be consistent, or original (doesn't matter much for 1 frame)
+            const { uri: thumbUri } = await VideoThumbnails.getThumbnailAsync(uploadUri, {
+              time: 0, // 0ms = first frame
+            });
+
+            const thumbName = fileName.replace(`.${ext}`, '.png');
+            const thumbPath = `${userId}/${thumbName}`;
+            const thumbUploadUrl = `${supabaseUrl}/storage/v1/object/post-media/${thumbPath}`;
+
+            console.log('Uploading thumbnail to:', thumbUploadUrl);
+            const thumbResult = await FileSystem.uploadAsync(thumbUploadUrl, thumbUri, {
+              httpMethod: 'POST',
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'image/png',
+              },
+              uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+            });
+
+            if (thumbResult.status === 200) {
+              uploadedPaths.push(thumbPath);
+            } else {
+              console.warn('Thumbnail upload failed, but proceeding with video.', thumbResult.body);
+            }
+          } catch (err) {
+            console.warn('Thumbnail generation failed:', err);
+          }
+        }
       } else if (media && media.type === 'sensor') {
         finalType = 'sensor';
         const d = media.sensorData;
         finalCaption += `\n\n🌿 Status:\n🌡️ ${d.temperature}°C | 💧 ${d.soil_moisture}%`;
       }
 
+      // 3. Create DB Entry
       const { error } = await db.social.from('Posts').insert({
         user_id: userId,
         caption: finalCaption,
@@ -243,6 +328,25 @@ export default function CreatePostScreen() {
     } catch (e: any) {
       console.error('Post Error:', e);
       Alert.alert('Error', e.message || 'Network request failed');
+
+      // --- CLEANUP LOGIC ---
+      if (uploadedPaths.length > 0) {
+        console.log('Cleaning up orphaned files:', uploadedPaths);
+        try {
+          // Attempt to delete the files from storage
+          const { error: removeError } = await db.public.storage
+            .from('post-media')
+            .remove(uploadedPaths);
+
+          if (removeError) {
+            console.error('Cleanup failed:', removeError);
+          } else {
+            console.log('Cleanup successful.');
+          }
+        } catch (cleanupErr) {
+          console.error('Cleanup exception:', cleanupErr);
+        }
+      }
     } finally {
       setLoading(false);
     }
@@ -250,7 +354,7 @@ export default function CreatePostScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
       {/* FIXED BACKGROUND */}
       <View style={styles.bgContainer}>
@@ -291,7 +395,10 @@ export default function CreatePostScreen() {
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}>
                 {loading ? (
-                  <ActivityIndicator color="white" size="small" />
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <ActivityIndicator color="white" size="small" />
+                    <Text style={{ color: 'white', fontSize: 12, fontWeight: '600' }}>{progress}%</Text>
+                  </View>
                 ) : (
                   <Text style={styles.postButtonText}>Post</Text>
                 )}
@@ -370,13 +477,7 @@ export default function CreatePostScreen() {
 
             <View style={styles.gridContainer}>
               <AttachmentCard icon="image" color="#4A90E2" label="Media" onPress={pickMedia} />
-              <AttachmentCard
-                icon="file"
-                color="#E24A4A"
-                label="GIF"
-                isGifIcon
-                onPress={() => Alert.alert('Info', 'GIFs coming soon')}
-              />
+              {/* GIF Button Removed */}
               <AttachmentCard
                 icon="file-lines"
                 color="#F5A623"

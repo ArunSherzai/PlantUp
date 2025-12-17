@@ -274,7 +274,10 @@ export const useUserStore = create<State>((set, get) => ({
 
       let effectiveStreak = dbStreak;
 
-      if (lastDateStr) {
+      if (!lastDateStr) {
+        // If no date is recorded but streak exists, it's invalid/stale -> Reset
+        if (dbStreak > 0) effectiveStreak = 0;
+      } else {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const last = new Date(lastDateStr);
@@ -381,7 +384,7 @@ export const useUserStore = create<State>((set, get) => ({
       const mergedBorders: Border[] = bordersData.map((border: any) => {
         // Find ownership info
         const ownership = ownedData.find((o: any) => o.border_id === border.id);
-        
+
         return {
           ...border,
           media_url: border.media_url, // Explicitly map media_url
