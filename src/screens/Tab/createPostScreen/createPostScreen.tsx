@@ -265,8 +265,11 @@ export default function CreatePostScreen() {
         }
         uploadedPaths.push(filePath);
 
-        const { data } = db.public.storage.from('post-media').getPublicUrl(filePath);
-        finalUrl = data.publicUrl;
+        // const { data } = db.public.storage.from('post-media').getPublicUrl(filePath);
+        // finalUrl = data.publicUrl;
+        
+        // Save ONLY the filename/path to DB, not full URL
+        finalUrl = filePath;
         finalType = media.type;
 
         // 2. If Video -> Generate & Upload Thumbnail
