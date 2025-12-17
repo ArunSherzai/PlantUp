@@ -14,6 +14,7 @@ import RankCard from '../../../components/RankCard';
 import RewardItem from '../../../components/RewardItem';
 import { REWARDS, getRankName } from '../../../utils/leveling';
 import PostListTab from './components/PostListTab';
+import { FontAwesome5 } from '@expo/vector-icons';
 
 export default function ProfileScreen() {
   const { theme } = useUnistyles();
@@ -164,13 +165,29 @@ export default function ProfileScreen() {
 
             {/* Profile Card */}
             <View style={[styles.profileCard, { backgroundColor: theme.colors.background }]}>
-              {/* Top Row: Avatar + Name/Title */}
+              {/* --- NEW: Border Inventory Button --- */}
+              {/* Top Row: Avatar + Name/Title + Settings */}
               <View style={styles.topRow}>
-                <View style={styles.avatarContainer}>
+                <View style={[styles.avatarContainer, { position: 'relative' }]}>
                   <Image
                     source={require('../../../../assets/images/Profilbild.png')}
                     style={[styles.avatar, { backgroundColor: theme.colors.greyedOut }]}
                   />
+                  {/* --- NEW: Render Equipped Border --- */}
+                  {profile?.equipped_border?.media_url && (
+                    <Image
+                      source={{ uri: profile.equipped_border.media_url }}
+                      style={{
+                        position: 'absolute',
+                        width: 120, // 80 * 1.5
+                        height: 120,
+                        top: -20,
+                        left: -20,
+                        zIndex: 1
+                      }}
+                      resizeMode="contain"
+                    />
+                  )}
                 </View>
 
                 <View style={styles.userInfo}>
@@ -190,6 +207,14 @@ export default function ProfileScreen() {
                     {profile?.title}
                   </Text>
                 </View>
+
+                {/* Values T-Shirt Icon */}
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('BorderInventory')}
+                  style={{ padding: 8 }}
+                >
+              <FontAwesome5 name="tshirt" size={24} color={theme.colors.gradient[1]} />
+                </TouchableOpacity>
               </View>
 
               {/* Bio Section (Below Top Row) */}
@@ -433,6 +458,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     borderWidth: 1,
     borderStyle: 'dashed',
+    paddingBottom: 20,
   },
   comingSoonText: {
     fontSize: 16,

@@ -23,6 +23,7 @@ export type RootStackParamList = {
   Connections: { initialTab: 'followers' | 'following'; userId?: string };
   PublicProfile: { userId: string };
   DirectMessages: undefined;
+  BorderInventory: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -59,6 +60,7 @@ import PublicProfileScreen from '~/screens/Tab/profileScreen/PublicProfileScreen
 import DirectMessagesScreen from '~/screens/Tab/directMessages/DirectMessagesScreen';
 import SpriteComponent from '~/components/SpriteComponent';
 import { View } from 'react-native';
+import BorderInventoryScreen from '~/screens/Tab/profileScreen/BorderInventoryScreen';
 
 export default function RootStack() {
   const { theme } = useUnistyles();
@@ -143,6 +145,11 @@ export default function RootStack() {
           <Stack.Screen
             name="DirectMessages"
             component={DirectMessagesScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="BorderInventory"
+            component={BorderInventoryScreen}
             options={{ headerShown: false }}
           />
         </Stack.Navigator>
