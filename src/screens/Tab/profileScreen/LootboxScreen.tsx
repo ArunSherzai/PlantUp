@@ -126,11 +126,7 @@ export default function LootboxScreen() {
                         // State 2: Reward Reveal
                         <View style={styles.stateContainer}>
                             <View style={styles.rewardWrapper}>
-                                <Image
-                                    source={require('../../../../assets/animations/gettingitem.gif')}
-                                    style={styles.gifStyle}
-                                    contentFit="contain"
-                                />
+
                                 {isDuplicate ? (
                                     <Image
                                         source={require('../../../../assets/images/plantupcoin.png')}
@@ -185,7 +181,7 @@ const styles = StyleSheet.create((theme) => ({
     },
     cardContainer: {
         width: SCREEN_WIDTH * 0.85,
-        maxWidth: 400,
+        maxWidth: 800,
         backgroundColor: theme.colors.background || '#fff',
         borderRadius: 30,
         paddingVertical: 50,
@@ -208,6 +204,7 @@ const styles = StyleSheet.create((theme) => ({
         justifyContent: 'center',
         width: '100%',
     },
+
     gifStyle: {
         width: 200,
         height: 200,
@@ -219,10 +216,8 @@ const styles = StyleSheet.create((theme) => ({
         marginBottom: 20,
     },
     rewardImageOverlay: {
-        position: 'absolute',
         width: 200,
         height: 200,
-        zIndex: 10,
     },
     stateText: {
         fontSize: 22,
