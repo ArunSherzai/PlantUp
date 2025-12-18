@@ -71,6 +71,23 @@ export default function LootboxScreen() {
 
             console.log('Random Border:', border);
 
+            // Fix media_url using Supabase Storage
+            if (border && border.media_url) {
+                // Folder structure is 'rarity/filename' (e.g., 'common/green_flower_border.png')
+                // We assume media_url in DB is just the filename. 
+                // If it includes path, we might need to adjust, but assuming strict move:
+                const rarityFolder = border.rarity ? border.rarity.toLowerCase() : 'common';
+                const fileName = border.media_url.split('/').pop(); // Ensure we just have filename
+                const path = `${rarityFolder}/${fileName}`;
+
+                const { data: publicUrlData } = db.public.storage
+                    .from('border-skins')
+                    .getPublicUrl(path);
+
+                border.media_url = publicUrlData.publicUrl;
+                console.log('Generated Public URL:', border.media_url);
+            }
+
             // 3. Award the border to the user
             const { error: insertError } = await db.gamification
                 .from('User_owned_border')

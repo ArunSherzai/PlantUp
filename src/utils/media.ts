@@ -1,13 +1,20 @@
-export const getDisplayMedia = (post: any) => {
-    let url = post.media_url;
-    if (!url) return null;
+import { db } from './supabase';
 
-    // If relative path, prepend bucket URL
-    if (!url.startsWith('http')) {
-        const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-        // Assuming bucket is 'post-media'
-        url = `${supabaseUrl}/storage/v1/object/public/post-media/${url}`;
-    }
+export const getPublicPostUrl = (path: string | null) => {
+    if (!path) return null;
+    if (path.startsWith('http')) return path;
+
+    const { data } = db.public.storage
+        .from('post-media')
+        .getPublicUrl(path);
+
+    return data.publicUrl;
+};
+
+export const getDisplayMedia = (post: any) => {
+    let url = getPublicPostUrl(post.media_url);
+
+    if (!url) return undefined;
 
     // If video, try to find thumbnail
     if (post.type === 'video' || post.type === 'reel' || url.endsWith('.mp4')) {

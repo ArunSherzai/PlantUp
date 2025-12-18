@@ -209,27 +209,27 @@ export default function CreatePostScreen() {
         let uploadUri = media.uri;
 
         if (media.type === 'video') {
-           try {
-             console.log('Compressing video...');
-             const compressedUri = await Video.compress(
-               media.uri,
-               {
-                 compressionMethod: 'auto',
-                 minimumFileSizeForCompress: 2, // MB
-                 getCancellationId: (cancellationId: string) => console.log('compression id', cancellationId),
-               },
-               (progress: number) => {
-                 // Map 0-1 to 0-40%
-                 setProgress(Math.round(progress * 40));
-               }
-             );
-             
-             // Strip file:// prefix if compressor returns it on some versions/platforms (safety check)
-             uploadUri = compressedUri.startsWith('file://') ? compressedUri : `file://${compressedUri}`;
-             console.log('Compression success. New URI:', uploadUri);
-           } catch (e) {
-             console.warn('Compression failed, falling back to original file:', e);
-           }
+          try {
+            console.log('Compressing video...');
+            const compressedUri = await Video.compress(
+              media.uri,
+              {
+                compressionMethod: 'auto',
+                minimumFileSizeForCompress: 2, // MB
+                getCancellationId: (cancellationId: string) => console.log('compression id', cancellationId),
+              },
+              (progress: number) => {
+                // Map 0-1 to 0-40%
+                setProgress(Math.round(progress * 40));
+              }
+            );
+
+            // Strip file:// prefix if compressor returns it on some versions/platforms (safety check)
+            uploadUri = compressedUri.startsWith('file://') ? compressedUri : `file://${compressedUri}`;
+            console.log('Compression success. New URI:', uploadUri);
+          } catch (e) {
+            console.warn('Compression failed, falling back to original file:', e);
+          }
         }
 
         const uploadUrl = `${supabaseUrl}/storage/v1/object/post-media/${filePath}`;
@@ -267,7 +267,7 @@ export default function CreatePostScreen() {
 
         // const { data } = db.public.storage.from('post-media').getPublicUrl(filePath);
         // finalUrl = data.publicUrl;
-        
+
         // Save ONLY the filename/path to DB, not full URL
         finalUrl = filePath;
         finalType = media.type;

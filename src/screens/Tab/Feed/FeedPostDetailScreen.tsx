@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, SafeAreaView, Dimensions, TextInput, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, SafeAreaView, Dimensions, TextInput, Animated, ScrollView } from 'react-native';
 import { useUnistyles } from 'react-native-unistyles';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
@@ -11,9 +11,6 @@ import { db } from '../../../utils/supabase';
 import { useUserStore } from '../../../stores/UserStore';
 import { useState, useEffect } from 'react';
 import { getDisplayMedia } from '../../../utils/media';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import DraggableBottomSheet from '../../../components/DraggableBottomSheet';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // We need the RouteProp to access params
 type FeedPostDetailRouteProp = RouteProp<RootStackParamList, 'FeedPostDetail'>;
@@ -24,7 +21,9 @@ export default function FeedPostDetailScreen() {
     const { theme } = useUnistyles();
     const navigation = useNavigation<any>();
     const route = useRoute<FeedPostDetailRouteProp>();
-    const insets = useSafeAreaInsets();
+
+    // Animation Value
+    const scrollY = useRef(new Animated.Value(0)).current;
 
     // Fallback if no params (dev safety), though FeedScreen will pass them
     const post = route.params?.post;
@@ -35,19 +34,63 @@ export default function FeedPostDetailScreen() {
     // Mock slice for "Related"
     const displayPosts = relatedPosts.filter(p => p.id !== post?.id).slice(0, 4);
 
+    // Opacity Interpolation: Hidden at 0, Visible by 150 scroll
+    const contentOpacity = scrollY.interpolate({
+        inputRange: [0, 150],
+        outputRange: [0, 1],
+        extrapolate: 'clamp',
+    });
+
+    // Translation Interpolation: Slide up slightly
+    const contentTranslateY = scrollY.interpolate({
+        inputRange: [0, 150],
+        outputRange: [30, 0],
+        extrapolate: 'clamp',
+    });
+
     return (
-        <GestureHandlerRootView style={{ flex: 1 }}>
-            <View style={styles.container}>
-                {/* Fixed Background Content */}
+        <View style={styles.container}>
+            {/* Fixed Background Content */}
+            {getDisplayMedia(post) ? (
+                <Image
+                    source={{ uri: getDisplayMedia(post) }}
+                    style={styles.backgroundImage}
+                    resizeMode="contain"
+                />
+            ) : (
+                <View style={[styles.backgroundImage, { backgroundColor: '#F0F5F1' }]} />
+            )}
+
+            {/* Fixed Header */}
+            <SafeAreaView style={styles.headerSafeArea}>
+                <View style={styles.header}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}>
+                        <FontAwesome6 name="chevron-left" size={20} color="white" />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.headerButton}>
+                        <FontAwesome6 name="magnifying-glass" size={20} color="white" />
+                    </TouchableOpacity>
+                </View>
+            </SafeAreaView>
+
+            {/* Scrollable Overlay */}
+            <Animated.ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.scrollContent}
+                style={styles.scrollView}
+                onScroll={Animated.event(
+                    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+                    { useNativeDriver: true }
+                )}
+                scrollEventThrottle={16}
+            >
+                {/* Transparent Spacer to show image */}
+                {/* Spacer or Text Card */}
                 {getDisplayMedia(post) ? (
-                    <Image
-                        source={{ uri: getDisplayMedia(post) }}
-                        style={styles.backgroundImage}
-                        resizeMode="cover"
-                    />
+                    <View style={styles.spacer} />
                 ) : (
-                    // Logic for Thought Post Background
-                    <View style={[styles.backgroundImage, { backgroundColor: '#F0F5F1', justifyContent: 'center', alignItems: 'center' }]}>
+                    <View style={[styles.spacer, { justifyContent: 'center', alignItems: 'center' }]}>
                         <View style={[styles.textCardLarge, { backgroundColor: theme.colors.surface }]}>
                             <View style={styles.textBadge}>
                                 <Text style={styles.textBadgeText}>Thought</Text>
@@ -60,43 +103,37 @@ export default function FeedPostDetailScreen() {
                     </View>
                 )}
 
-                {/* Fixed Header */}
-                <View style={[styles.headerSafeArea, { paddingTop: insets.top }]}>
-                    <View style={styles.header}>
-                        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}>
-                            <FontAwesome6 name="chevron-left" size={20} color="white" />
-                        </TouchableOpacity>
-
-                        <TouchableOpacity style={styles.headerButton}>
-                            <FontAwesome6 name="magnifying-glass" size={20} color="white" />
-                        </TouchableOpacity>
-                    </View>
-                </View>
-
-                {/* Draggable Bottom Sheet */}
-                <DraggableBottomSheet initialHeight={0.4} maxHeight={0.9}>
-                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 100 }}>
-                        {/* User Info Row */}
-                        <View style={styles.userInfoRow}>
-                            <View style={styles.userSection}>
-                                <Image
-                                    source={require('../../../../assets/images/Profilbild.png')} // Mock avatar or from Post payload if users linked
-                                    style={styles.avatar}
-                                />
-                                <View style={styles.textSection}>
-                                    {/* Mock username for now as DB might not have joined user data yet, or use generic fallback */}
-                                    <Text style={[styles.username, { color: theme.colors.text }]}>Greenout123</Text>
-                                    <Text style={[styles.caption, { color: theme.colors.text }]} numberOfLines={2}>
-                                        {post?.caption || 'My Pink Princess #post #plslikeandfollow'}
-                                    </Text>
-                                </View>
+                {/* White Content Card */}
+                <View style={[styles.contentCard, { backgroundColor: theme.colors.surface }]}>
+                    {/* User Info Row - ALWAYS VISIBLE */}
+                    <View style={styles.userInfoRow}>
+                        <View style={styles.userSection}>
+                            <Image
+                                source={require('../../../../assets/images/Profilbild.png')} // Mock avatar or from Post payload if users linked
+                                style={styles.avatar}
+                            />
+                            <View style={styles.textSection}>
+                                {/* Mock username for now as DB might not have joined user data yet, or use generic fallback */}
+                                <Text style={[styles.username, { color: theme.colors.text }]}>Greenout123</Text>
+                                <Text style={[styles.caption, { color: theme.colors.text }]} numberOfLines={2}>
+                                    {post?.caption || 'My Pink Princess #post #plslikeandfollow'}
+                                </Text>
                             </View>
-
-                            <TouchableOpacity style={[styles.followButton, { backgroundColor: '#4CA771' }]}>
-                                <Text style={styles.followButtonText}>Follow</Text>
-                            </TouchableOpacity>
                         </View>
 
+                        <TouchableOpacity style={[styles.followButton, { backgroundColor: '#4CA771' }]}>
+                            <Text style={styles.followButtonText}>Follow</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Scroll Hint - ALWAYS VISIBLE */}
+                    <View style={styles.footer}>
+                        <FontAwesome6 name="chevron-down" size={14} color={theme.colors.greyedOut || '#999'} />
+                        <Text style={[styles.footerText, { color: theme.colors.greyedOut || '#999' }]}>Scroll for more actions...</Text>
+                    </View>
+
+                    {/* Hidden Content (Fades in) */}
+                    <Animated.View style={{ opacity: contentOpacity, transform: [{ translateY: contentTranslateY }] }}>
                         <View style={styles.divider} />
 
                         {/* Comments Section */}
@@ -130,11 +167,10 @@ export default function FeedPostDetailScreen() {
 
                         {/* Bottom Padding */}
                         <View style={{ height: 40 }} />
-                    </ScrollView>
-                </DraggableBottomSheet>
-
-            </View>
-        </GestureHandlerRootView>
+                    </Animated.View>
+                </View>
+            </Animated.ScrollView>
+        </View>
     );
 }
 
@@ -196,28 +232,49 @@ const styles = StyleSheet.create({
         top: 0,
         left: 0,
         right: 0,
-        zIndex: 20,
+        zIndex: 20, // ensure header is above scrollview initially if we want it clickable?
+        // Actually, if ScrollView is on top, it might block header clicks if spacer catches touches.
+        // We can make spacer pointerEvents="none" or put Header zIndex higher.
     },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         paddingHorizontal: 20,
-        paddingTop: 10,
+        paddingTop: 10, // Adjust for safe area
     },
     headerButton: {
         flexDirection: 'row',
         alignItems: 'center',
         padding: 10,
         borderRadius: 10,
-        backgroundColor: 'rgba(0,0,0,0.2)',
+        backgroundColor: 'rgba(0,0,0,0.2)', // Slight dim for readability
         width: "20%",
         justifyContent: "center",
     },
     headerText: {
-        color: 'white',
+        color: 'Black',
         fontSize: 18,
         fontWeight: '600',
         marginLeft: 8,
+    },
+    scrollView: {
+        flex: 1,
+        zIndex: 10,
+    },
+    scrollContent: {
+        flexGrow: 1,
+    },
+    spacer: {
+        height: height - 100, // Reduced visible area to ~100px
+    },
+    contentCard: {
+        backgroundColor: 'white',
+        borderTopLeftRadius: 30,
+        borderTopRightRadius: 30,
+        paddingHorizontal: 24,
+        paddingTop: 24,
+        minHeight: height * 0.8, // Ensure enough scrollable content
+        paddingBottom: 40,
     },
     userInfoRow: {
         flexDirection: 'row',
@@ -261,6 +318,17 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         fontSize: 14,
     },
+    footer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 15, // Space before contents
+        opacity: 0.7,
+        gap: 8,
+    },
+    footerText: {
+        fontSize: 12,
+    },
     divider: {
         height: 1,
         backgroundColor: '#EEEEEE',
@@ -295,7 +363,7 @@ const styles = StyleSheet.create({
         flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#F5F5F5',
+        backgroundColor: '#F5F5F5', // Light grey input bg
         borderRadius: 20,
         paddingHorizontal: 15,
         height: 40,
@@ -303,5 +371,16 @@ const styles = StyleSheet.create({
     input: {
         flex: 1,
         color: 'black',
+    },
+    masonryContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginTop: 10,
+    },
+    column: {
+        width: (width - 48 - 15) / 2, // width - padding*2 - gap
+    },
+    cardSpacing: {
+        marginBottom: 15,
     },
 });
