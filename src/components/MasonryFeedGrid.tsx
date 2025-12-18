@@ -55,6 +55,7 @@ export default function MasonryFeedGrid({ posts, onPostPress }: MasonryFeedGridP
                                     userAvatar={p1.Users?.profile_image ? { uri: p1.Users.profile_image } : null}
                                     aspectRatio={1}
                                     style={{ flex: 1 }}
+                                    hideCaption={true}
                                 />
                             </View>
                             <View style={styles.col}>
@@ -68,6 +69,7 @@ export default function MasonryFeedGrid({ posts, onPostPress }: MasonryFeedGridP
                                     userAvatar={p2.Users?.profile_image ? { uri: p2.Users.profile_image } : null}
                                     aspectRatio={1}
                                     style={{ flex: 1 }}
+                                    hideCaption={true}
                                 />
                             </View>
                         </View>
@@ -102,6 +104,7 @@ export default function MasonryFeedGrid({ posts, onPostPress }: MasonryFeedGridP
                                     userAvatar={p2.Users?.profile_image ? { uri: p2.Users.profile_image } : null}
                                     aspectRatio={1.53}
                                     style={{ flex: 1 }}
+                                    hideCaption={true}
                                 />
                             )}
                         </View>
@@ -119,6 +122,7 @@ export default function MasonryFeedGrid({ posts, onPostPress }: MasonryFeedGridP
                                     userAvatar={p3.Users?.profile_image ? { uri: p3.Users.profile_image } : null}
                                     aspectRatio={1.53}
                                     style={{ flex: 1 }}
+                                    hideCaption={true}
                                 />
                             )}
                             {p4 && (
@@ -132,6 +136,7 @@ export default function MasonryFeedGrid({ posts, onPostPress }: MasonryFeedGridP
                                     userAvatar={p4.Users?.profile_image ? { uri: p4.Users.profile_image } : null}
                                     aspectRatio={0.71}
                                     style={{ flex: 1 }}
+                                    hideCaption={true}
                                 />
                             )}
                         </View>

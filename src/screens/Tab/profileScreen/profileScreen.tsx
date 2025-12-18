@@ -211,7 +211,7 @@ export default function ProfileScreen() {
                   onPress={() => navigation.navigate('BorderInventory')}
                   style={{ padding: 8 }}
                 >
-                  <FontAwesome5 name="tshirt" size={24} color={theme.colors.gradient[1]} />
+              <FontAwesome5 name="tshirt" size={24} color={theme.colors.gradient[1]} />
                 </TouchableOpacity>
               </View>
 
@@ -304,14 +304,15 @@ const styles = StyleSheet.create({
     width: '100%',
     position: 'absolute',
     top: 0,
-    justifyContent: 'center',
   },
   headerGradient: {
     flex: 1,
   },
   headerContent: {
-    paddingHorizontal: 20,
-    marginBottom: 40, // Adjust to move text up slightly if needed, or rely on center
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    right: 20,
   },
   headerTopRow: {
     flexDirection: 'row',

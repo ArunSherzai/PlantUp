@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { db } from '../utils/supabase';
+import { getPublicPostUrl } from '../utils/media';
 
 export interface Post {
     id: string;
@@ -89,13 +90,16 @@ export function usePosts(options?: UsePostsOptions) {
             const usersMap = new Map();
             usersData?.forEach((u: any) => usersMap.set(u.id, u));
 
-            const mergedPosts = postsData.map((post: any) => ({
-                ...post,
-                Users: usersMap.get(post.user_id) ? {
-                    username: usersMap.get(post.user_id).username,
-                    profile_image: null // Column missing in DB
-                } : undefined
-            }));
+            const mergedPosts = postsData.map((post: any) => {
+                return {
+                    ...post,
+                    media_url: getPublicPostUrl(post.media_url),
+                    Users: usersMap.get(post.user_id) ? {
+                        username: usersMap.get(post.user_id).username,
+                        profile_image: null // Column missing in DB
+                    } : undefined
+                };
+            });
 
             setPosts(mergedPosts);
             setError(null);

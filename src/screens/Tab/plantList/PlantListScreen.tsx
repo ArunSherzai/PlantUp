@@ -165,7 +165,6 @@ const stylesheet = (theme: any) =>
       width: '100%',
       position: 'absolute',
       top: 0,
-      justifyContent: 'center',
     },
     headerImage: {
       flex: 1,
@@ -173,7 +172,9 @@ const stylesheet = (theme: any) =>
       height: '100%',
     },
     headerContainer: {
-      paddingLeft: 20,
+      position: 'absolute',
+      top: 40,
+      left: 20,
     },
     headerTitle: {
       fontSize: 48,

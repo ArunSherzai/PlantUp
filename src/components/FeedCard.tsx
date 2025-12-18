@@ -13,9 +13,10 @@ interface FeedCardProps {
     username?: string;
     userAvatar?: any;
     aspectRatio?: number;
+    hideCaption?: boolean;
 }
 
-export default function FeedCard({ imageUri, caption, hashtags, isVideo, style, onPress, username, userAvatar, aspectRatio }: FeedCardProps) {
+export default function FeedCard({ imageUri, caption, hashtags, isVideo, style, onPress, username, userAvatar, aspectRatio, hideCaption }: FeedCardProps) {
     const { theme } = useUnistyles();
     const hasMedia = imageUri?.uri || (typeof imageUri === 'number');
 
@@ -44,14 +45,7 @@ export default function FeedCard({ imageUri, caption, hashtags, isVideo, style, 
                         </TouchableOpacity>
                     </View>
 
-                    {/* <View style={styles.content}>
-                        {caption && <Text style={[styles.caption, { color: theme.colors.text }]} numberOfLines={2}>{caption}</Text>}
-                        {hashtags && hashtags.length > 0 && (
-                            <Text style={[styles.hashtags, { color: theme.colors.primary }]}>
-                                {hashtags.map(tag => `#${tag}`).join(' ')}
-                            </Text>
-                        )}
-                    </View> */}
+
                 </>
             ) : (
                 // Text Only Card Layout (Mimicking Image Structure)
@@ -80,22 +74,7 @@ export default function FeedCard({ imageUri, caption, hashtags, isVideo, style, 
                         </TouchableOpacity>
                     </View>
 
-                    {/* Metadata Footer (Below Box) */}
-                    <View style={styles.content}>
-                        {/* User Info Only (Ellipsis moved to Box) */}
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                                <Text style={[styles.username, { color: theme.colors.text }]}>{(username?.split('@')[0]) || 'PlantUp User'}</Text>
-                            </View>
-                        </View>
 
-                        {/* Hashtags - Removed as per request */}
-                        {/* {hashtags && hashtags.length > 0 && (
-                            <Text style={[styles.hashtags, { color: theme.colors.primary, marginTop: 4 }]}>
-                                {hashtags.map(tag => `#${tag}`).join(' ')}
-                            </Text>
-                        )} */}
-                    </View>
                 </>
             )}
         </TouchableOpacity>
