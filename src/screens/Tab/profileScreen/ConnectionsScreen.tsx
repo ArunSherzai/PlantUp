@@ -224,7 +224,7 @@ export default function ConnectionsScreen() {
             name: u.username, // Using username as name for now
             username: `@${u.username}`,
             bio: 'Gardener', // Placeholder bio
-            avatar: require('../../../../assets/images/Profilbild.png'), // Placeholder avatar
+            avatar: u.avatar_url ? { uri: u.avatar_url } : require('../../../../assets/images/Profilbild.jpg'), // User avatar or placeholder
             status: getStatus(u.id, true)
         }))
         : following.map(u => ({
@@ -232,7 +232,7 @@ export default function ConnectionsScreen() {
             name: u.username,
             username: `@${u.username}`,
             bio: 'Gardener',
-            avatar: require('../../../../assets/images/Profilbild.png'),
+            avatar: u.avatar_url ? { uri: u.avatar_url } : require('../../../../assets/images/Profilbild.jpg'),
             status: getStatus(u.id, false)
         }));
 

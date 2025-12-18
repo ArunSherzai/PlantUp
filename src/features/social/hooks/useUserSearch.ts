@@ -8,6 +8,7 @@ export type SearchUser = {
     // We will augment these with separate fetches or joins if possible
     level?: number;
     followers_count?: number;
+    profile_image?: string;
 };
 
 export function useUserSearch() {
@@ -25,7 +26,7 @@ export function useUserSearch() {
             // 1. Search Users
             const { data: users, error } = await db.user
                 .from('Users')
-                .select('id, username, plant_coins')
+                .select('id, username, plant_coins, avatar_path')
                 .ilike('username', `%${query}%`)
                 .limit(20);
 
@@ -52,10 +53,22 @@ export function useUserSearch() {
                     .select('*', { count: 'exact', head: true })
                     .eq('following_id', user.id);
 
+                // Generate Profile Image URL
+                let profileImageUrl = undefined;
+                if (user.avatar_path) {
+                    if (user.avatar_path.startsWith('http')) {
+                        profileImageUrl = user.avatar_path;
+                    } else {
+                        const { data } = db.public.storage.from('avatar').getPublicUrl(user.avatar_path);
+                        profileImageUrl = data.publicUrl;
+                    }
+                }
+
                 return {
                     ...user,
                     level: stats?.level || 1,
-                    followers_count: count || 0
+                    followers_count: count || 0,
+                    profile_image: profileImageUrl
                 };
             }));
 

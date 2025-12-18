@@ -197,7 +197,11 @@ export default function UserProfile({ userId, isOwner }: Props) {
                     <View style={styles.profileCard}>
                         <View style={styles.avatarContainer}>
                             <Image
-                                source={require('../../assets/images/Profilbild.png')}
+                                source={
+                                    profile?.profile_image
+                                        ? { uri: profile.profile_image }
+                                        : require('../../assets/images/Profilbild.jpg')
+                                }
                                 style={styles.avatar}
                             />
                         </View>

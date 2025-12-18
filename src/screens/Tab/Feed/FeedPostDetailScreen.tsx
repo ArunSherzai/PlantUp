@@ -21,6 +21,7 @@ export default function FeedPostDetailScreen() {
     const { theme } = useUnistyles();
     const navigation = useNavigation<any>();
     const route = useRoute<FeedPostDetailRouteProp>();
+    const { profile } = useUserStore();
 
     // Animation Value
     const scrollY = useRef(new Animated.Value(0)).current;
@@ -109,12 +110,12 @@ export default function FeedPostDetailScreen() {
                     <View style={styles.userInfoRow}>
                         <View style={styles.userSection}>
                             <Image
-                                source={require('../../../../assets/images/Profilbild.png')} // Mock avatar or from Post payload if users linked
+                                source={post?.Users?.profile_image ? { uri: post.Users.profile_image } : require('../../../../assets/images/Profilbild.jpg')}
                                 style={styles.avatar}
                             />
                             <View style={styles.textSection}>
-                                {/* Mock username for now as DB might not have joined user data yet, or use generic fallback */}
-                                <Text style={[styles.username, { color: theme.colors.text }]}>Greenout123</Text>
+                                {/* Use username from Post data */}
+                                <Text style={[styles.username, { color: theme.colors.text }]}>{post?.Users?.username || 'Observer'}</Text>
                                 <Text style={[styles.caption, { color: theme.colors.text }]} numberOfLines={2}>
                                     {post?.caption || 'My Pink Princess #post #plslikeandfollow'}
                                 </Text>
@@ -143,7 +144,7 @@ export default function FeedPostDetailScreen() {
 
                             <View style={styles.commentInputRow}>
                                 <Image
-                                    source={require('../../../../assets/images/Profilbild.png')} // User's own avatar
+                                    source={profile?.profile_image ? { uri: profile.profile_image } : require('../../../../assets/images/Profilbild.png')}
                                     style={styles.smallAvatar}
                                 />
                                 <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background }]}>

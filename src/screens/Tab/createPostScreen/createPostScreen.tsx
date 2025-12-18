@@ -28,6 +28,7 @@ import * as VideoThumbnails from 'expo-video-thumbnails';
 import { Video } from 'react-native-compressor';
 
 import { db } from '../../../utils/supabase';
+import { useUserStore } from '../../../stores/UserStore';
 
 const { height } = Dimensions.get('window');
 
@@ -39,10 +40,13 @@ export default function CreatePostScreen() {
   const navigation = useNavigation();
   const scrollViewRef = useRef(null);
 
+  const { user, profile } = useUserStore();
+
   // --- STATE ---
   const [caption, setCaption] = useState('');
-  const [username, setUsername] = useState('Loading...');
-  const [userId, setUserId] = useState<string | null>(null);
+  // Use profile username or fallback
+  const username = profile?.username || 'Loading...';
+  const userId = user?.id; // derived from store
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
 
@@ -59,22 +63,10 @@ export default function CreatePostScreen() {
     thumbnailUri?: string; // New field for thumbnail
   } | null>(null);
 
-  const profileImage = require('../../../../assets/images/Profilbild.png');
-
-  // 1. USER LADEN
-  useEffect(() => {
-    const fetchUser = async () => {
-      const {
-        data: { user },
-      } = await db.public.auth.getUser();
-      if (user) {
-        setUserId(user.id);
-        const { data } = await db.user.from('Users').select('username').eq('id', user.id).single();
-        if (data) setUsername(data.username);
-      }
-    };
-    fetchUser();
-  }, []);
+  // Profile Image Logic with Fallback
+  const profileImage = profile?.profile_image
+    ? { uri: profile.profile_image }
+    : require('../../../../assets/images/Profilbild.jpg');
 
   const closeMenu = () => setShowAttachmentMenu(false);
 
