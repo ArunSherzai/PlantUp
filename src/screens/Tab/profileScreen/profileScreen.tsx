@@ -19,13 +19,16 @@ import { FontAwesome5 } from '@expo/vector-icons';
 export default function ProfileScreen() {
   const { theme } = useUnistyles();
   const navigation = useNavigation<any>();
-  const { user, profile, fetchProfile, ownedTitles, fetchTitles, equipTitle } = useUserStore();
+  const { user, profile, fetchProfile, fetchUnclaimedRewards, unclaimedRewards, claimReward } = useUserStore();
   const [activeTab, setActiveTab] = useState('leveling');
 
   useFocusEffect(
     useCallback(() => {
-      if (user) fetchProfile();
-    }, [user, fetchProfile])
+      if (user) {
+        fetchProfile();
+        fetchUnclaimedRewards();
+      }
+    }, [user, fetchProfile, fetchUnclaimedRewards])
   );
 
   if (!user) {
@@ -57,8 +60,14 @@ export default function ProfileScreen() {
     },
   ];
 
-  const handleClaimReward = (rewardTitle: string) => {
-    Alert.alert('Reward Claimed!', `You have claimed: ${rewardTitle}`);
+  const handleClaimReward = async (level: number, title: string) => {
+    console.log("Hallo")
+    const success = await claimReward(level);
+    if (success) {
+      Alert.alert('Reward Claimed!', `You have claimed: ${title}`);
+    } else {
+      Alert.alert('Error', 'Could not claim reward. Try again later.');
+    }
   };
 
   const renderContent = () => {
@@ -90,15 +99,28 @@ export default function ProfileScreen() {
               horizontal
               showsHorizontalScrollIndicator={false}
               style={styles.rewardsScroll}>
-              {REWARDS.map((reward) => (
-                <RewardItem
-                  key={reward.level}
-                  title={reward.title}
-                  description={reward.description}
-                  isUnlocked={currentLevel >= reward.level}
-                  onClaim={() => handleClaimReward(reward.title)}
-                />
-              ))}
+              {REWARDS.map((reward) => {
+                const isClaimable = unclaimedRewards.some(r => r.level === reward.level);
+    
+                
+                const isUnlocked = currentLevel >= reward.level;
+                const isClaimed = isUnlocked && !isClaimable; 
+                
+                return (
+                  <RewardItem
+                    key={reward.level}
+                    title={reward.title}
+                    description={reward.description}
+                    isUnlocked={isUnlocked}
+                    isClaimed={isClaimed}
+                    onClaim={() => {
+                      console.log("Hallo")
+                        if (isClaimable) handleClaimReward(reward.level, reward.title);
+                        else if (isClaimed) Alert.alert("Already Claimed", "You have already claimed this reward.");
+                        else Alert.alert("Locked", "Reach the required level to unlock.");
+                    }}
+                  />
+              )})}
             </ScrollView>
           </>
         );

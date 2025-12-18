@@ -12,16 +12,15 @@ export type Reward = {
 export const MAX_LEVEL = 100;
 
 export const REWARDS: Reward[] = [
-  { level: 5, title: 'Fire Border', description: 'Unlock a new slot for your garden.' },
-  { level: 10, title: 'Fire Border', description: 'Show off your progress with a new Profile Border!' },
-  { level: 15, title: 'Fertilizer Pack', description: 'Boost your plants growth.' },
-  { level: 20, title: '500 Plant Coins', description: 'Spend your Coins to buy something cool!' },
+  { level: 5, title: '500 Plant Coins', description: 'Spend your Coins to buy something cool!' },
+  { level: 10, title: 'XP Booster', description: 'Progress Faster with this booster.' },
+  { level: 20, title: 'Fire Border', description: 'Show off your progress with a new Profile Border!' },
   { level: 30, title: 'Plant Sage Title', description: 'Let everyone see your progress with a new Title.' },
   { level: 40, title: 'Watering Can Skin', description: 'Style your tools.' },
-  { level: 50, title: 'Green Thumb Badge', description: 'Halfway to mastery!' },
-  { level: 60, title: 'Greenhouse BG', description: 'A new background for your profile.' },
-  { level: 75, title: 'Master Title', description: 'Respect from the community.' },
-  { level: 100, title: 'Legendary Trophy', description: 'The ultimate gardening achievement.' },
+  { level: 50, title: '500 Plant Coins', description: 'Halfway to mastery!' },
+  { level: 60, title: 'Animated Border', description: 'A new border for your profile!' },
+  { level: 75, title: 'Garden Deity Title', description: 'Respect from the community!' },
+  { level: 100, title: 'Webshop Coupon', description: 'Buy something cool!' },
 ];
 
 // --- FUNCTIONS ---

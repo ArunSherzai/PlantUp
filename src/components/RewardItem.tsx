@@ -8,30 +8,42 @@ type RewardItemProps = {
     title: string;
     description: string;
     isUnlocked: boolean;
+    isClaimed?: boolean;
     onClaim?: () => void;
 };
 
-export default function RewardItem({ title, description, isUnlocked, onClaim }: RewardItemProps) {
+export default function RewardItem({ title, description, isUnlocked, isClaimed, onClaim }: RewardItemProps) {
     const { theme } = useUnistyles();
-    const Container = isUnlocked && onClaim ? TouchableOpacity : View;
+    // Only clickable if unlocked AND NOT claimed
+    const isClickable = isUnlocked && !isClaimed && onClaim;
+    const Container = isClickable ? TouchableOpacity : View;
 
     return (
         <Container
-            style={[styles.container, !isUnlocked && styles.lockedContainer]}
-            onPress={isUnlocked ? onClaim : undefined}
+            style={[styles.container, !isUnlocked && styles.lockedContainer, isClaimed && styles.claimedContainer]}
+            onPress={isClickable ? onClaim : undefined}
             activeOpacity={0.7}
         >
             <View style={styles.iconContainer}>
                 <LinearGradient
-                    colors={isUnlocked ? ['#4CAF50', '#81C784'] : ['#BDBDBD', '#E0E0E0']}
+                    colors={isClaimed 
+                        ? [theme.colors.secondary, theme.colors.secondary] 
+                        : (isUnlocked ? ['#4CAF50', '#81C784'] : ['#BDBDBD', '#E0E0E0'])
+                    }
                     style={styles.iconBg}
                 >
-                    <FontAwesome6 name={isUnlocked ? "gift" : "lock"} size={20} color="white" />
+                    <FontAwesome6 
+                        name={isClaimed ? "check" : (isUnlocked ? "gift" : "lock")} 
+                        size={20} 
+                        color="white" 
+                    />
                 </LinearGradient>
             </View>
             <View style={styles.textContainer}>
                 <Text style={styles.title}>{title}</Text>
-                <Text style={styles.description} numberOfLines={2}>{description}</Text>
+                <Text style={styles.description} numberOfLines={2}>
+                    {isClaimed ? "Claimed" : description}
+                </Text>
             </View>
         </Container>
     );
@@ -55,6 +67,10 @@ const styles = StyleSheet.create((theme) => ({
     },
     lockedContainer: {
         opacity: 0.7,
+    },
+    claimedContainer: {
+        opacity: 0.5,
+        backgroundColor: theme.colors.greyedOut || '#eee',
     },
     iconContainer: {
         marginRight: 12,

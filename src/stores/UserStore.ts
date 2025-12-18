@@ -49,6 +49,7 @@ type State = {
   inventory: InventoryItem[];
   ownedBorders: Border[];
   ownedTitles: Title[];
+  unclaimedRewards: any[]; // { id, level, reward_type, reward_id, quantity }
   setUser: (user: User | null) => void;
   setProfile: (profile: UserProfile | null) => void;
   addXP: (amount: number) => Promise<void>;
@@ -62,6 +63,8 @@ type State = {
   equipBorder: (borderId: string | null) => Promise<void>;
   fetchTitles: () => Promise<void>;
   equipTitle: (titleId: string | null) => Promise<void>;
+  fetchUnclaimedRewards: () => Promise<void>;
+  claimReward: (level: number) => Promise<boolean>;
 };
 
 export const useUserStore = create<State>((set, get) => ({
@@ -70,6 +73,7 @@ export const useUserStore = create<State>((set, get) => ({
   inventory: [],
   ownedBorders: [],
   ownedTitles: [],
+  unclaimedRewards: [],
 
   setUser: (user) => {
     set({ user });
@@ -523,5 +527,54 @@ export const useUserStore = create<State>((set, get) => ({
 
     // Refresh data
     await Promise.all([fetchProfile(), fetchTitles()]);
+  },
+
+  fetchUnclaimedRewards: async () => {
+    const { user } = get();
+    if (!user) return;
+
+    const { data, error } = await db.gamification
+      .from('User_unclaimed_rewards')
+      .select('*')
+      .eq('user_id', user.id);
+
+    if (error) {
+      console.error('[UserStore] Error fetching unclaimed rewards:', error);
+      return;
+    }
+    set({ unclaimedRewards: data || [] });
+  },
+
+  claimReward: async (level: number) => {
+    const { user, fetchUnclaimedRewards, fetchProfile, fetchInventory, fetchTitles, fetchBorders } = get();
+    if (!user) return false;
+
+    try {
+      const { data, error } = await db.gamification.rpc('claim_reward', {
+        p_level: level
+      });
+
+      if (error) {
+        console.error('[UserStore] Error claiming reward:', error);
+        return false;
+      }
+
+      if ((data as any)?.success) {
+        // Refresh everything that might have changed
+        await Promise.all([
+            fetchUnclaimedRewards(), // Update list to remove claimed
+            fetchProfile(), // Update coins/XP if relevant
+            fetchInventory(), // Update items
+            fetchTitles(), // Update titles
+            fetchBorders() // Update borders
+        ]);
+        return true;
+      }
+      return false;
+
+    } catch (e) {
+      console.error('[UserStore] Exception claiming reward:', e);
+      return false;
+    }
   }
 }));
