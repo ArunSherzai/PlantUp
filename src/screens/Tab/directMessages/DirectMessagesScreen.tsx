@@ -122,7 +122,7 @@ export default function DirectMessagesScreen() {
             {/* Header Section */}
             <View style={styles.header}>
                 <View style={styles.headerContent}>
-                    <Text style={[styles.headerLargeTitle, { paddingVertical: 70 }]}>Connect with{'\n'}Others!</Text>
+                    <Text style={[styles.headerLargeTitle]}>Connect with{'\n'}Others!</Text>
                 </View>
                 {/* Bug Icon for Dev Menu */}
                 <TouchableOpacity onPress={() => setShowDevMenu(true)} style={styles.bugButton}>
@@ -175,8 +175,9 @@ const styles = StyleSheet.create({
     },
 
     headerContent: {
+        flex: 1,
+        justifyContent: 'center',
         paddingHorizontal: 20,
-        paddingTop: 60, // Adjust for status bar
     },
     bugButton: {
         position: 'absolute',

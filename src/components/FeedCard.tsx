@@ -44,14 +44,14 @@ export default function FeedCard({ imageUri, caption, hashtags, isVideo, style, 
                         </TouchableOpacity>
                     </View>
 
-                    <View style={styles.content}>
+                    {/* <View style={styles.content}>
                         {caption && <Text style={[styles.caption, { color: theme.colors.text }]} numberOfLines={2}>{caption}</Text>}
                         {hashtags && hashtags.length > 0 && (
                             <Text style={[styles.hashtags, { color: theme.colors.primary }]}>
                                 {hashtags.map(tag => `#${tag}`).join(' ')}
                             </Text>
                         )}
-                    </View>
+                    </View> */}
                 </>
             ) : (
                 // Text Only Card Layout (Mimicking Image Structure)
@@ -89,12 +89,12 @@ export default function FeedCard({ imageUri, caption, hashtags, isVideo, style, 
                             </View>
                         </View>
 
-                        {/* Hashtags */}
-                        {hashtags && hashtags.length > 0 && (
+                        {/* Hashtags - Removed as per request */}
+                        {/* {hashtags && hashtags.length > 0 && (
                             <Text style={[styles.hashtags, { color: theme.colors.primary, marginTop: 4 }]}>
                                 {hashtags.map(tag => `#${tag}`).join(' ')}
                             </Text>
-                        )}
+                        )} */}
                     </View>
                 </>
             )}
