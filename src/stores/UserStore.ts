@@ -18,6 +18,7 @@ type UserProfile = {
   level: number;
   username: string;
   plant_coins: number;
+  bio?: string;
   profile_image?: string;
   streak_length: number;
   last_completed_date: string | null;
@@ -182,7 +183,7 @@ export const useUserStore = create<State>((set, get) => ({
     // 2. Fetch Username
     const userPromise = db.user
       .from('Users')
-      .select('username, plant_coins')
+      .select('username, plant_coins, avatar_path, bio')
       .eq('id', user.id)
       .single();
 
@@ -241,23 +242,36 @@ export const useUserStore = create<State>((set, get) => ({
 
     // Process Border
     let equippedBorderData = borderResult.data?.Cosmetic_avatar_borders as unknown as Border | null;
-    
+
     if (equippedBorderData && (equippedBorderData as any).media_url) {
       const { data } = await db.public.storage
-         .from('border-skins')
-         .getPublicUrl((equippedBorderData as any).media_url);
-      
+        .from('border-skins')
+        .getPublicUrl((equippedBorderData as any).media_url);
+
       if (data?.publicUrl) {
         equippedBorderData = { ...equippedBorderData, media_url: data.publicUrl };
       }
     }
 
+    // Process Avatar Path
+    let profileImageUrl = undefined;
+    if (userData?.avatar_path) {
+      // If it's a full URL, use it; otherwise resolve from storage
+      if (userData.avatar_path.startsWith('http')) {
+        profileImageUrl = userData.avatar_path;
+      } else {
+        const { data } = db.public.storage.from('avatar').getPublicUrl(userData.avatar_path);
+        profileImageUrl = data.publicUrl;
+      }
+    }
 
     let finalProfile: UserProfile = {
       xp: 0,
       level: 1,
       username: userData?.username || user.email?.split('@')[0] || 'Gardener',
       plant_coins: userData?.plant_coins || 0,
+      bio: userData?.bio || '',
+      profile_image: profileImageUrl,
       streak_length: 0,
       last_completed_date: null,
       active_boost_end_time: null,

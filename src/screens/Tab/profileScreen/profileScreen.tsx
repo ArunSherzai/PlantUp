@@ -21,6 +21,8 @@ export default function ProfileScreen() {
   const navigation = useNavigation<any>();
   const { user, profile, fetchProfile } = useUserStore();
   const [activeTab, setActiveTab] = useState('leveling');
+  const [isBioExpanded, setIsBioExpanded] = useState(false);
+  const [isBioTruncated, setIsBioTruncated] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -168,8 +170,13 @@ export default function ProfileScreen() {
               <View style={styles.topRow}>
                 <View style={[styles.avatarContainer, { position: 'relative' }]}>
                   <Image
-                    source={require('../../../../assets/images/Profilbild.png')}
+                    source={
+                      profile?.profile_image
+                        ? { uri: profile.profile_image }
+                        : require('../../../../assets/images/Profilbild.jpg')
+                    }
                     style={[styles.avatar, { backgroundColor: theme.colors.greyedOut }]}
+                    resizeMode="cover"
                   />
                   {/* --- NEW: Render Equipped Border --- */}
                   {profile?.equipped_border?.media_url && (
@@ -193,7 +200,9 @@ export default function ProfileScreen() {
                     <Text style={[styles.userName, { color: theme.colors.text }]}>
                       {profile?.username || user?.email?.split('@')[0] || 'Gardener'}
                     </Text>
-                    <GradientIcon name="pen" size={14} style={{ marginLeft: 8 }} />
+                    <TouchableOpacity onPress={() => navigation.navigate('Account')}>
+                      <GradientIcon name="pen" size={14} style={{ marginLeft: 8 }} />
+                    </TouchableOpacity>
                   </View>
                   <Text
                     style={{
@@ -211,14 +220,36 @@ export default function ProfileScreen() {
                   onPress={() => navigation.navigate('BorderInventory')}
                   style={{ padding: 8 }}
                 >
-              <FontAwesome5 name="tshirt" size={24} color={theme.colors.gradient[1]} />
+                  <FontAwesome5 name="tshirt" size={24} color={theme.colors.gradient[1]} />
                 </TouchableOpacity>
               </View>
 
               {/* Bio Section (Below Top Row) */}
-              <Text style={[styles.userBio, { color: theme.colors.text }]}>
-                Coole bio haha...
-              </Text>
+              <View>
+                {/* Hidden Text for measurement */}
+                <Text
+                  style={[styles.userBio, { position: 'absolute', opacity: 0, zIndex: -1 }]}
+                  onTextLayout={(e) => {
+                    if (e.nativeEvent.lines.length > 1) setIsBioTruncated(true);
+                  }}
+                >
+                  {profile?.bio || ''}
+                </Text>
+
+                <Text
+                  style={[styles.userBio, { color: theme.colors.text }]}
+                  numberOfLines={isBioExpanded ? undefined : 1}
+                >
+                  {profile?.bio || ''}
+                </Text>
+                {isBioTruncated && (
+                  <TouchableOpacity onPress={() => setIsBioExpanded(!isBioExpanded)}>
+                    <Text style={{ color: theme.colors.primary, fontSize: 12, marginTop: 4, fontWeight: '600' }}>
+                      {isBioExpanded ? 'Show less' : 'Show more'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
 
             {/* Stats Row */}
