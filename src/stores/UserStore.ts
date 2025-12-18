@@ -36,11 +36,19 @@ type InventoryItem = {
   quantity: number;
 };
 
+type Title = {
+  id: string;
+  name: string;
+  color: string;
+  is_equipped: boolean;
+};
+
 type State = {
   user: User | null;
   profile: UserProfile | null;
   inventory: InventoryItem[];
   ownedBorders: Border[];
+  ownedTitles: Title[];
   setUser: (user: User | null) => void;
   setProfile: (profile: UserProfile | null) => void;
   addXP: (amount: number) => Promise<void>;
@@ -52,6 +60,8 @@ type State = {
   addPlantCoins: (coins: number) => Promise<void>;
   fetchBorders: () => Promise<void>;
   equipBorder: (borderId: string | null) => Promise<void>;
+  fetchTitles: () => Promise<void>;
+  equipTitle: (titleId: string | null) => Promise<void>;
 };
 
 export const useUserStore = create<State>((set, get) => ({
@@ -59,6 +69,7 @@ export const useUserStore = create<State>((set, get) => ({
   profile: null,
   inventory: [],
   ownedBorders: [],
+  ownedTitles: [],
 
   setUser: (user) => {
     set({ user });
@@ -262,8 +273,8 @@ export const useUserStore = create<State>((set, get) => ({
       last_completed_date: null,
       active_boost_end_time: null,
       streak_rescued_date: null,
-      title: titleInfo?.titlename || 'Newbie',
-      titlecolor: titleInfo?.color || '#2ecc71',
+      title: titleInfo?.titlename,
+      titlecolor: titleInfo?.color,
       plants_count: plantsResult.count || 0,
       followers_count: followersResult.count || 0,
       following_count: followingResult.count || 0,
@@ -448,5 +459,69 @@ export const useUserStore = create<State>((set, get) => ({
     }
 
     await fetchProfile(); // Update profile to show new border
+  },
+
+  fetchTitles: async () => {
+    const { user } = get();
+    if (!user) return;
+
+    const { data, error } = await db.gamification
+      .from('User_titles')
+      .select(`
+        titleid,
+        selected,
+        Titles (
+          id,
+          titlename,
+          color
+        )
+      `)
+      .eq('userid', user.id);
+
+    if (error) {
+      console.error('[UserStore] Error fetching titles:', error);
+      return;
+    }
+
+    if (data) {
+      const titles: Title[] = data.map((item: any) => ({
+        id: item.Titles?.id || item.titleid, // Fallback if join issue, but id should be in Titles
+        name: item.Titles?.titlename || 'Unknown Title',
+        color: item.Titles?.color || '#000',
+        is_equipped: item.selected,
+      }));
+      set({ ownedTitles: titles });
+    }
+  },
+
+  equipTitle: async (titleId: string | null) => {
+    const { user, fetchProfile, fetchTitles } = get();
+    if (!user) return;
+
+    // 1. Unequip all
+    const { error: unequipError } = await db.gamification
+      .from('User_titles')
+      .update({ selected: false })
+      .eq('userid', user.id);
+    
+    if (unequipError) {
+      console.error('[UserStore] Error unequipping titles:', unequipError);
+      return;
+    }
+    if (titleId) {    
+      const { error: equipError } = await db.gamification
+        .from('User_titles')
+        .update({ selected: true })
+        .eq('userid', user.id)
+        .eq('titleid', titleId);
+
+      if (equipError) {
+        console.error('[UserStore] Error equipping title:', equipError);
+        return;
+      }
+    }
+
+    // Refresh data
+    await Promise.all([fetchProfile(), fetchTitles()]);
   }
 }));

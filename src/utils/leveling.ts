@@ -12,11 +12,11 @@ export type Reward = {
 export const MAX_LEVEL = 100;
 
 export const REWARDS: Reward[] = [
-  { level: 5, title: 'New Plant Slot', description: 'Unlock a new slot for your garden.' },
-  { level: 10, title: 'Sprout Badge', description: 'Show off your progress with a new badge.' },
+  { level: 5, title: 'Fire Border', description: 'Unlock a new slot for your garden.' },
+  { level: 10, title: 'Fire Border', description: 'Show off your progress with a new Profile Border!' },
   { level: 15, title: 'Fertilizer Pack', description: 'Boost your plants growth.' },
-  { level: 20, title: 'Gardener Title', description: 'You are now a recognized Gardener.' },
-  { level: 30, title: 'Rare Seed', description: 'A mysterious seed for your collection.' },
+  { level: 20, title: '500 Plant Coins', description: 'Spend your Coins to buy something cool!' },
+  { level: 30, title: 'Plant Sage Title', description: 'Let everyone see your progress with a new Title.' },
   { level: 40, title: 'Watering Can Skin', description: 'Style your tools.' },
   { level: 50, title: 'Green Thumb Badge', description: 'Halfway to mastery!' },
   { level: 60, title: 'Greenhouse BG', description: 'A new background for your profile.' },

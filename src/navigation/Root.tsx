@@ -24,6 +24,7 @@ export type RootStackParamList = {
   PublicProfile: { userId: string };
   DirectMessages: undefined;
   BorderInventory: undefined;
+  TitleInventory: undefined;
   PlantStats: { plantId: string; onlyShowSelected?: boolean };
 };
 
@@ -63,6 +64,7 @@ import DirectMessagesScreen from '~/screens/Tab/directMessages/DirectMessagesScr
 import SpriteComponent from '~/components/SpriteComponent';
 import { View } from 'react-native';
 import BorderInventoryScreen from '~/screens/Tab/profileScreen/BorderInventoryScreen';
+import TitleInventoryScreen from '~/screens/Tab/profileScreen/TitleInventoryScreen';
 import ShowPlantStats from '~/screens/Tab/plantStats/ShowPlantStats';
 
 export default function RootStack() {
@@ -153,6 +155,11 @@ export default function RootStack() {
           <Stack.Screen
             name="BorderInventory"
             component={BorderInventoryScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="TitleInventory"
+            component={TitleInventoryScreen}
             options={{ headerShown: false }}
           />
           <Stack.Screen

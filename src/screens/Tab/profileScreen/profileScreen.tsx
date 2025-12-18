@@ -19,7 +19,7 @@ import { FontAwesome5 } from '@expo/vector-icons';
 export default function ProfileScreen() {
   const { theme } = useUnistyles();
   const navigation = useNavigation<any>();
-  const { user, profile, fetchProfile } = useUserStore();
+  const { user, profile, fetchProfile, ownedTitles, fetchTitles, equipTitle } = useUserStore();
   const [activeTab, setActiveTab] = useState('leveling');
 
   useFocusEffect(
@@ -193,17 +193,23 @@ export default function ProfileScreen() {
                     <Text style={[styles.userName, { color: theme.colors.text }]}>
                       {profile?.username || user?.email?.split('@')[0] || 'Gardener'}
                     </Text>
-                    <GradientIcon name="pen" size={14} style={{ marginLeft: 8 }} />
                   </View>
-                  <Text
-                    style={{
-                      fontSize: 14,
-                      color: profile?.titlecolor || theme.colors.text,
-                      marginTop: 4,
-                      fontWeight: '600',
-                    }}>
-                    {profile?.title}
-                  </Text>
+                  
+                  <TouchableOpacity 
+                    onPress={() => navigation.navigate('TitleInventory')}
+                    style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}
+                  >
+                    <Text
+                        style={{
+                        fontSize: 14,
+                        color: profile?.titlecolor || theme.colors.text,
+                        fontWeight: '600',
+                        marginRight: 8,
+                        }}>
+                        {profile?.title}
+                    </Text>
+                    <GradientIcon name="pen" size={12} />
+                  </TouchableOpacity>
                 </View>
 
                 {/* Values T-Shirt Icon */}
