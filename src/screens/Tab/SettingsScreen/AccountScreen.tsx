@@ -113,7 +113,7 @@ export default function AccountScreen() {
         ? { uri: selectedImage }
         : (profile?.profile_image
             ? { uri: profile.profile_image }
-            : null);
+            : require('../../../../assets/images/Profilbild.jpg'));
 
     const insets = useSafeAreaInsets();
 
@@ -147,13 +147,7 @@ export default function AccountScreen() {
                     {/* AVATAR SECTION */}
                     <View style={styles.avatarSection}>
                         <TouchableOpacity onPress={pickImage} style={styles.avatarWrapper}>
-                            {displayImage ? (
-                                <Image source={displayImage} style={styles.avatar} resizeMode="cover" />
-                            ) : (
-                                <View style={[styles.avatar, { justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.surface }]}>
-                                    <FontAwesome6 name="user-large" size={40} color={theme.colors.typography} />
-                                </View>
-                            )}
+                            <Image source={displayImage} style={styles.avatar} resizeMode="cover" />
                             <View style={styles.editIconBadge}>
                                 <FontAwesome6 name="pen" size={12} color="#fff" />
                             </View>

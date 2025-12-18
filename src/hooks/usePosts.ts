@@ -78,7 +78,7 @@ export function usePosts(options?: UsePostsOptions) {
             // Note: Users table is in user_schema
             const { data: usersData, error: usersError } = await db.user
                 .from('Users')
-                .select('id, username')
+                .select('id, username, avatar_path') // Added avatar_path
                 .in('id', userIds);
 
             if (usersError) {
@@ -91,12 +91,23 @@ export function usePosts(options?: UsePostsOptions) {
             usersData?.forEach((u: any) => usersMap.set(u.id, u));
 
             const mergedPosts = postsData.map((post: any) => {
+                const user = usersMap.get(post.user_id);
+                let profileImageUrl = null;
+
+                if (user?.avatar_path) {
+
+                    const { data } = db.public.storage.from('avatar').getPublicUrl(user.avatar_path);
+                    profileImageUrl = data.publicUrl;
+
+
+                }
+
                 return {
                     ...post,
                     media_url: getPublicPostUrl(post.media_url),
-                    Users: usersMap.get(post.user_id) ? {
-                        username: usersMap.get(post.user_id).username,
-                        profile_image: null // Column missing in DB
+                    Users: user ? {
+                        username: user.username,
+                        profile_image: profileImageUrl
                     } : undefined
                 };
             });

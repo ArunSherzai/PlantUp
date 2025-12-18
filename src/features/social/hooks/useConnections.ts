@@ -31,12 +31,23 @@ export function useConnections(targetUserId?: string) {
 
             let followersList: ConnectionUser[] = [];
             if (followerIds.length > 0) {
-                const { data: usersData } = await db.user.from('Users').select('id, username').in('id', followerIds);
-                followersList = usersData?.map(u => ({
-                    id: u.id,
-                    username: u.username,
-                    // avatar_url: u.avatar_url // if exists
-                })) || [];
+                const { data: usersData } = await db.user.from('Users').select('id, username, avatar_path').in('id', followerIds);
+                followersList = usersData?.map(u => {
+                    let avatarUrl = undefined;
+                    if (u.avatar_path) {
+                        if (u.avatar_path.startsWith('http')) {
+                            avatarUrl = u.avatar_path;
+                        } else {
+                            const { data } = db.public.storage.from('avatar').getPublicUrl(u.avatar_path);
+                            avatarUrl = data.publicUrl;
+                        }
+                    }
+                    return {
+                        id: u.id,
+                        username: u.username,
+                        avatar_url: avatarUrl
+                    };
+                }) || [];
             }
             setFollowers(followersList);
 
@@ -46,11 +57,23 @@ export function useConnections(targetUserId?: string) {
 
             let followingList: ConnectionUser[] = [];
             if (followingIds.length > 0) {
-                const { data: usersData } = await db.user.from('Users').select('id, username').in('id', followingIds);
-                followingList = usersData?.map(u => ({
-                    id: u.id,
-                    username: u.username,
-                })) || [];
+                const { data: usersData } = await db.user.from('Users').select('id, username, avatar_path').in('id', followingIds);
+                followingList = usersData?.map(u => {
+                    let avatarUrl = undefined;
+                    if (u.avatar_path) {
+                        if (u.avatar_path.startsWith('http')) {
+                            avatarUrl = u.avatar_path;
+                        } else {
+                            const { data } = db.public.storage.from('avatar').getPublicUrl(u.avatar_path);
+                            avatarUrl = data.publicUrl;
+                        }
+                    }
+                    return {
+                        id: u.id,
+                        username: u.username,
+                        avatar_url: avatarUrl
+                    };
+                }) || [];
             }
             setFollowing(followingList);
 

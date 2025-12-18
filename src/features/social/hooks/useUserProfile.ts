@@ -30,7 +30,7 @@ export function useUserProfile(userId: string | undefined) {
                 // 2. Fetch User Data
                 const userPromise = db.user
                     .from('Users')
-                    .select('username, plant_coins')
+                    .select('username, plant_coins, avatar_path') // Fetch avatar_path
                     .eq('id', userId)
                     .single();
 
@@ -39,12 +39,26 @@ export function useUserProfile(userId: string | undefined) {
                 const statsData = statsResult.data;
                 const userData = userResult.data;
 
+                // Generate Signed URL for Avatar if path exists
+                let profileImageUrl = undefined;
+                if (userData?.avatar_path) {
+                    if (userData.avatar_path.startsWith('http')) {
+                        profileImageUrl = userData.avatar_path;
+                    } else {
+                        const { data } = db.public.storage
+                            .from('avatar')
+                            .getPublicUrl(userData.avatar_path);
+                        profileImageUrl = data.publicUrl;
+                    }
+                }
+
                 setProfile({
                     id: userId,
                     username: userData?.username || 'Gardener',
                     plant_coins: userData?.plant_coins || 0,
                     xp: statsData?.xp || 0,
                     level: statsData?.level || 1,
+                    profile_image: profileImageUrl,
                 });
             } catch (error) {
                 console.error('Error fetching user profile:', error);

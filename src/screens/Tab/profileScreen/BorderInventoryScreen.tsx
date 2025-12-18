@@ -3,13 +3,12 @@ import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, RefreshCon
 import { useUnistyles } from 'react-native-unistyles';
 import { useNavigation } from '@react-navigation/native';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useUserStore } from '../../../stores/UserStore';
 
 export default function BorderInventoryScreen() {
   const { theme } = useUnistyles();
   const navigation = useNavigation();
-  const { ownedBorders, fetchBorders, equipBorder } = useUserStore();
+  const { ownedBorders, fetchBorders, equipBorder, profile } = useUserStore();
   const [refreshing, setRefreshing] = React.useState(false);
 
   useEffect(() => {
@@ -55,40 +54,43 @@ export default function BorderInventoryScreen() {
           <View style={styles.grid}>
             {/* Default Option */}
             <View
-                style={[
-                  styles.card,
-                  { backgroundColor: theme.colors.surface },
-                  !ownedBorders.some(b => b.is_equipped) && { borderColor: theme.colors.accent, borderWidth: 2 }
-                ]}
-              >
-                <View style={styles.previewContainer}>
-                  <Image source={require('../../../../assets/images/Profilbild.png')} style={styles.avatarPreview} />
-                  {/* No border image for default */}
-                </View>
-
-                <Text style={[styles.borderName, { color: theme.colors.text }]}>Default</Text>
-                <Text style={[styles.rarityText, { color: theme.colors.greyedOut }]}>
-                  Common
-                </Text>
-
-                <TouchableOpacity
-                  style={[
-                    styles.equipButton,
-                    { backgroundColor: !ownedBorders.some(b => b.is_equipped) ? theme.colors.accent : theme.colors.primary }
-                  ]}
-                  disabled={!ownedBorders.some(b => b.is_equipped)}
-                  onPress={() => handleEquip(null as any)}
-                >
-                    {!ownedBorders.some(b => b.is_equipped) ? (
-                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 5}}>
-                            <FontAwesome6 name="check" size={12} color="#fff" />
-                            <Text style={styles.equipButtonText}>Equipped</Text>
-                        </View>
-                    ) : (
-                        <Text style={styles.equipButtonText}>Equip</Text>
-                    )}
-                </TouchableOpacity>
+              style={[
+                styles.card,
+                { backgroundColor: theme.colors.surface },
+                !ownedBorders.some(b => b.is_equipped) && { borderColor: theme.colors.accent, borderWidth: 2 }
+              ]}
+            >
+              <View style={styles.previewContainer}>
+                <Image
+                  source={profile?.profile_image ? { uri: profile.profile_image } : require('../../../../assets/images/Profilbild.jpg')}
+                  style={styles.avatarPreview}
+                />
+                {/* No border image for default */}
               </View>
+
+              <Text style={[styles.borderName, { color: theme.colors.text }]}>Default</Text>
+              <Text style={[styles.rarityText, { color: theme.colors.greyedOut }]}>
+                Common
+              </Text>
+
+              <TouchableOpacity
+                style={[
+                  styles.equipButton,
+                  { backgroundColor: !ownedBorders.some(b => b.is_equipped) ? theme.colors.accent : theme.colors.primary }
+                ]}
+                disabled={!ownedBorders.some(b => b.is_equipped)}
+                onPress={() => handleEquip(null as any)}
+              >
+                {!ownedBorders.some(b => b.is_equipped) ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                    <FontAwesome6 name="check" size={12} color="#fff" />
+                    <Text style={styles.equipButtonText}>Equipped</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.equipButtonText}>Equip</Text>
+                )}
+              </TouchableOpacity>
+            </View>
 
             {ownedBorders.map((border) => (
               <View
@@ -100,9 +102,12 @@ export default function BorderInventoryScreen() {
                 ]}
               >
                 <View style={styles.previewContainer}>
-                  <Image source={require('../../../../assets/images/Profilbild.png')} style={styles.avatarPreview} />
+                  <Image
+                    source={profile?.profile_image ? { uri: profile.profile_image } : require('../../../../assets/images/Profilbild.jpg')}
+                    style={styles.avatarPreview}
+                  />
                   {border.media_url && (
-                     <Image source={{ uri: border.media_url }} style={styles.borderPreview} resizeMode="contain" />
+                    <Image source={{ uri: border.media_url }} style={styles.borderPreview} resizeMode="contain" />
                   )}
                 </View>
 
@@ -119,14 +124,14 @@ export default function BorderInventoryScreen() {
                   disabled={border.is_equipped}
                   onPress={() => handleEquip(border.id)}
                 >
-                    {border.is_equipped ? (
-                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 5}}>
-                            <FontAwesome6 name="check" size={12} color="#fff" />
-                            <Text style={styles.equipButtonText}>Equipped</Text>
-                        </View>
-                    ) : (
-                        <Text style={styles.equipButtonText}>Equip</Text>
-                    )}
+                  {border.is_equipped ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                      <FontAwesome6 name="check" size={12} color="#fff" />
+                      <Text style={styles.equipButtonText}>Equipped</Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.equipButtonText}>Equip</Text>
+                  )}
                 </TouchableOpacity>
               </View>
             ))}

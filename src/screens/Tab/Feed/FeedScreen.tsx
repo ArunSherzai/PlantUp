@@ -100,7 +100,14 @@ export default function FeedScreen() {
                 <View style={styles.resultLeft}>
                     {/* Avatar with Badge */}
                     <View style={styles.imageContainer}>
-                        <Image source={require('../../../../assets/images/Profilbild.png')} style={styles.placeholderImage} />
+                        <Image
+                            source={
+                                item.profile_image
+                                    ? { uri: item.profile_image }
+                                    : require('../../../../assets/images/Profilbild.jpg')
+                            }
+                            style={styles.placeholderImage}
+                        />
                         <View style={[styles.levelBadge, { backgroundColor: rankColor }]}>
                             <Text style={styles.levelText}>LVL {level}</Text>
                         </View>
