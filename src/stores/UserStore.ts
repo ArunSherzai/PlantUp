@@ -65,7 +65,6 @@ export const useUserStore = create<State>((set, get) => ({
     if (user) {
       get().fetchProfile();
       get().fetchInventory();
-      get().fetchBorders();
     } else {
       set({ profile: null, inventory: [], ownedBorders: [] });
     }
@@ -242,7 +241,16 @@ export const useUserStore = create<State>((set, get) => ({
 
     // Process Border
     let equippedBorderData = borderResult.data?.Cosmetic_avatar_borders as unknown as Border | null;
-    // No signed URL needed anymore as media_url is public/direct
+    
+    if (equippedBorderData && (equippedBorderData as any).media_url) {
+      const { data } = await db.public.storage
+         .from('border-skins')
+         .getPublicUrl((equippedBorderData as any).media_url);
+      
+      if (data?.publicUrl) {
+        equippedBorderData = { ...equippedBorderData, media_url: data.publicUrl };
+      }
+    }
 
 
     let finalProfile: UserProfile = {
@@ -374,23 +382,29 @@ export const useUserStore = create<State>((set, get) => ({
         console.error('[UserStore] Error fetching border details:', bordersError);
         return;
       }
-
       if (!bordersData) {
         set({ ownedBorders: [] });
         return;
       }
-
       // Step 3: Merge data
-      const mergedBorders: Border[] = bordersData.map((border: any) => {
+      const mergedBorders: Border[] = await Promise.all(bordersData.map(async (border: any) => {
         // Find ownership info
         const ownership = ownedData.find((o: any) => o.border_id === border.id);
+        let mediaUrl = border.media_url;
+        if (border.media_url) {
+          const { data } = await db.public.storage
+            .from('border-skins').getPublicUrl(border.media_url);
+          if (data?.publicUrl) {
+            mediaUrl = data.publicUrl;
+          }
+        }
 
         return {
           ...border,
-          media_url: border.media_url, // Explicitly map media_url
+          media_url: mediaUrl,
           is_equipped: ownership ? ownership.is_equipped : false
         };
-      });
+      }));
 
       console.log(`[UserStore] Successfully loaded ${mergedBorders.length} borders.`);
       set({ ownedBorders: mergedBorders });
