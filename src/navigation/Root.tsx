@@ -15,6 +15,8 @@ export type RootStackParamList = {
   Index: undefined;
   'Add a Plant': undefined;
   Settings: undefined;
+  Appearance: undefined;
+  Account: undefined;
   CreatePost: undefined;
   FeedPostDetail: { post: any }; // Using any to match Post interface roughly for now, or import it
   UserPlants: { userId?: string };
@@ -64,6 +66,8 @@ import SpriteComponent from '~/components/SpriteComponent';
 import { View } from 'react-native';
 import BorderInventoryScreen from '~/screens/Tab/profileScreen/BorderInventoryScreen';
 import ShowPlantStats from '~/screens/Tab/plantStats/ShowPlantStats';
+import AppearanceScreen from '~/screens/Tab/SettingsScreen/AppearanceScreen';
+import AccountScreen from '~/screens/Tab/SettingsScreen/AccountScreen';
 
 export default function RootStack() {
   const { theme } = useUnistyles();
@@ -99,6 +103,16 @@ export default function RootStack() {
           <Stack.Screen
             name="Settings"
             component={SettingsScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Appearance"
+            component={AppearanceScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Account"
+            component={AccountScreen}
             options={{ headerShown: false }}
           />
           <Stack.Screen

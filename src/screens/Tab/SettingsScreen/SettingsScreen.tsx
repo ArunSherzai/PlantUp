@@ -1,127 +1,16 @@
-import React, { useState } from 'react';
-import {
-    View,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    Switch,
-    Alert,
-    ActivityIndicator,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    Image,
-} from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
-import { StyleSheet, useUnistyles, UnistylesRuntime } from 'react-native-unistyles';
+import React from 'react';
+import { View, Text, TouchableOpacity, Alert, Image, ScrollView } from 'react-native';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { useNavigation } from '@react-navigation/native';
 import { db } from '../../../utils/supabase';
 import { useUserStore } from '../../../stores/UserStore';
 
-
 export default function SettingsScreen() {
     const { theme } = useUnistyles();
     const navigation = useNavigation<any>();
-    const { user, profile, fetchProfile } = useUserStore();
 
-
-    const [newUsername, setNewUsername] = useState(profile?.username ?? '');
-    const [currentPw, setCurrentPw] = useState('');
-    const [newPw, setNewPw] = useState('');
-    const [confirmPw, setConfirmPw] = useState('');
-
-    const [loadingUser, setLoadingUser] = useState(false);
-    const [loadingPw, setLoadingPw] = useState(false);
-
-
-
-    // Use UnistylesRuntime.themeName directly for truth to avoid sync issues
-    const isDarkMode = UnistylesRuntime.themeName === 'dark';
-
-    const toggleTheme = () => {
-        try {
-            const currentTheme = UnistylesRuntime.themeName;
-            const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
-
-            console.log(`[Settings] Toggling theme. Current: ${currentTheme}, Next: ${nextTheme}`);
-
-            // Try to force adaptive off before switch if it's on
-            UnistylesRuntime.setAdaptiveThemes(false);
-
-            // Force strict string usage
-            UnistylesRuntime.setTheme(nextTheme);
-        } catch (error) {
-            console.error('[Settings] Failed to change theme:', error);
-            Alert.alert('Error', 'Could not switch theme. Please restart app.');
-        }
-    };
-
-    // Username update
-    const handleUsernameUpdate = async () => {
-        if (!newUsername.trim()) return Alert.alert("Error", "Username cannot be empty.");
-
-        setLoadingUser(true);
-
-        try {
-            const { data: { user } } = await db.public.auth.getUser();
-            if (!user) throw new Error("User not found");
-
-            const { error } = await db.user
-                .from("Users")
-                .update({ username: newUsername })
-                .eq("id", user.id);
-
-            if (error) throw error;
-
-            await fetchProfile();
-            Alert.alert("Success", "Username updated!");
-        } catch (err: any) {
-            Alert.alert("Error", err.message);
-        } finally {
-            setLoadingUser(false);
-        }
-    };
-
-    // Password update
-    const handlePasswordUpdate = async () => {
-        if (newPw !== confirmPw)
-            return Alert.alert("Error", "Passwords do not match.");
-
-        if (newPw.length < 6)
-            return Alert.alert("Error", "Password must be at least 6 characters.");
-
-        setLoadingPw(true);
-
-        try {
-            const { data: { user } } = await db.public.auth.getUser();
-            if (!user?.email) throw new Error("Unable to find user email.");
-
-            // Verify old password
-            const { error: signinError } = await db.public.auth.signInWithPassword({
-                email: user.email,
-                password: currentPw,
-            });
-
-            if (signinError) throw new Error("Current password incorrect.");
-
-            // Update password
-            const { error } = await db.public.auth.updateUser({ password: newPw });
-            if (error) throw error;
-
-            setCurrentPw('');
-            setNewPw('');
-            setConfirmPw('');
-
-            Alert.alert("Success", "Password updated!");
-        } catch (err: any) {
-            Alert.alert("Error", err.message);
-        } finally {
-            setLoadingPw(false);
-        }
-    };
-
-    // Sign out
+    // Sign Out
     const handleSignOut = () => {
         Alert.alert("Sign Out", "Are you sure you want to sign out?", [
             { text: "Cancel", style: "cancel" },
@@ -149,6 +38,10 @@ export default function SettingsScreen() {
         ]);
     };
 
+    const navigateTo = (screen: string) => {
+        navigation.navigate(screen);
+    };
+
     return (
         <View style={styles.container}>
             {/* Header Background */}
@@ -169,125 +62,40 @@ export default function SettingsScreen() {
             </View>
 
             <View style={styles.roundedContainer}>
-                <KeyboardAwareScrollView
-                    enableOnAndroid={true}
-                    extraScrollHeight={20}
+                <ScrollView
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={styles.contentContainer}
                     style={{ flex: 1 }}
                 >
-
-                    {/* APPEARANCE */}
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Appearance</Text>
-
-                        <View style={styles.row}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                <FontAwesome6
-                                    name={isDarkMode ? "moon" : "sun"}
-                                    size={18}
-                                    color={theme.colors.text}
-                                    style={{ marginRight: 10 }}
-                                />
-                                <Text style={styles.label}>Dark Mode</Text>
+                    {/* Appearance */}
+                    <TouchableOpacity style={styles.menuItem} onPress={() => navigateTo('Appearance')}>
+                        <View style={styles.menuItemLeft}>
+                            <View style={[styles.iconContainer, { backgroundColor: theme.colors.surface }]}>
+                                <FontAwesome6 name="paintbrush" size={18} color={theme.colors.text} />
                             </View>
-
-                            <Switch
-                                value={isDarkMode}
-                                onValueChange={toggleTheme}
-                                trackColor={{
-                                    false: theme.colors.greyedOut,
-                                    true: theme.colors.primary,
-                                }}
-                                thumbColor="#fff"
-                            />
+                            <Text style={styles.menuItemText}>Appearance</Text>
                         </View>
-                    </View>
+                        <FontAwesome6 name="chevron-right" size={16} color={theme.colors.greyedOut} />
+                    </TouchableOpacity>
 
-                    {/* ACCOUNT */}
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Account</Text>
-
-                        <Text style={styles.inputLabel}>Username</Text>
-                        <TextInput
-                            style={styles.input}
-                            value={newUsername}
-                            onChangeText={setNewUsername}
-                            placeholder="New username"
-                            placeholderTextColor={theme.colors.typography}
-                        />
-
-                        <TouchableOpacity
-                            style={styles.saveButton}
-                            onPress={handleUsernameUpdate}
-                            disabled={loadingUser}
-                        >
-                            {loadingUser ? (
-                                <ActivityIndicator color="#fff" />
-                            ) : (
-                                <Text style={styles.saveButtonText}>Save Username</Text>
-                            )}
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* SECURITY - Only show if Google is NOT linked */}
-                    {!user?.app_metadata?.providers?.includes('google') && (
-                        <View style={styles.section}>
-                            <Text style={styles.sectionTitle}>Security</Text>
-
-                            <Text style={styles.inputLabel}>Current Password</Text>
-                            <TextInput
-                                style={styles.input}
-                                secureTextEntry
-                                value={currentPw}
-                                onChangeText={setCurrentPw}
-                                placeholder="Current password"
-                                placeholderTextColor={theme.colors.typography}
-                            />
-
-                            <Text style={styles.inputLabel}>New Password</Text>
-                            <TextInput
-                                style={styles.input}
-                                secureTextEntry
-                                value={newPw}
-                                onChangeText={setNewPw}
-                                placeholder="New password"
-                                placeholderTextColor={theme.colors.typography}
-                            />
-
-                            <Text style={styles.inputLabel}>Confirm Password</Text>
-                            <TextInput
-                                style={styles.input}
-                                secureTextEntry
-                                value={confirmPw}
-                                onChangeText={setConfirmPw}
-                                placeholder="Confirm new password"
-                                placeholderTextColor={theme.colors.typography}
-                            />
-
-                            <TouchableOpacity
-                                style={styles.saveButton}
-                                onPress={handlePasswordUpdate}
-                                disabled={loadingPw}
-                            >
-                                {loadingPw ? (
-                                    <ActivityIndicator color="#fff" />
-                                ) : (
-                                    <Text style={styles.saveButtonText}>Update Password</Text>
-                                )}
-                            </TouchableOpacity>
+                    {/* Account */}
+                    <TouchableOpacity style={styles.menuItem} onPress={() => navigateTo('Account')}>
+                        <View style={styles.menuItemLeft}>
+                            <View style={[styles.iconContainer, { backgroundColor: theme.colors.surface }]}>
+                                <FontAwesome6 name="user" size={18} color={theme.colors.text} />
+                            </View>
+                            <Text style={styles.menuItemText}>Account</Text>
                         </View>
-                    )}
+                        <FontAwesome6 name="chevron-right" size={16} color={theme.colors.greyedOut} />
+                    </TouchableOpacity>
 
-
-
-                    {/* SIGN OUT */}
+                    {/* Sign Out */}
                     <TouchableOpacity style={styles.dangerButton} onPress={handleSignOut}>
                         <FontAwesome6 name="arrow-right-from-bracket" color="#fff" size={18} style={{ marginRight: 8 }} />
                         <Text style={styles.dangerText}>Sign Out</Text>
                     </TouchableOpacity>
 
-                </KeyboardAwareScrollView>
+                </ScrollView>
             </View>
         </View>
     );
@@ -296,10 +104,10 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create((theme: any) => ({
     container: {
         flex: 1,
-        backgroundColor: theme.colors.background, // Fallback
+        backgroundColor: theme.colors.background,
     },
     headerBg: {
-        height: 200, // Taller to cover the scroll area edges
+        height: 200,
         width: '100%',
         position: 'absolute',
         top: 0,
@@ -319,7 +127,7 @@ const styles = StyleSheet.create((theme: any) => ({
         flexDirection: 'row',
         alignItems: 'center',
         zIndex: 1,
-        height: 120, // Defines the space for the header elements
+        height: 120,
     },
     backButton: {
         marginRight: 15,
@@ -336,65 +144,44 @@ const styles = StyleSheet.create((theme: any) => ({
         borderTopLeftRadius: 30,
         borderTopRightRadius: 30,
         overflow: 'hidden',
-        // No negative margin needed if we just let flex layout flow
-        // The background behind is the image (because headerBg is absolute)
     },
     contentContainer: {
         padding: 20,
         paddingBottom: 50,
     },
-    section: {
-        marginBottom: 25,
-        paddingBottom: 20,
+    menuItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 15,
         borderBottomWidth: 1,
         borderBottomColor: theme.colors.greyedOut,
+        marginBottom: 5,
     },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: theme.colors.secondary,
-        marginBottom: 15,
-    },
-    row: {
+    menuItemLeft: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
     },
-    label: {
-        fontSize: 16,
-        color: theme.colors.text,
-    },
-    inputLabel: {
-        marginTop: 10,
-        marginBottom: 6,
-        color: theme.colors.typography,
-        fontSize: 14,
-    },
-    input: {
-        backgroundColor: theme.colors.surface,
-        padding: 12,
-        borderRadius: 12,
-        color: theme.colors.text,
+    iconContainer: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 15,
         borderWidth: 1,
         borderColor: theme.colors.greyedOut,
     },
-    saveButton: {
-        backgroundColor: theme.colors.primary,
-        padding: 13,
-        borderRadius: 12,
-        alignItems: 'center',
-        marginTop: 15,
-    },
-    saveButtonText: {
+    menuItemText: {
         fontSize: 16,
-        color: "#fff",
-        fontWeight: "bold",
+        color: theme.colors.text,
+        fontWeight: '500',
     },
     dangerButton: {
         backgroundColor: "#FF4444",
         padding: 15,
         borderRadius: 15,
-        marginTop: 20,
+        marginTop: 30,
         flexDirection: "row",
         justifyContent: "center",
         alignItems: "center",
@@ -404,5 +191,4 @@ const styles = StyleSheet.create((theme: any) => ({
         fontWeight: "bold",
         fontSize: 16,
     },
-
 }));
