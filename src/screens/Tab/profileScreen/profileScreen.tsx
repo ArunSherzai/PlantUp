@@ -165,8 +165,6 @@ export default function ProfileScreen() {
 
             {/* Profile Card */}
             <View style={[styles.profileCard, { backgroundColor: theme.colors.background }]}>
-              {/* --- NEW: Border Inventory Button --- */}
-              {/* Top Row: Avatar + Name/Title + Settings */}
               <View style={styles.topRow}>
                 <View style={[styles.avatarContainer, { position: 'relative' }]}>
                   <Image
@@ -179,10 +177,10 @@ export default function ProfileScreen() {
                       source={{ uri: profile.equipped_border.media_url }}
                       style={{
                         position: 'absolute',
-                        width: 120, // 80 * 1.5
-                        height: 120,
-                        top: -20,
-                        left: -20,
+                        width: 134, // 80 * 1.675 (matching inventory ratio)
+                        height: 134,
+                        top: -27,
+                        left: -27,
                         zIndex: 1
                       }}
                       resizeMode="contain"
