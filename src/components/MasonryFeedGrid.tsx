@@ -23,7 +23,7 @@ const groupPosts = (posts: Post[]) => {
     return groups;
 };
 
-export default function MasonryFeedGrid({ posts, onPostPress }: MasonryFeedGridProps) {
+const MasonryFeedGrid = React.memo(({ posts, onPostPress }: MasonryFeedGridProps) => {
     const groups = useMemo(() => groupPosts(posts), [posts]);
 
     // Helper to extract hashtags
@@ -145,7 +145,9 @@ export default function MasonryFeedGrid({ posts, onPostPress }: MasonryFeedGridP
             })}
         </View>
     );
-}
+});
+
+export default MasonryFeedGrid;
 
 const styles = StyleSheet.create({
     container: {

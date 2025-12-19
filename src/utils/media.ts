@@ -20,7 +20,7 @@ export const getDisplayMedia = (post: any) => {
     if (post.type === 'video' || post.type === 'reel' || url.endsWith('.mp4')) {
         // Heuristic based on screenshot: reelX.mp4 -> thumbX.png
         // Replace 'reel' with 'thumb' and extension
-        return url.replace('reel', 'thumb').replace('.mp4', '.png');
+        return url.replace('.mp4', '.png');
     }
 
     return url;

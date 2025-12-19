@@ -1,177 +1,546 @@
-import React, { useRef } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, SafeAreaView, Dimensions, TextInput, Animated, ScrollView } from 'react-native';
+import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
+import { View, Text, StyleSheet, Image, TouchableOpacity, SafeAreaView, Dimensions, TextInput, Platform, Keyboard, BackHandler } from 'react-native';
 import { useUnistyles } from 'react-native-unistyles';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { RootStackParamList } from '../../../navigation/Root';
-import FeedCard from '../../../components/FeedCard';
 import MasonryFeedGrid from '../../../components/MasonryFeedGrid';
 import { useFeed } from '../../../hooks/useFeed';
 import { db } from '../../../utils/supabase';
 import { useUserStore } from '../../../stores/UserStore';
-import { useState, useEffect } from 'react';
 import { getDisplayMedia } from '../../../utils/media';
+import Video from 'react-native-video';
+import { formatNumber } from '../../../utils/formatNumber';
+import { TapGestureHandler, State, GestureHandlerRootView } from 'react-native-gesture-handler';
+import BottomSheet, { BottomSheetView, BottomSheetTextInput, BottomSheetScrollView, BottomSheetModalProvider } from '@gorhom/bottom-sheet';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming, runOnJS } from 'react-native-reanimated';
 
 // We need the RouteProp to access params
 type FeedPostDetailRouteProp = RouteProp<RootStackParamList, 'FeedPostDetail'>;
 
 const { height, width } = Dimensions.get('window');
 
+type SheetMode = 'related' | 'comments';
+
 export default function FeedPostDetailScreen() {
     const { theme } = useUnistyles();
     const navigation = useNavigation<any>();
     const route = useRoute<FeedPostDetailRouteProp>();
-    const { profile } = useUserStore();
-
-    // Animation Value
-    const scrollY = useRef(new Animated.Value(0)).current;
+    const { user, profile } = useUserStore();
 
     // Fallback if no params (dev safety), though FeedScreen will pass them
     const post = route.params?.post;
 
-    // Fetch related posts (for now just all posts)
+    // Interaction State
+    const [isLiked, setIsLiked] = useState(post?.is_liked || false);
+    const [isSaved, setIsSaved] = useState(false);
+    const [isFollowing, setIsFollowing] = useState(false); // New State
+    const [likesCount, setLikesCount] = useState<number>((post?.likes as number) || 0);
+    const [commentText, setCommentText] = useState('');
+    const [comments, setComments] = useState<any[]>([]);
+
+    // Animation State
+    const heartScale = useSharedValue(1);
+    const [showHeartBreak, setShowHeartBreak] = useState(false);
+    const progress = useSharedValue(0); // Video Progress
+    const durationRef = useRef(0);
+
+    // Sheet State
+    const [sheetMode, setSheetMode] = useState<SheetMode>('related');
+
+    // Video State
+    const [paused, setPaused] = useState(false);
+    const [muted, setMuted] = useState(false);
+    const [isVideoReady, setIsVideoReady] = useState(false);
+
+    // BottomSheet Ref
+    const bottomSheetRef = useRef<BottomSheet>(null);
+    // Snap points: 15% (User Info + Input), 90% (Full screen)
+    const snapPoints = useMemo(() => ['15%', '90%'], []);
+
+    // Logic to fix URL extension if needed (User logic preservation)
+    const rawMediaUrl = getDisplayMedia(post);
+    const mediaUrl = rawMediaUrl?.replace("png", "mp4");
+
+    // Check if it is a video based on extension (simple check)
+    const isVideo = post?.type === 'video';
+    const isTextPost = post?.type === 'text';
+
+    // Helper to get hashtags
+    const getHashtags = (text: string | null) => {
+        if (!text) return "";
+        const matches = text.match(/#\w+/g);
+        return matches ? matches.join(" ") : "";
+    };
+
+    // Refs for Gestures
+    const doubleTapRef = useRef(null);
+
+    // Fetch interactions
+    useEffect(() => {
+        if (post?.id) {
+            checkInteractions();
+            fetchComments();
+        }
+    }, [post?.id]);
+
+    // Reset video state when post changes
+    useEffect(() => {
+        setIsVideoReady(false);
+        setPaused(false);
+        progress.value = 0;
+    }, [post?.id]);
+
+    const checkInteractions = async () => {
+        if (!user?.id || !post?.id) return;
+
+        // Check Like
+        const { data: likeData } = await db.social.from('post_interactions')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('post_id', post.id)
+            .eq('interaction_type', 'like')
+            .maybeSingle();
+        if (likeData) setIsLiked(true);
+
+        // Check Save
+        const { data: saveData } = await db.social.from('post_interactions')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('post_id', post.id)
+            .eq('interaction_type', 'save')
+            .maybeSingle();
+        if (saveData) setIsSaved(true);
+
+        // Check Follow
+        if (post.user_id) {
+            const { data: followData } = await db.social.from('follows')
+                .select('*')
+                .eq('follower_id', user.id)
+                .eq('following_id', post.user_id)
+                .maybeSingle();
+            if (followData) setIsFollowing(true);
+        }
+    };
+
+    const fetchComments = async () => {
+        if (!post?.id) return;
+        const { data } = await db.social.from('Comments')
+            .select('*, Users(username, profile_image)')
+            .eq('post_id', post.id)
+            .order('created_at', { ascending: false })
+            .limit(20);
+        if (data) setComments(data);
+    };
+
+    const animateLike = () => {
+        heartScale.value = withSequence(
+            withSpring(1.5, { damping: 10, stiffness: 200 }),
+            withSpring(1, { damping: 10, stiffness: 200 })
+        );
+    };
+
+    const animateDislike = () => {
+        setShowHeartBreak(true);
+        heartScale.value = withSequence(
+            withTiming(1.2, { duration: 100 }), // Jump up
+            withSpring(1, { damping: 10, stiffness: 200 }, () => {
+                // Reset after animation
+                runOnJS(setShowHeartBreak)(false);
+            })
+        );
+    };
+
+    const handleLike = async () => {
+        if (!user?.id || !post?.id) return;
+        const newLiked = !isLiked;
+
+        // Trigger Animations BEFORE state update for responsiveness
+        if (newLiked) {
+            animateLike();
+        } else {
+            animateDislike();
+        }
+
+        setIsLiked(newLiked);
+        setLikesCount(prev => newLiked ? prev + 1 : prev - 1);
+
+        if (newLiked) {
+            await db.social.from('post_interactions').insert({ user_id: user.id, post_id: post.id, interaction_type: 'like' });
+        } else {
+            await db.social.from('post_interactions').delete().eq('user_id', user.id).eq('post_id', post.id).eq('interaction_type', 'like');
+        }
+    };
+
+    const handleSave = async () => {
+        if (!user?.id || !post?.id) return;
+        const newSaved = !isSaved;
+        setIsSaved(newSaved);
+
+        if (newSaved) {
+            await db.social.from('post_interactions').insert({ user_id: user.id, post_id: post.id, interaction_type: 'save' });
+        } else {
+            await db.social.from('post_interactions').delete().eq('user_id', user.id).eq('post_id', post.id).eq('interaction_type', 'save');
+        }
+    };
+
+    const handleFollow = async () => {
+        if (!user?.id || !post?.user_id) return;
+        const newFollowing = !isFollowing;
+        setIsFollowing(newFollowing);
+
+        if (newFollowing) {
+            await db.social.from('follows').insert({ follower_id: user.id, following_id: post.user_id });
+        } else {
+            await db.social.from('follows').delete().eq('follower_id', user.id).eq('following_id', post.user_id);
+        }
+    };
+
+    const animatedHeartStyle = useAnimatedStyle(() => {
+        return {
+            transform: [{ scale: heartScale.value }]
+        };
+    });
+
+    const animatedProgressStyle = useAnimatedStyle(() => ({
+        width: `${progress.value * 100}%`,
+    }));
+
+    const onVideoLoad = useCallback((data: any) => {
+        setIsVideoReady(true);
+        durationRef.current = data.duration;
+    }, []);
+
+    const onVideoProgress = useCallback((data: any) => {
+        if (durationRef.current > 0) {
+            progress.value = data.currentTime / durationRef.current;
+        }
+    }, []);
+
+    const handleComment = async () => {
+        if (!commentText.trim() || !user?.id || !post?.id) return;
+        const text = commentText.trim();
+        setCommentText('');
+        Keyboard.dismiss();
+
+        // Optimistic update
+        const newComment = {
+            id: 'temp-' + Date.now(),
+            description: text,
+            Users: { username: profile?.username || 'Me', profile_image: profile?.profile_image }
+        };
+        setComments(prev => [newComment, ...prev]);
+
+        await db.social.from('Comments').insert({
+            user_id: user.id,
+            post_id: post.id,
+            description: text
+        });
+    };
+
+    // Input Ref
+    const inputRef = useRef<any>(null);
+
+    const openComments = () => {
+        setSheetMode('comments');
+        bottomSheetRef.current?.snapToIndex(1); // Open to 90%
+        // Auto-focus input after a slight delay to allow mounting
+        setTimeout(() => {
+            inputRef.current?.focus();
+        }, 300);
+    };
+
+    const handleBackToRelated = () => {
+        setSheetMode('related');
+        bottomSheetRef.current?.snapToIndex(0); // Back to 25%
+        Keyboard.dismiss();
+    };
+
+    // Gestures
+    const onSingleTap = (event: any) => {
+        if (event.nativeEvent.state === State.ACTIVE) {
+            setPaused(prev => !prev);
+        }
+    };
+
+    const onDoubleTap = (event: any) => {
+        if (event.nativeEvent.state === State.ACTIVE) {
+            if (!isLiked) handleLike();
+            else animateLike(); // Re-animate if already liked
+        }
+    };
+
+    // Related Posts Grid
     const { posts: relatedPosts } = useFeed();
 
-    // Mock slice for "Related"
-    const displayPosts = relatedPosts.filter(p => p.id !== post?.id).slice(0, 4);
+    // MEMOIZATION: Prevent re-calculation on every render
+    const displayPosts = useMemo(() => {
+        return relatedPosts.filter(p => p.id !== post?.id).slice(0, 8);
+    }, [relatedPosts, post?.id]);
 
-    // Opacity Interpolation: Hidden at 0, Visible by 150 scroll
-    const contentOpacity = scrollY.interpolate({
-        inputRange: [0, 150],
-        outputRange: [0, 1],
-        extrapolate: 'clamp',
-    });
+    const handlePostPress = useCallback((item: any) => {
+        navigation.push('FeedPostDetail', { post: item });
+    }, [navigation]);
 
-    // Translation Interpolation: Slide up slightly
-    const contentTranslateY = scrollY.interpolate({
-        inputRange: [0, 150],
-        outputRange: [30, 0],
-        extrapolate: 'clamp',
-    });
+    // Render each comment
+    const renderCommentFn = useCallback((comment: any) => (
+        <View key={comment.id} style={styles.commentItem}>
+            <Image
+                source={comment?.Users?.profile_image ? { uri: comment.Users.profile_image } : require('../../../../assets/images/Profilbild.jpg')}
+                style={styles.commentAvatar}
+            />
+            <View style={styles.commentContent}>
+                <Text style={[styles.commentUsername, { color: theme.colors.text }]}>{comment?.Users?.username || 'User'}</Text>
+                <Text style={[styles.commentText, { color: theme.colors.text }]}>{comment.description}</Text>
+            </View>
+        </View>
+    ), [theme.colors.text]);
 
     return (
-        <View style={styles.container}>
-            {/* Fixed Background Content */}
-            {getDisplayMedia(post) ? (
-                <Image
-                    source={{ uri: getDisplayMedia(post) }}
-                    style={styles.backgroundImage}
-                    resizeMode="contain"
-                />
-            ) : (
-                <View style={[styles.backgroundImage, { backgroundColor: '#F0F5F1' }]} />
-            )}
-
-            {/* Fixed Header */}
-            <SafeAreaView style={styles.headerSafeArea}>
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}>
-                        <FontAwesome6 name="chevron-left" size={20} color="white" />
-                    </TouchableOpacity>
-
-                    <TouchableOpacity style={styles.headerButton}>
-                        <FontAwesome6 name="magnifying-glass" size={20} color="white" />
-                    </TouchableOpacity>
-                </View>
-            </SafeAreaView>
-
-            {/* Scrollable Overlay */}
-            <Animated.ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContent}
-                style={styles.scrollView}
-                onScroll={Animated.event(
-                    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-                    { useNativeDriver: true }
-                )}
-                scrollEventThrottle={16}
+        <GestureHandlerRootView style={styles.container}>
+            {/* Video / Background Layer with Gestures */}
+            <TapGestureHandler
+                onHandlerStateChange={onSingleTap}
+                waitFor={doubleTapRef}
             >
-                {/* Transparent Spacer to show image */}
-                {/* Spacer or Text Card */}
-                {getDisplayMedia(post) ? (
-                    <View style={styles.spacer} />
-                ) : (
-                    <View style={[styles.spacer, { justifyContent: 'center', alignItems: 'center' }]}>
-                        <View style={[styles.textCardLarge, { backgroundColor: theme.colors.surface }]}>
-                            <View style={styles.textBadge}>
-                                <Text style={styles.textBadgeText}>Thought</Text>
+                <TapGestureHandler
+                    ref={doubleTapRef}
+                    onHandlerStateChange={onDoubleTap}
+                    numberOfTaps={2}
+                >
+                    <View style={styles.backgroundContainer}>
+                        {isTextPost ? (
+                            <View style={[styles.spacer, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#F0F5F1' }]}>
+                                <View style={[styles.textCardLarge, { backgroundColor: theme.colors.surface }]}>
+                                    <View style={styles.textBadge}>
+                                        <Text style={styles.textBadgeText}>Thought</Text>
+                                    </View>
+                                    <View style={{ flex: 1, justifyContent: 'center' }}>
+                                        <Text style={[styles.textPostContent, { color: theme.colors.text }]}>{post?.caption}</Text>
+                                    </View>
+                                    <FontAwesome6 name="leaf" size={120} color="#4CA771" style={styles.leafIcon} />
+                                </View>
                             </View>
-                            <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}>
-                                <Text style={[styles.textPostContent, { color: theme.colors.text }]}>{post?.caption}</Text>
-                            </ScrollView>
-                            <FontAwesome6 name="leaf" size={120} color="#4CA771" style={styles.leafIcon} />
-                        </View>
+                        ) : mediaUrl ? (
+                            isVideo ? (
+                                <View style={{ width: '100%', height: '100%' }}>
+                                    <Video
+                                        source={{ uri: mediaUrl }}
+                                        style={styles.backgroundImage}
+                                        poster={mediaUrl}
+                                        posterResizeMode="cover"
+                                        resizeMode="cover"
+                                        repeat
+                                        paused={paused}
+                                        muted={muted}
+                                        playInBackground={false}
+                                        playWhenInactive={false}
+                                        onLoad={onVideoLoad}
+                                        onProgress={onVideoProgress}
+                                    />
+                                    {/* Video Progress Bar */}
+                                    <View style={styles.progressBarContainer}>
+                                        <Animated.View style={[styles.progressBar, animatedProgressStyle]} />
+                                    </View>
+                                </View>
+                            ) : (
+                                <Image
+                                    source={{ uri: mediaUrl }}
+                                    style={styles.backgroundImage}
+                                    resizeMode="contain"
+                                />
+                            )
+                        ) : (
+                            <View style={[styles.backgroundImage, { backgroundColor: '#F0F5F1' }]} />
+                        )}
+
+                        {/* Play/Pause Indicator (Optional, shown when paused) */}
+                        {paused && isVideo && (
+                            <View style={styles.centerOverlay}>
+                                <FontAwesome6 name="play" size={50} color="white" style={{ opacity: 0.8 }} />
+                            </View>
+                        )}
                     </View>
-                )}
+                </TapGestureHandler>
+            </TapGestureHandler>
 
-                {/* White Content Card */}
-                <View style={[styles.contentCard, { backgroundColor: theme.colors.surface }]}>
-                    {/* User Info Row - ALWAYS VISIBLE */}
-                    <View style={styles.userInfoRow}>
-                        <View style={styles.userSection}>
-                            <Image
-                                source={post?.Users?.profile_image ? { uri: post.Users.profile_image } : require('../../../../assets/images/Profilbild.jpg')}
-                                style={styles.avatar}
-                            />
-                            <View style={styles.textSection}>
-                                {/* Use username from Post data */}
-                                <Text style={[styles.username, { color: theme.colors.text }]}>{post?.Users?.username || 'Observer'}</Text>
-                                <Text style={[styles.caption, { color: theme.colors.text }]} numberOfLines={2}>
-                                    {post?.caption || 'My Pink Princess #post #plslikeandfollow'}
-                                </Text>
-                            </View>
-                        </View>
+            {/* Overlay Layer for Controls (Pointer Events: Box-None) */}
+            <SafeAreaView style={styles.overlayContainer} pointerEvents="box-none">
+                {/* Header & Mute Row */}
+                <View style={styles.topControlsContainer} pointerEvents="box-none">
+                    <View style={styles.header}>
+                        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}>
+                            <FontAwesome6 name="chevron-left" size={20} color="white" />
+                        </TouchableOpacity>
 
-                        <TouchableOpacity style={[styles.followButton, { backgroundColor: '#4CA771' }]}>
-                            <Text style={styles.followButtonText}>Follow</Text>
+                        <TouchableOpacity style={styles.headerButton}>
+                            <FontAwesome6 name="magnifying-glass" size={20} color="white" />
                         </TouchableOpacity>
                     </View>
 
-                    {/* Scroll Hint - ALWAYS VISIBLE */}
-                    <View style={styles.footer}>
-                        <FontAwesome6 name="chevron-down" size={14} color={theme.colors.greyedOut || '#999'} />
-                        <Text style={[styles.footerText, { color: theme.colors.greyedOut || '#999' }]}>Scroll for more actions...</Text>
+                    {/* Mute Button positioned relative to header or via flex */}
+                    {isVideo && (
+                        <TouchableOpacity
+                            style={styles.muteButton}
+                            onPress={() => setMuted(!muted)}
+                            activeOpacity={0.7}
+                        >
+                            <FontAwesome6
+                                name={muted ? "volume-xmark" : "volume-high"}
+                                size={20}
+                                color="white"
+                            />
+                        </TouchableOpacity>
+                    )}
+                </View>
+
+                {/* Right Side Actions (Flex aligned to bottom-right) */}
+                <Animated.View style={[
+                    styles.rightActionsContainer,
+                    { backgroundColor: isTextPost ? 'rgba(0,0,0,0.1)' : 'transparent', borderRadius: 30, paddingTop: 10, paddingBottom: 10 },
+                    // animatedActionStyle // Assuming animatedActionStyle is defined and used for this component
+                ]}>
+                    <TouchableOpacity style={styles.rightActionItem} onPress={handleLike}>
+                        <Animated.View style={animatedHeartStyle}>
+                            <FontAwesome6
+                                name={showHeartBreak ? "heart-crack" : "heart"}
+                                size={30}
+                                color={isLiked || showHeartBreak ? "#FF3B30" : "white"}
+                                solid={isLiked || showHeartBreak}
+                            />
+                        </Animated.View>
+                        <Text style={[styles.rightActionText, isTextPost && { color: theme.colors.text, textShadowColor: 'transparent' }]}>{formatNumber(likesCount)}</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.rightActionItem} onPress={openComments}>
+                        <FontAwesome6 name="comment-dots" size={30} color={isTextPost ? theme.colors.text : "white"} />
+                        <Text style={[styles.rightActionText, isTextPost && { color: theme.colors.text, textShadowColor: 'transparent' }]}>{formatNumber(post?.comments_count || comments.length || 0)}</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.rightActionItem}>
+                        <FontAwesome6 name="share-nodes" size={30} color={isTextPost ? theme.colors.text : "white"} />
+                        <Text style={[styles.rightActionText, isTextPost && { color: theme.colors.text, textShadowColor: 'transparent' }]}>Share</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.rightActionItem} onPress={handleSave}>
+                        <FontAwesome6
+                            name="bookmark"
+                            size={30}
+                            color={isSaved ? "#FFD700" : (isTextPost ? theme.colors.text : "white")}
+                            solid={isSaved}
+                        />
+                        <Text style={[styles.rightActionText, isTextPost && { color: theme.colors.text, textShadowColor: 'transparent' }]}>Save</Text>
+                    </TouchableOpacity>
+                </Animated.View>
+            </SafeAreaView>
+
+            {/* Dynamic Bottom Sheet */}
+            <BottomSheet
+                ref={bottomSheetRef}
+                index={0} // Open to first snap point (25%)
+                snapPoints={snapPoints}
+                // animatedIndex={sheetIndex} // This line was not in the original, adding it based on the instruction snippet
+                enablePanDownToClose={false}
+                backgroundStyle={{ backgroundColor: theme.colors.surface }}
+                handleIndicatorStyle={{ backgroundColor: theme.colors.greyedOut }}
+                onChange={(index) => {
+                    // Slight logic to ensure mode feels correct, mostly handled by explicit state
+                }}
+            >
+                <View style={styles.bottomSheetContainer}>
+                    <View style={{ flex: 1 }}>
+                        {sheetMode === 'related' ? (
+                            <>
+                                {/* Header: User Info & Caption */}
+                                <View style={styles.userInfoHeader}>
+                                    <View style={styles.userRow}>
+                                        <Image
+                                            source={post?.Users?.profile_image ? { uri: post.Users.profile_image } : require('../../../../assets/images/Profilbild.jpg')}
+                                            style={styles.avatar}
+                                        />
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={[styles.username, { color: theme.colors.text }]}>{post?.Users?.username || 'Observer'}</Text>
+                                            <Text style={[styles.caption, { color: theme.colors.text }]} numberOfLines={2}>
+                                                {isTextPost ? getHashtags(post?.caption) : (post?.caption || 'My Pink Princess #post #plslikeandfollow')}
+                                            </Text>
+                                        </View>
+                                        <TouchableOpacity
+                                            style={[styles.followButton, { backgroundColor: isFollowing ? theme.colors.surface : '#4CA771', borderWidth: isFollowing ? 1 : 0, borderColor: theme.colors.greyedOut }]}
+                                            onPress={handleFollow}
+                                        >
+                                            <Text style={[styles.followButtonText, { color: isFollowing ? theme.colors.text : 'white' }]}>
+                                                {isFollowing ? 'Following' : 'Follow'}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                    <View style={styles.divider} />
+                                    <View style={styles.scrollHint}>
+                                        <Text style={[styles.scrollHintText, { color: theme.colors.greyedOut }]}>Scroll for related posts</Text>
+                                        <FontAwesome6 name="chevron-down" size={12} color={theme.colors.greyedOut} />
+                                    </View>
+                                </View>
+
+                                {/* Scrollable: Grid */}
+                                <BottomSheetScrollView contentContainerStyle={styles.gridContent}>
+                                    <MasonryFeedGrid
+                                        posts={displayPosts}
+                                        onPostPress={handlePostPress}
+                                    />
+                                    <View style={{ height: 20 }} />
+                                </BottomSheetScrollView>
+                            </>
+                        ) : (
+                            <>
+                                {/* Header: Comments */}
+                                <View style={styles.commentsHeader}>
+                                    <TouchableOpacity onPress={handleBackToRelated} style={styles.backButton}>
+                                        <FontAwesome6 name="arrow-left" size={20} color={theme.colors.text} />
+                                    </TouchableOpacity>
+                                    <Text style={[styles.bottomSheetTitle, { color: theme.colors.text }]}>Comments ({comments.length})</Text>
+                                    <View style={{ width: 20 }} />
+                                </View>
+                                <View style={styles.divider} />
+
+                                {/* Scrollable: Comments List */}
+                                <BottomSheetScrollView contentContainerStyle={styles.commentsList}>
+                                    {comments.length === 0 ? (
+                                        <Text style={{ textAlign: 'center', color: '#999', marginTop: 20 }}>No comments yet. Be the first!</Text>
+                                    ) : (
+                                        comments.map(renderCommentFn)
+                                    )}
+                                    <View style={{ height: 20 }} />
+                                </BottomSheetScrollView>
+                            </>
+                        )}
                     </View>
 
-                    {/* Hidden Content (Fades in) */}
-                    <Animated.View style={{ opacity: contentOpacity, transform: [{ translateY: contentTranslateY }] }}>
-                        <View style={styles.divider} />
-
-                        {/* Comments Section */}
-                        <View style={styles.commentsSection}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Comments</Text>
-                            <Text style={styles.commentPrompt}>Love this Picture? Add a comment!</Text>
-
-                            <View style={styles.commentInputRow}>
-                                <Image
-                                    source={profile?.profile_image ? { uri: profile.profile_image } : require('../../../../assets/images/Profilbild.png')}
-                                    style={styles.smallAvatar}
-                                />
-                                <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background }]}>
-                                    <TextInput
-                                        placeholder="Add a comment"
-                                        placeholderTextColor={theme.colors.greyedOut || '#999'}
-                                        style={[styles.input, { color: theme.colors.text }]}
-                                    />
-                                    <TouchableOpacity>
-                                        <FontAwesome6 name="paper-plane" size={16} color="#4CA771" />
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-                        </View>
-
-                        {/* Related Grid */}
-                        <MasonryFeedGrid
-                            posts={displayPosts}
-                            onPostPress={(item) => navigation.push('FeedPostDetail', { post: item })}
+                    {/* Footer: Input (Always Visible) */}
+                    <View style={[styles.inputContainer, { backgroundColor: theme.colors.surface, borderTopColor: '#f0f0f0' }]}>
+                        <Image
+                            source={profile?.profile_image ? { uri: profile.profile_image } : require('../../../../assets/images/Profilbild.png')}
+                            style={styles.inputAvatar}
                         />
-
-                        {/* Bottom Padding */}
-                        <View style={{ height: 40 }} />
-                    </Animated.View>
+                        <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background }]}>
+                            <BottomSheetTextInput
+                                ref={inputRef}
+                                placeholder="Add a comment..."
+                                placeholderTextColor="#999"
+                                style={[styles.input, { color: theme.colors.text }]}
+                                value={commentText}
+                                onChangeText={setCommentText}
+                                onSubmitEditing={handleComment}
+                                onFocus={() => {
+                                    if (sheetMode === 'related') openComments();
+                                }}
+                            />
+                            <TouchableOpacity onPress={handleComment}>
+                                <FontAwesome6 name="paper-plane" size={16} color="#4CA771" />
+                            </TouchableOpacity>
+                        </View>
+                    </View>
                 </View>
-            </Animated.ScrollView>
-        </View>
+            </BottomSheet>
+        </GestureHandlerRootView>
     );
 }
 
@@ -180,208 +549,260 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: 'black',
     },
-    backgroundImage: {
+    backgroundContainer: {
         width: width,
-        height: height, // Full screen
+        height: height,
         position: 'absolute',
         top: 0,
         left: 0,
     },
-    textCardLarge: {
-        width: width * 0.85,
-        aspectRatio: 0.8,
-        backgroundColor: 'white',
-        borderRadius: 24,
-        padding: 24,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.1,
-        shadowRadius: 20,
-        elevation: 10,
-        position: 'relative',
-        overflow: 'hidden',
-    },
-    textBadge: {
-        backgroundColor: '#E8F5E9',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 12,
-        alignSelf: 'flex-start',
-        marginBottom: 16,
-    },
-    textBadgeText: {
-        color: '#4CA771',
-        fontSize: 12,
-        fontWeight: '700',
-        textTransform: 'uppercase',
-    },
-    textPostContent: {
-        fontSize: 24,
-        fontWeight: '600',
-        color: '#2D3436',
-        lineHeight: 32,
-    },
-    leafIcon: {
+    backgroundImage: {
+        width: '100%',
+        height: '100%',
         position: 'absolute',
-        bottom: -20,
-        right: -20,
-        opacity: 0.1,
-        transform: [{ rotate: '-15deg' }],
     },
-    headerSafeArea: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 20, // ensure header is above scrollview initially if we want it clickable?
-        // Actually, if ScrollView is on top, it might block header clicks if spacer catches touches.
-        // We can make spacer pointerEvents="none" or put Header zIndex higher.
+    overlayContainer: {
+        ...StyleSheet.absoluteFillObject,
+        justifyContent: 'space-between',
+        paddingBottom: 20,
+    },
+    topControlsContainer: {
+        width: '100%',
+        paddingTop: Platform.OS === 'android' ? 40 : 10,
+        paddingHorizontal: 20,
+        flexDirection: 'row',
     },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingTop: 10, // Adjust for safe area
+        width: '100%',
     },
     headerButton: {
         flexDirection: 'row',
         alignItems: 'center',
         padding: 10,
         borderRadius: 10,
-        backgroundColor: 'rgba(0,0,0,0.2)', // Slight dim for readability
-        width: "20%",
+        backgroundColor: 'rgba(0,0,0,0.3)',
+        width: 40,
         justifyContent: "center",
     },
-    headerText: {
-        color: 'Black',
-        fontSize: 18,
-        fontWeight: '600',
-        marginLeft: 8,
+    muteButton: {
+        position: 'absolute',
+        top: 100,
+        right: 20,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
-    scrollView: {
+    rightActionsContainer: {
+        alignSelf: 'flex-end', // Align to right
+        alignItems: 'center',
+        gap: 25,
+        marginRight: 15,
+        marginBottom: 200, // Push up slightly to clear bottom area
+    },
+    rightActionItem: {
+        alignItems: 'center',
+    },
+    rightActionText: {
+        color: 'white',
+        fontSize: 12,
+        fontWeight: 'bold',
+        marginTop: 4,
+        textShadowColor: 'rgba(0, 0, 0, 0.75)',
+        textShadowOffset: { width: -1, height: 1 },
+        textShadowRadius: 3,
+    },
+    centerOverlay: {
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        marginLeft: -25,
+        marginTop: -25,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    // Removed headerSafeArea style as it is now inline or overlay
+    // Bottom Sheet Styles
+    bottomSheetContainer: {
         flex: 1,
-        zIndex: 10,
+        paddingHorizontal: 16,
     },
-    scrollContent: {
-        flexGrow: 1,
-    },
-    spacer: {
-        height: height - 100, // Reduced visible area to ~100px
-    },
-    contentCard: {
-        backgroundColor: 'white',
-        borderTopLeftRadius: 30,
-        borderTopRightRadius: 30,
-        paddingHorizontal: 24,
-        paddingTop: 24,
-        minHeight: height * 0.8, // Ensure enough scrollable content
-        paddingBottom: 40,
-    },
-    userInfoRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
+    userInfoHeader: {
         marginBottom: 10,
     },
-    userSection: {
+    userRow: {
         flexDirection: 'row',
-        flex: 1,
+        alignItems: 'center',
+        marginBottom: 8,
     },
     avatar: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        marginRight: 12,
-    },
-    textSection: {
-        flex: 1,
-        justifyContent: 'center',
+        width: 40,
+        height: 40,
+        borderRadius: 20,
         marginRight: 10,
     },
     username: {
-        fontSize: 16,
         fontWeight: 'bold',
-        color: '#000',
+        fontSize: 16,
         marginBottom: 2,
     },
     caption: {
         fontSize: 14,
-        color: '#333',
         lineHeight: 18,
     },
     followButton: {
-        paddingVertical: 8,
-        paddingHorizontal: 16,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
         borderRadius: 8,
+        marginLeft: 10,
     },
     followButtonText: {
         color: 'white',
+        fontSize: 12,
         fontWeight: 'bold',
-        fontSize: 14,
     },
-    footer: {
+    scrollHint: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 5,
+        marginBottom: 5,
+    },
+    scrollHintText: {
+        fontSize: 10,
+    },
+    gridContent: {
+        paddingBottom: 20,
+    },
+    commentsHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 15, // Space before contents
-        opacity: 0.7,
-        gap: 8,
+        justifyContent: 'space-between',
+        marginBottom: 10,
     },
-    footerText: {
-        fontSize: 12,
+    backButton: {
+        padding: 5,
+    },
+    bottomSheetTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
     },
     divider: {
         height: 1,
-        backgroundColor: '#EEEEEE',
-        marginTop: 5,
-        marginBottom: 20,
+        backgroundColor: '#eee',
+        marginBottom: 10,
     },
-    commentsSection: {
-        marginBottom: 20,
+    commentsList: {
+        paddingBottom: 20,
     },
-    sectionTitle: {
-        fontSize: 18,
+    commentItem: {
+        flexDirection: 'row',
+        marginBottom: 16,
+    },
+    commentAvatar: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        marginRight: 10,
+        backgroundColor: '#ccc',
+    },
+    commentContent: {
+        flex: 1,
+    },
+    commentUsername: {
         fontWeight: 'bold',
-        textAlign: 'center',
-        marginBottom: 4,
+        fontSize: 13,
+        marginBottom: 2,
     },
-    commentPrompt: {
-        textAlign: 'center',
-        color: '#666',
-        marginBottom: 15,
+    commentText: {
+        fontSize: 14,
+        lineHeight: 18,
     },
-    commentInputRow: {
+    inputContainer: {
         flexDirection: 'row',
         alignItems: 'center',
+        paddingVertical: 10,
+        borderTopWidth: 1,
     },
-    smallAvatar: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
+    inputAvatar: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
         marginRight: 10,
     },
     inputWrapper: {
         flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#F5F5F5', // Light grey input bg
         borderRadius: 20,
-        paddingHorizontal: 15,
+        paddingHorizontal: 12,
         height: 40,
     },
     input: {
         flex: 1,
-        color: 'black',
+        height: 40,
     },
-    masonryContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginTop: 10,
+    spacer: {
+        flex: 1,
+        width: '100%',
     },
-    column: {
-        width: (width - 48 - 15) / 2, // width - padding*2 - gap
+    textCardLarge: {
+        width: width * 0.85,
+        height: width * 0.85, // Square card
+        borderRadius: 20,
+        padding: 20,
+        justifyContent: 'center',
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
+        elevation: 5,
+        position: 'relative',
+        overflow: 'hidden',
     },
-    cardSpacing: {
-        marginBottom: 15,
+    textBadge: {
+        position: 'absolute',
+        top: 20,
+        left: 20,
+        backgroundColor: '#F0F5F1',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 8,
+        zIndex: 10,
+    },
+    textBadgeText: {
+        color: '#4CA771',
+        fontWeight: 'bold',
+        fontSize: 12,
+    },
+    textPostContent: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        textAlign: 'center',
+        lineHeight: 32,
+        zIndex: 5,
+    },
+    leafIcon: {
+        position: 'absolute',
+        bottom: -20,
+        right: -20,
+        opacity: 0.1,
+    },
+    progressBarContainer: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: 2,
+        backgroundColor: 'rgba(255, 255, 255, 0.3)',
+        zIndex: 10,
+    },
+    progressBar: {
+        height: '100%',
+        backgroundColor: 'white',
     },
 });
