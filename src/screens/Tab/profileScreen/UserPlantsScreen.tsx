@@ -41,22 +41,18 @@ export default function UserPlantsScreen() {
 
         return (
             <View style={styles.cardContainer}>
-                {/* Health Circle */}
                 <View style={styles.healthBadge}>
-                    {/* Simple circular border for now, usually needs SVG for progress circle */}
                     <View style={[styles.healthCircle, { borderColor: health > 50 ? theme.colors.primary : 'red' }]}>
                         <Text style={styles.healthText}>{health}%</Text>
                     </View>
                 </View>
 
-                {/* Plant Image */}
                 <Image
                     source={item.image || require('../../../../assets/images/plant4.png')}
                     style={styles.plantImage}
                     resizeMode="contain"
                 />
 
-                {/* Plant Name */}
                 <Text style={styles.plantName} numberOfLines={1}>{item.name}</Text>
             </View>
         );
@@ -64,16 +60,14 @@ export default function UserPlantsScreen() {
 
     return (
         <View style={styles.container}>
-            {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                     <GradientIcon name="chevron-left" size={24} />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>{isOwner ? "My Plants" : "Plants"}</Text>
-                <View style={{ width: 24 }} /> {/* Spacer for centering */}
+                <View style={{ width: 24 }} />
             </View>
 
-            {/* Grid */}
             <FlatList
                 data={plants}
                 renderItem={renderItem}
