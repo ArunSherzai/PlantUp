@@ -1,16 +1,17 @@
-import React, { useRef } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, SafeAreaView, Dimensions, TextInput, Animated, ScrollView } from 'react-native';
+import React, { useRef, useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Image, TouchableOpacity, SafeAreaView, Dimensions, TextInput, Animated, ScrollView, Platform } from 'react-native';
 import { useUnistyles } from 'react-native-unistyles';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { RootStackParamList } from '../../../navigation/Root';
-import FeedCard from '../../../components/FeedCard';
 import MasonryFeedGrid from '../../../components/MasonryFeedGrid';
 import { useFeed } from '../../../hooks/useFeed';
 import { db } from '../../../utils/supabase';
 import { useUserStore } from '../../../stores/UserStore';
-import { useState, useEffect } from 'react';
 import { getDisplayMedia } from '../../../utils/media';
+import Video from 'react-native-video';
+import { formatNumber } from '../../../utils/formatNumber';
+import { TapGestureHandler, State } from 'react-native-gesture-handler';
 
 // We need the RouteProp to access params
 type FeedPostDetailRouteProp = RouteProp<RootStackParamList, 'FeedPostDetail'>;
@@ -21,7 +22,7 @@ export default function FeedPostDetailScreen() {
     const { theme } = useUnistyles();
     const navigation = useNavigation<any>();
     const route = useRoute<FeedPostDetailRouteProp>();
-    const { profile } = useUserStore();
+    const { user, profile } = useUserStore();
 
     // Animation Value
     const scrollY = useRef(new Animated.Value(0)).current;
@@ -29,20 +30,111 @@ export default function FeedPostDetailScreen() {
     // Fallback if no params (dev safety), though FeedScreen will pass them
     const post = route.params?.post;
 
+    // Interaction State
+    const [isLiked, setIsLiked] = useState(post?.is_liked || false);
+    const [likesCount, setLikesCount] = useState<number>((post?.likes as number) || 0);
+    const [commentText, setCommentText] = useState('');
+    const [comments, setComments] = useState<any[]>([]);
+
+    // Video State
+    const [paused, setPaused] = useState(false);
+    const [muted, setMuted] = useState(false);
+
+    // Logic to fix URL extension if needed (User logic preservation)
+    const rawMediaUrl = getDisplayMedia(post);
+    const mediaUrl = rawMediaUrl?.replace("png", "mp4");
+
+    // Check if it is a video based on extension (simple check)
+    const isVideo = post?.type === 'video';
+    // Refs for Gestures
+    const doubleTapRef = useRef(null);
+
+    // Fetch interactions
+    useEffect(() => {
+        if (post?.id) {
+            checkInteractions();
+            fetchComments();
+        }
+    }, [post?.id]);
+
+    const checkInteractions = async () => {
+        if (!user?.id || !post?.id) return;
+        const { data } = await db.social.from('post_interactions')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('post_id', post.id)
+            .eq('interaction_type', 'like')
+            .maybeSingle();
+        if (data) setIsLiked(true);
+    };
+
+    const fetchComments = async () => {
+        if (!post?.id) return;
+        const { data } = await db.social.from('Comments')
+            .select('*, Users(username, profile_image)')
+            .eq('post_id', post.id)
+            .order('created_at', { ascending: false })
+            .limit(5); // Show last 5 interactions
+        if (data) setComments(data);
+    };
+
+    const handleLike = async () => {
+        if (!user?.id || !post?.id) return;
+        const newLiked = !isLiked;
+        setIsLiked(newLiked);
+        setLikesCount(prev => newLiked ? prev + 1 : prev - 1);
+
+        if (newLiked) {
+            await db.social.from('post_interactions').insert({ user_id: user.id, post_id: post.id, interaction_type: 'like' });
+        } else {
+            await db.social.from('post_interactions').delete().eq('user_id', user.id).eq('post_id', post.id).eq('interaction_type', 'like');
+        }
+    };
+
+    const handleComment = async () => {
+        if (!commentText.trim() || !user?.id || !post?.id) return;
+        const text = commentText.trim();
+        setCommentText('');
+
+        // Optimistic update
+        const newComment = {
+            id: 'temp-' + Date.now(),
+            description: text,
+            Users: { username: profile?.username || 'Me', profile_image: profile?.profile_image }
+        };
+        setComments(prev => [newComment, ...prev]);
+
+        await db.social.from('Comments').insert({
+            user_id: user.id,
+            post_id: post.id,
+            description: text
+        });
+    };
+
+    // Gestures
+    const onSingleTap = (event: any) => {
+        if (event.nativeEvent.state === State.ACTIVE) {
+            setPaused(prev => !prev);
+        }
+    };
+
+    const onDoubleTap = (event: any) => {
+        if (event.nativeEvent.state === State.ACTIVE) {
+            if (!isLiked) handleLike();
+        }
+    };
+
     // Fetch related posts (for now just all posts)
     const { posts: relatedPosts } = useFeed();
-
-    // Mock slice for "Related"
     const displayPosts = relatedPosts.filter(p => p.id !== post?.id).slice(0, 4);
 
-    // Opacity Interpolation: Hidden at 0, Visible by 150 scroll
+    // Opacity Interpolation: Hidden at 0, Visible by 150 scroll (for comments/content)
     const contentOpacity = scrollY.interpolate({
         inputRange: [0, 150],
         outputRange: [0, 1],
         extrapolate: 'clamp',
     });
 
-    // Translation Interpolation: Slide up slightly
     const contentTranslateY = scrollY.interpolate({
         inputRange: [0, 150],
         outputRange: [30, 0],
@@ -51,16 +143,87 @@ export default function FeedPostDetailScreen() {
 
     return (
         <View style={styles.container}>
-            {/* Fixed Background Content */}
-            {getDisplayMedia(post) ? (
-                <Image
-                    source={{ uri: getDisplayMedia(post) }}
-                    style={styles.backgroundImage}
-                    resizeMode="contain"
-                />
-            ) : (
-                <View style={[styles.backgroundImage, { backgroundColor: '#F0F5F1' }]} />
-            )}
+            {/* Video / Background Layer with Gestures */}
+            <TapGestureHandler
+                onHandlerStateChange={onSingleTap}
+                waitFor={doubleTapRef}
+            >
+                <TapGestureHandler
+                    ref={doubleTapRef}
+                    onHandlerStateChange={onDoubleTap}
+                    numberOfTaps={2}
+                >
+                    <View style={styles.backgroundContainer}>
+                        {mediaUrl ? (
+                            isVideo ? (
+                                <Video
+                                    source={{ uri: mediaUrl }}
+                                    style={styles.backgroundImage}
+                                    resizeMode="cover"
+                                    repeat
+                                    paused={paused}
+                                    muted={muted}
+                                    playInBackground={false}
+                                    playWhenInactive={false}
+                                />
+                            ) : (
+                                <Image
+                                    source={{ uri: mediaUrl }}
+                                    style={styles.backgroundImage}
+                                    resizeMode="contain"
+                                />
+                            )
+                        ) : (
+                            <View style={[styles.backgroundImage, { backgroundColor: '#F0F5F1' }]} />
+                        )}
+
+                        {/* Mute Button Overlay */}
+                        {isVideo && (
+                            <TouchableOpacity
+                                style={styles.muteButton}
+                                onPress={() => setMuted(!muted)}
+                                activeOpacity={0.7}
+                            >
+                                <FontAwesome6
+                                    name={muted ? "volume-xmark" : "volume-high"}
+                                    size={20}
+                                    color="white"
+                                />
+                            </TouchableOpacity>
+                        )}
+
+                        {/* Right Side Actions Overlay */}
+                        <View style={styles.rightActionsContainer}>
+                            <TouchableOpacity style={styles.rightActionItem} onPress={handleLike}>
+                                <FontAwesome6 name="heart" size={30} color={isLiked ? "#FF3B30" : "white"} solid={isLiked} />
+                                <Text style={styles.rightActionText}>{formatNumber(likesCount)}</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity style={styles.rightActionItem} onPress={() => { }}>
+                                <FontAwesome6 name="comment" size={30} color="white" />
+                                <Text style={styles.rightActionText}>{formatNumber(post?.comments_count || comments.length || 0)}</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity style={styles.rightActionItem}>
+                                <FontAwesome6 name="share-nodes" size={30} color="white" />
+                                <Text style={styles.rightActionText}>Share</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity style={styles.rightActionItem}>
+                                <FontAwesome6 name="bookmark" size={30} color="white" />
+                                <Text style={styles.rightActionText}>Save</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Play/Pause Indicator (Optional, shown when paused) */}
+                        {paused && isVideo && (
+                            <View style={styles.centerOverlay}>
+                                <FontAwesome6 name="play" size={50} color="white" style={{ opacity: 0.8 }} />
+                            </View>
+                        )}
+                    </View>
+                </TapGestureHandler>
+            </TapGestureHandler>
 
             {/* Fixed Header */}
             <SafeAreaView style={styles.headerSafeArea}>
@@ -75,7 +238,7 @@ export default function FeedPostDetailScreen() {
                 </View>
             </SafeAreaView>
 
-            {/* Scrollable Overlay */}
+            {/* Scrollable Overlay Content */}
             <Animated.ScrollView
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.scrollContent}
@@ -86,27 +249,13 @@ export default function FeedPostDetailScreen() {
                 )}
                 scrollEventThrottle={16}
             >
-                {/* Transparent Spacer to show image */}
-                {/* Spacer or Text Card */}
-                {getDisplayMedia(post) ? (
-                    <View style={styles.spacer} />
-                ) : (
-                    <View style={[styles.spacer, { justifyContent: 'center', alignItems: 'center' }]}>
-                        <View style={[styles.textCardLarge, { backgroundColor: theme.colors.surface }]}>
-                            <View style={styles.textBadge}>
-                                <Text style={styles.textBadgeText}>Thought</Text>
-                            </View>
-                            <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}>
-                                <Text style={[styles.textPostContent, { color: theme.colors.text }]}>{post?.caption}</Text>
-                            </ScrollView>
-                            <FontAwesome6 name="leaf" size={120} color="#4CA771" style={styles.leafIcon} />
-                        </View>
-                    </View>
-                )}
+                {/* Transparent Spacer to show video */}
+                {/* We increase spacer height so video is clear */}
+                <View style={styles.spacer} />
 
                 {/* White Content Card */}
                 <View style={[styles.contentCard, { backgroundColor: theme.colors.surface }]}>
-                    {/* User Info Row - ALWAYS VISIBLE */}
+                    {/* User Info Row */}
                     <View style={styles.userInfoRow}>
                         <View style={styles.userSection}>
                             <Image
@@ -114,7 +263,6 @@ export default function FeedPostDetailScreen() {
                                 style={styles.avatar}
                             />
                             <View style={styles.textSection}>
-                                {/* Use username from Post data */}
                                 <Text style={[styles.username, { color: theme.colors.text }]}>{post?.Users?.username || 'Observer'}</Text>
                                 <Text style={[styles.caption, { color: theme.colors.text }]} numberOfLines={2}>
                                     {post?.caption || 'My Pink Princess #post #plslikeandfollow'}
@@ -127,10 +275,10 @@ export default function FeedPostDetailScreen() {
                         </TouchableOpacity>
                     </View>
 
-                    {/* Scroll Hint - ALWAYS VISIBLE */}
+                    {/* Scroll Hint */}
                     <View style={styles.footer}>
                         <FontAwesome6 name="chevron-down" size={14} color={theme.colors.greyedOut || '#999'} />
-                        <Text style={[styles.footerText, { color: theme.colors.greyedOut || '#999' }]}>Scroll for more actions...</Text>
+                        <Text style={[styles.footerText, { color: theme.colors.greyedOut || '#999' }]}>Scroll for more comments...</Text>
                     </View>
 
                     {/* Hidden Content (Fades in) */}
@@ -142,6 +290,12 @@ export default function FeedPostDetailScreen() {
                             <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Comments</Text>
                             <Text style={styles.commentPrompt}>Love this Picture? Add a comment!</Text>
 
+                            {comments.map((c, i) => (
+                                <View key={c.id || i} style={{ marginBottom: 10, paddingHorizontal: 10 }}>
+                                    <Text style={{ fontWeight: 'bold', color: theme.colors.text }}>{c.Users?.username}: <Text style={{ fontWeight: 'normal' }}>{c.description}</Text></Text>
+                                </View>
+                            ))}
+
                             <View style={styles.commentInputRow}>
                                 <Image
                                     source={profile?.profile_image ? { uri: profile.profile_image } : require('../../../../assets/images/Profilbild.png')}
@@ -152,8 +306,11 @@ export default function FeedPostDetailScreen() {
                                         placeholder="Add a comment"
                                         placeholderTextColor={theme.colors.greyedOut || '#999'}
                                         style={[styles.input, { color: theme.colors.text }]}
+                                        value={commentText}
+                                        onChangeText={setCommentText}
+                                        onSubmitEditing={handleComment}
                                     />
-                                    <TouchableOpacity>
+                                    <TouchableOpacity onPress={handleComment}>
                                         <FontAwesome6 name="paper-plane" size={16} color="#4CA771" />
                                     </TouchableOpacity>
                                 </View>
@@ -180,101 +337,102 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: 'black',
     },
-    backgroundImage: {
+    backgroundContainer: {
         width: width,
-        height: height, // Full screen
+        height: height,
         position: 'absolute',
         top: 0,
         left: 0,
     },
-    textCardLarge: {
-        width: width * 0.85,
-        aspectRatio: 0.8,
-        backgroundColor: 'white',
-        borderRadius: 24,
-        padding: 24,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.1,
-        shadowRadius: 20,
-        elevation: 10,
-        position: 'relative',
-        overflow: 'hidden',
-    },
-    textBadge: {
-        backgroundColor: '#E8F5E9',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 12,
-        alignSelf: 'flex-start',
-        marginBottom: 16,
-    },
-    textBadgeText: {
-        color: '#4CA771',
-        fontSize: 12,
-        fontWeight: '700',
-        textTransform: 'uppercase',
-    },
-    textPostContent: {
-        fontSize: 24,
-        fontWeight: '600',
-        color: '#2D3436',
-        lineHeight: 32,
-    },
-    leafIcon: {
+    backgroundImage: {
+        width: '100%',
+        height: '100%',
         position: 'absolute',
-        bottom: -20,
-        right: -20,
-        opacity: 0.1,
-        transform: [{ rotate: '-15deg' }],
+    },
+    muteButton: {
+        position: 'absolute',
+        top: 100, // Adjust based on header
+        right: 20,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 50,
+    },
+    rightActionsContainer: {
+        position: 'absolute',
+        right: 15,
+        bottom: 250, // Floating mid-right
+        alignItems: 'center',
+        gap: 25,
+        zIndex: 50,
+        // Ensure it doesn't block touches to video if pressed outside
+    },
+    rightActionItem: {
+        alignItems: 'center',
+    },
+    rightActionText: {
+        color: 'white',
+        fontSize: 12,
+        fontWeight: 'bold',
+        marginTop: 4,
+        textShadowColor: 'rgba(0, 0, 0, 0.75)',
+        textShadowOffset: { width: -1, height: 1 },
+        textShadowRadius: 3,
+    },
+    centerOverlay: {
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        marginLeft: -25,
+        marginTop: -25,
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 40,
     },
     headerSafeArea: {
         position: 'absolute',
         top: 0,
         left: 0,
         right: 0,
-        zIndex: 20, // ensure header is above scrollview initially if we want it clickable?
-        // Actually, if ScrollView is on top, it might block header clicks if spacer catches touches.
-        // We can make spacer pointerEvents="none" or put Header zIndex higher.
+        zIndex: 60,
     },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         paddingHorizontal: 20,
-        paddingTop: 10, // Adjust for safe area
+        paddingTop: Platform.OS === 'android' ? 40 : 10,
     },
     headerButton: {
         flexDirection: 'row',
         alignItems: 'center',
         padding: 10,
         borderRadius: 10,
-        backgroundColor: 'rgba(0,0,0,0.2)', // Slight dim for readability
-        width: "20%",
+        backgroundColor: 'rgba(0,0,0,0.3)',
+        width: 40,
         justifyContent: "center",
-    },
-    headerText: {
-        color: 'Black',
-        fontSize: 18,
-        fontWeight: '600',
-        marginLeft: 8,
     },
     scrollView: {
         flex: 1,
-        zIndex: 10,
+        zIndex: 20, // Sit on top of video, but let interactions pass to video if transparent? 
+        // ScrollView captures touches. We need to touch "through" it for video pause?
+        // Actually, if we tap the spacer, it should trigger video gesture.
+        // We can make spacer pointerEvents="box-none" so touches pass through?
     },
     scrollContent: {
         flexGrow: 1,
     },
     spacer: {
-        height: height - 100, // Reduced visible area to ~100px
+        height: height - 150, // Occupy most of screen so ContentCard starts at bottom
     },
     contentCard: {
-        backgroundColor: 'white',
         borderTopLeftRadius: 30,
         borderTopRightRadius: 30,
         paddingHorizontal: 24,
         paddingTop: 24,
-        minHeight: height * 0.8, // Ensure enough scrollable content
+        minHeight: height * 0.8,
         paddingBottom: 40,
     },
     userInfoRow: {
@@ -301,12 +459,10 @@ const styles = StyleSheet.create({
     username: {
         fontSize: 16,
         fontWeight: 'bold',
-        color: '#000',
         marginBottom: 2,
     },
     caption: {
         fontSize: 14,
-        color: '#333',
         lineHeight: 18,
     },
     followButton: {
@@ -323,7 +479,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: 15, // Space before contents
+        marginBottom: 15,
         opacity: 0.7,
         gap: 8,
     },
@@ -364,24 +520,11 @@ const styles = StyleSheet.create({
         flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#F5F5F5', // Light grey input bg
         borderRadius: 20,
         paddingHorizontal: 15,
         height: 40,
     },
     input: {
         flex: 1,
-        color: 'black',
-    },
-    masonryContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginTop: 10,
-    },
-    column: {
-        width: (width - 48 - 15) / 2, // width - padding*2 - gap
-    },
-    cardSpacing: {
-        marginBottom: 15,
     },
 });
