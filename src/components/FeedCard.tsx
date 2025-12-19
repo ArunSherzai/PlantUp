@@ -16,7 +16,7 @@ interface FeedCardProps {
     hideCaption?: boolean;
 }
 
-export default function FeedCard({ imageUri, caption, hashtags, isVideo, style, onPress, username, userAvatar, aspectRatio, hideCaption }: FeedCardProps) {
+const FeedCard = React.memo(({ imageUri, caption, hashtags, isVideo, style, onPress, username, userAvatar, aspectRatio, hideCaption }: FeedCardProps) => {
     const { theme } = useUnistyles();
     const hasMedia = imageUri?.uri || (typeof imageUri === 'number');
 
@@ -79,7 +79,9 @@ export default function FeedCard({ imageUri, caption, hashtags, isVideo, style, 
             )}
         </TouchableOpacity>
     );
-}
+});
+
+export default FeedCard;
 
 const styles = StyleSheet.create({
     container: {
