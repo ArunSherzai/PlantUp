@@ -39,6 +39,10 @@ export default function FeedPostDetailScreen() {
     const [commentText, setCommentText] = useState('');
     const [comments, setComments] = useState<any[]>([]);
 
+    // Pagination State
+    const [page, setPage] = useState(0);
+    const [hasMore, setHasMore] = useState(true);
+
     // Animation State
     const heartScale = useSharedValue(1);
     const [showHeartBreak, setShowHeartBreak] = useState(false);
@@ -123,14 +127,78 @@ export default function FeedPostDetailScreen() {
         }
     };
 
-    const fetchComments = async () => {
+    const fetchComments = async (newPage = 0) => {
         if (!post?.id) return;
-        const { data } = await db.social.from('Comments')
-            .select('*, Users(username, profile_image)')
+        if (newPage === 0) setComments([]);
+
+        const { data: commentsData, error } = await db.social
+            .from('Comments')
+            .select('*, replies:Comments(count)')
             .eq('post_id', post.id)
+            .is('reply_id', null)
             .order('created_at', { ascending: false })
-            .limit(20);
-        if (data) setComments(data);
+            .range(newPage * 10, (newPage + 1) * 10 - 1);
+
+        if (error) {
+            console.log('Error fetching comments:', error);
+            return;
+        }
+
+        if (commentsData && commentsData.length < 10) {
+            setHasMore(false);
+        } else {
+            setHasMore(true);
+        }
+
+        if (commentsData) {
+            // Fetch users for these comments
+            const userIds = Array.from(new Set(commentsData.map((c: any) => c.user_id).filter((id: any) => id)));
+
+            if (userIds.length > 0) {
+                const { data: usersData } = await db.user
+                    .from('Users')
+                    // Fetch profile_image too as UI needs it
+                    .select('id, username, avatar_path')
+                    .in('id', userIds);
+
+                if (usersData) {
+                    const userMap = new Map(usersData.map((u: any) => [u.id, u]));
+                    const commentsWithUsers = commentsData.map((c: any) => {
+                        const user = userMap.get(c.user_id);
+                        let profileImageUrl = null;
+
+                        if (user?.avatar_path) {
+
+                            const { data } = db.public.storage.from('avatar').getPublicUrl(user.avatar_path);
+                            profileImageUrl = data.publicUrl;
+
+                        }
+
+                        return {
+                            ...c,
+                            // Map to "Users" object to match existing UI
+                            Users: user ? { ...user, profile_image: profileImageUrl } : { username: 'Unknown', profile_image: null }
+                        };
+                    });
+
+                    if (newPage === 0) {
+                        setComments(commentsWithUsers);
+                    } else {
+                        setComments(prev => [...prev, ...commentsWithUsers]);
+                    }
+                    setPage(newPage);
+                    return;
+                }
+            }
+
+            // Fallback if no users found
+            if (newPage === 0) {
+                setComments(commentsData);
+            } else {
+                setComments(prev => [...prev, ...commentsData]);
+            }
+            setPage(newPage);
+        }
     };
 
     const animateLike = () => {
