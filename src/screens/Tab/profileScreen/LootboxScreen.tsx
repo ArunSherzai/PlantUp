@@ -76,9 +76,15 @@ export default function LootboxScreen() {
 
             // Fix media_url using Supabase Storage
             if (border && border.media_url) {
+                // Fix for seasonal folders: replace specific seasons with generic 'seasonal' folder
+                let mediaPath = border.media_url;
+                if (mediaPath.includes('seasonal_summer') || mediaPath.includes('seasonal_winter')) {
+                    mediaPath = mediaPath.replace('seasonal_summer', 'seasonal').replace('seasonal_winter', 'seasonal');
+                }
+
                 const { data: publicUrlData } = db.public.storage
                     .from('border-skins')
-                    .getPublicUrl(border.media_url);
+                    .getPublicUrl(mediaPath);
 
                 border.media_url = publicUrlData.publicUrl;
                 console.log('Generated Public URL:', border.media_url);

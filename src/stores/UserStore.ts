@@ -259,9 +259,15 @@ export const useUserStore = create<State>((set, get) => ({
     let equippedBorderData = borderResult.data?.Cosmetic_avatar_borders as unknown as Border | null;
 
     if (equippedBorderData && (equippedBorderData as any).media_url) {
+      // Fix for seasonal folders: replace specific seasons with generic 'seasonal' folder
+      let mediaPath = (equippedBorderData as any).media_url;
+      if (mediaPath.includes('seasonal_summer') || mediaPath.includes('seasonal_winter')) {
+        mediaPath = mediaPath.replace('seasonal_summer', 'seasonal').replace('seasonal_winter', 'seasonal');
+      }
+
       const { data } = await db.public.storage
         .from('border-skins')
-        .getPublicUrl((equippedBorderData as any).media_url);
+        .getPublicUrl(mediaPath);
 
       if (data?.publicUrl) {
         equippedBorderData = { ...equippedBorderData, media_url: data.publicUrl };
@@ -421,8 +427,14 @@ export const useUserStore = create<State>((set, get) => ({
         const ownership = ownedData.find((o: any) => o.border_id === border.id);
         let mediaUrl = border.media_url;
         if (border.media_url) {
+          // Fix for seasonal folders: replace specific seasons with generic 'seasonal' folder
+          let mediaPath = border.media_url;
+          if (mediaPath.includes('seasonal_summer') || mediaPath.includes('seasonal_winter')) {
+            mediaPath = mediaPath.replace('seasonal_summer', 'seasonal').replace('seasonal_winter', 'seasonal');
+          }
+
           const { data } = await db.public.storage
-            .from('border-skins').getPublicUrl(border.media_url);
+            .from('border-skins').getPublicUrl(mediaPath);
           if (data?.publicUrl) {
             mediaUrl = data.publicUrl;
           }
@@ -521,12 +533,12 @@ export const useUserStore = create<State>((set, get) => ({
       .from('User_titles')
       .update({ selected: false })
       .eq('userid', user.id);
-    
+
     if (unequipError) {
       console.error('[UserStore] Error unequipping titles:', unequipError);
       return;
     }
-    if (titleId) {    
+    if (titleId) {
       const { error: equipError } = await db.gamification
         .from('User_titles')
         .update({ selected: true })
@@ -576,11 +588,11 @@ export const useUserStore = create<State>((set, get) => ({
       if ((data as any)?.success) {
         // Refresh everything that might have changed
         await Promise.all([
-            fetchUnclaimedRewards(), // Update list to remove claimed
-            fetchProfile(), // Update coins/XP if relevant
-            fetchInventory(), // Update items
-            fetchTitles(), // Update titles
-            fetchBorders() // Update borders
+          fetchUnclaimedRewards(), // Update list to remove claimed
+          fetchProfile(), // Update coins/XP if relevant
+          fetchInventory(), // Update items
+          fetchTitles(), // Update titles
+          fetchBorders() // Update borders
         ]);
         return true;
       }
