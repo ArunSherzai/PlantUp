@@ -9,8 +9,9 @@ import { useUserStore } from '../../../stores/UserStore';
 export default function SettingsScreen() {
     const { theme } = useUnistyles();
     const navigation = useNavigation<any>();
-
-    // Sign Out
+    // Removed direct store access since we moved it
+ 
+     // Sign Out
     const handleSignOut = () => {
         Alert.alert("Sign Out", "Are you sure you want to sign out?", [
             { text: "Cancel", style: "cancel" },
@@ -74,6 +75,17 @@ export default function SettingsScreen() {
                                 <FontAwesome6 name="paintbrush" size={18} color={theme.colors.text} />
                             </View>
                             <Text style={styles.menuItemText}>Appearance</Text>
+                        </View>
+                        <FontAwesome6 name="chevron-right" size={16} color={theme.colors.greyedOut} />
+                    </TouchableOpacity>
+
+                    {/* Notifications */}
+                    <TouchableOpacity style={styles.menuItem} onPress={() => navigateTo('Notifications')}>
+                        <View style={styles.menuItemLeft}>
+                            <View style={[styles.iconContainer, { backgroundColor: theme.colors.surface }]}>
+                                <FontAwesome6 name="bell" size={18} color={theme.colors.text} />
+                            </View>
+                            <Text style={styles.menuItemText}>Notifications</Text>
                         </View>
                         <FontAwesome6 name="chevron-right" size={16} color={theme.colors.greyedOut} />
                     </TouchableOpacity>
