@@ -10,6 +10,7 @@ export interface Post {
     likes: number | null;
     created_at: string;
     user_id: string;
+    is_blocked?: boolean; // New field
     Users?: {
         username: string;
         profile_image: string | null;
@@ -21,7 +22,10 @@ interface UsePostsOptions {
     likedBy?: string;
 }
 
+import { useUserStore } from '../stores/UserStore';
+
 export function usePosts(options?: UsePostsOptions) {
+    const { user } = useUserStore();
     const [posts, setPosts] = useState<Post[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -29,6 +33,19 @@ export function usePosts(options?: UsePostsOptions) {
     const fetchPosts = useCallback(async () => {
         try {
             setLoading(true);
+
+            // 0. Fetch Blocked Posts (if user is logged in)
+            let blockedPostIds: Set<string> = new Set();
+            if (user?.id) {
+                const { data: blockedData } = await db.social
+                    .from('Block_posts')
+                    .select('post_id')
+                    .eq('user_id', user.id);
+                
+                if (blockedData) {
+                    blockedData.forEach((b: any) => blockedPostIds.add(b.post_id));
+                }
+            }
 
             let query = db.social
                 .from('Posts')
@@ -105,6 +122,7 @@ export function usePosts(options?: UsePostsOptions) {
                 return {
                     ...post,
                     media_url: getPublicPostUrl(post.media_url),
+                    is_blocked: blockedPostIds.has(post.id),
                     Users: user ? {
                         username: user.username,
                         profile_image: profileImageUrl
@@ -121,7 +139,7 @@ export function usePosts(options?: UsePostsOptions) {
         } finally {
             setLoading(false);
         }
-    }, [options?.userId, options?.likedBy]);
+    }, [options?.userId, options?.likedBy, user?.id]);
 
     useEffect(() => {
         fetchPosts();

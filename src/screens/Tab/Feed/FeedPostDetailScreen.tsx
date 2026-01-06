@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, SafeAreaView, Dimensions, TextInput, Platform, Keyboard, BackHandler } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, SafeAreaView, Dimensions, TextInput, Platform, Keyboard, BackHandler, Modal, TouchableWithoutFeedback, Alert } from 'react-native';
 import { useUnistyles } from 'react-native-unistyles';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
@@ -11,7 +11,7 @@ import { useUserStore } from '../../../stores/UserStore';
 import { getDisplayMedia } from '../../../utils/media';
 import Video from 'react-native-video';
 import { formatNumber } from '../../../utils/formatNumber';
-import { TapGestureHandler, State, GestureHandlerRootView } from 'react-native-gesture-handler';
+import { TapGestureHandler, LongPressGestureHandler, State, GestureHandlerRootView } from 'react-native-gesture-handler';
 import BottomSheet, { BottomSheetView, BottomSheetTextInput, BottomSheetScrollView, BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming, runOnJS } from 'react-native-reanimated';
 
@@ -34,10 +34,15 @@ export default function FeedPostDetailScreen() {
     // Interaction State
     const [isLiked, setIsLiked] = useState(post?.is_liked || false);
     const [isSaved, setIsSaved] = useState(false);
-    const [isFollowing, setIsFollowing] = useState(false); // New State
+    const [isFollowing, setIsFollowing] = useState(false);
+    const [isBlocked, setIsBlocked] = useState(post?.is_blocked || false); // New Block State initialized from params
     const [likesCount, setLikesCount] = useState<number>((post?.likes as number) || 0);
     const [commentText, setCommentText] = useState('');
     const [comments, setComments] = useState<any[]>([]);
+
+    // Menu State
+    const [menuStage, setMenuStage] = useState<'none' | 'initial' | 'report'>('none');
+    const reportReasons = ["Self Harm and Suicide", "Inappropriate content", "Harassment", "False information", "Other"];
 
     // Pagination State
     const [page, setPage] = useState(0);
@@ -86,7 +91,7 @@ export default function FeedPostDetailScreen() {
             checkInteractions();
             fetchComments();
         }
-    }, [post?.id]);
+    }, [post?.id, user?.id]);
 
     // Reset video state when post changes
     useEffect(() => {
@@ -124,6 +129,16 @@ export default function FeedPostDetailScreen() {
                 .eq('following_id', post.user_id)
                 .maybeSingle();
             if (followData) setIsFollowing(true);
+        }
+
+        // Check Block (Only if not already true from params to avoid double work, or re-verify)
+        if (!isBlocked) {
+            const { data: blockData } = await db.social.from('Block_posts')
+                .select('*')
+                .eq('user_id', user.id)
+                .eq('post_id', post.id)
+                .maybeSingle();
+            if (blockData) setIsBlocked(true);
         }
     };
 
@@ -285,6 +300,60 @@ export default function FeedPostDetailScreen() {
         }
     }, []);
 
+    const handleReport = async (reason: string) => {
+        if (!user?.id || !post?.id) return;
+        
+        try {
+            const { error } = await db.social.from('Reported_posts').insert({
+                post_id: post.id,
+                reason: reason
+            });
+
+            if (error) throw error;
+            
+            setMenuStage('none');
+            setIsBlocked(true); // Auto-block locally after report
+            Alert.alert("Report Submitted", "Thank you for reporting this post. We will review it shortly.");
+        } catch (err: any) {
+            console.error(err);
+            Alert.alert("Error", err.message || "Could not submit report. Please try again.");
+        }
+    };
+
+    const handleBlock = async () => {
+        console.log("Blocking Post:", post?.id, "User:", user?.id);
+        if (!user?.id || !post?.id) {
+            console.error("Missing user or post ID");
+            return;
+        }
+        try {
+            const { error } = await db.social.from('Block_posts').insert({
+                post_id: post.id,
+                user_id: user.id
+            });
+            if (error) throw error;
+            setIsBlocked(true);
+            setMenuStage('none');
+        } catch (err: any) {
+            console.error(err);
+            Alert.alert("Error", "Could not block post.");
+        }
+    };
+
+    const handleUnblock = async () => {
+        if (!user?.id || !post?.id) return;
+        try {
+            const { error } = await db.social.from('Block_posts').delete()
+                .eq('post_id', post.id)
+                .eq('user_id', user.id);
+            if (error) throw error;
+            setIsBlocked(false);
+        } catch (err: any) {
+            console.error(err);
+            Alert.alert("Error", "Could not unblock post.");
+        }
+    };
+
     const handleComment = async () => {
         if (!commentText.trim() || !user?.id || !post?.id) return;
         const text = commentText.trim();
@@ -343,7 +412,7 @@ export default function FeedPostDetailScreen() {
 
     // MEMOIZATION: Prevent re-calculation on every render
     const displayPosts = useMemo(() => {
-        return relatedPosts.filter(p => p.id !== post?.id).slice(0, 8);
+        return relatedPosts.filter(p => p.id !== post?.id && !p.is_blocked).slice(0, 8);
     }, [relatedPosts, post?.id]);
 
     const handlePostPress = useCallback((item: any) => {
@@ -376,59 +445,76 @@ export default function FeedPostDetailScreen() {
                     onHandlerStateChange={onDoubleTap}
                     numberOfTaps={2}
                 >
-                    <View style={styles.backgroundContainer}>
-                        {isTextPost ? (
-                            <View style={[styles.spacer, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#F0F5F1' }]}>
-                                <View style={[styles.textCardLarge, { backgroundColor: theme.colors.surface }]}>
-                                    <View style={styles.textBadge}>
-                                        <Text style={styles.textBadgeText}>Thought</Text>
-                                    </View>
-                                    <View style={{ flex: 1, justifyContent: 'center' }}>
-                                        <Text style={[styles.textPostContent, { color: theme.colors.text }]}>{post?.caption}</Text>
-                                    </View>
-                                    <FontAwesome6 name="leaf" size={120} color="#4CA771" style={styles.leafIcon} />
+                    <LongPressGestureHandler
+                        onHandlerStateChange={({ nativeEvent }) => {
+                            if (nativeEvent.state === State.ACTIVE) {
+                                setMenuStage('initial');
+                            }
+                        }}
+                        minDurationMs={500}
+                    >
+                        <View style={styles.backgroundContainer}>
+                            {isBlocked ? (
+                                <View style={[styles.backgroundImage, styles.blockedContainer]}>
+                                    <FontAwesome6 name="eye-slash" size={50} color={theme.colors.greyedOut} />
+                                    <Text style={[styles.blockedText, { color: theme.colors.greyedOut }]}>Post Blocked</Text>
+                                    <TouchableOpacity style={styles.unblockButton} onPress={handleUnblock}>
+                                        <Text style={styles.unblockButtonText}>Show Post</Text>
+                                    </TouchableOpacity>
                                 </View>
-                            </View>
-                        ) : mediaUrl ? (
-                            isVideo ? (
-                                <View style={{ width: '100%', height: '100%' }}>
-                                    <Video
+                            ) : isTextPost ? (
+                                <View style={[styles.spacer, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#F0F5F1' }]}>
+                                    <View style={[styles.textCardLarge, { backgroundColor: theme.colors.surface }]}>
+                                        <View style={styles.textBadge}>
+                                            <Text style={styles.textBadgeText}>Thought</Text>
+                                        </View>
+                                        <View style={{ flex: 1, justifyContent: 'center' }}>
+                                            <Text style={[styles.textPostContent, { color: theme.colors.text }]}>{post?.caption}</Text>
+                                        </View>
+                                        <FontAwesome6 name="leaf" size={120} color="#4CA771" style={styles.leafIcon} />
+                                    </View>
+                                </View>
+                            ) : mediaUrl ? (
+                                isVideo ? (
+                                    <View style={{ width: '100%', height: '100%' }}>
+                                        <Video
+                                            source={{ uri: mediaUrl }}
+                                            style={styles.backgroundImage}
+                                            poster={mediaUrl}
+                                            posterResizeMode="cover"
+                                            resizeMode="cover"
+                                            repeat
+                                            paused={paused}
+                                            muted={muted}
+                                            playInBackground={false}
+                                            playWhenInactive={false}
+                                            onLoad={onVideoLoad}
+                                            onProgress={onVideoProgress}
+                                        />
+                                        {/* Video Progress Bar */}
+                                        <View style={styles.progressBarContainer}>
+                                            <Animated.View style={[styles.progressBar, animatedProgressStyle]} />
+                                        </View>
+                                    </View>
+                                ) : (
+                                    <Image
                                         source={{ uri: mediaUrl }}
                                         style={styles.backgroundImage}
-                                        poster={mediaUrl}
-                                        posterResizeMode="cover"
-                                        resizeMode="cover"
-                                        repeat
-                                        paused={paused}
-                                        muted={muted}
-                                        playInBackground={false}
-                                        playWhenInactive={false}
-                                        onLoad={onVideoLoad}
-                                        onProgress={onVideoProgress}
+                                        resizeMode="contain"
                                     />
-                                    {/* Video Progress Bar */}
-                                    <View style={styles.progressBarContainer}>
-                                        <Animated.View style={[styles.progressBar, animatedProgressStyle]} />
-                                    </View>
-                                </View>
+                                )
                             ) : (
-                                <Image
-                                    source={{ uri: mediaUrl }}
-                                    style={styles.backgroundImage}
-                                    resizeMode="contain"
-                                />
-                            )
-                        ) : (
-                            <View style={[styles.backgroundImage, { backgroundColor: '#F0F5F1' }]} />
-                        )}
+                                <View style={[styles.backgroundImage, { backgroundColor: '#F0F5F1' }]} />
+                            )}
 
-                        {/* Play/Pause Indicator (Optional, shown when paused) */}
-                        {paused && isVideo && (
-                            <View style={styles.centerOverlay}>
-                                <FontAwesome6 name="play" size={50} color="white" style={{ opacity: 0.8 }} />
-                            </View>
-                        )}
-                    </View>
+                            {/* Play/Pause Indicator (Optional, shown when paused) */}
+                            {paused && isVideo && !isBlocked && (
+                                <View style={styles.centerOverlay}>
+                                    <FontAwesome6 name="play" size={50} color="white" style={{ opacity: 0.8 }} />
+                                </View>
+                            )}
+                        </View>
+                    </LongPressGestureHandler>
                 </TapGestureHandler>
             </TapGestureHandler>
 
@@ -608,6 +694,71 @@ export default function FeedPostDetailScreen() {
                     </View>
                 </View>
             </BottomSheet>
+
+            {/* Report/Block Menu Overlay */}
+            {menuStage !== 'none' && (
+                <View style={[styles.modalOverlay, { zIndex: 9999, elevation: 100 }]}>
+                    <TouchableOpacity 
+                        style={StyleSheet.absoluteFill} 
+                        activeOpacity={1} 
+                        onPress={() => setMenuStage('none')}
+                    />
+                    <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+                        {menuStage === 'initial' ? (
+                            <>
+                                <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Options</Text>
+                                <TouchableOpacity 
+                                    style={styles.reportOption} 
+                                    onPress={() => setMenuStage('report')}
+                                >
+                                    <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
+                                        <FontAwesome6 name="flag" size={16} color={theme.colors.text} />
+                                        <Text style={[styles.reportOptionText, { color: theme.colors.text }]}>Report Post</Text>
+                                    </View>
+                                    <FontAwesome6 name="chevron-right" size={14} color={theme.colors.greyedOut} />
+                                </TouchableOpacity>
+                                
+                                <TouchableOpacity 
+                                    style={styles.reportOption} 
+                                    onPress={handleBlock}
+                                >
+                                    <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
+                                        <FontAwesome6 name="ban" size={16} color={theme.colors.text} />
+                                        <Text style={[styles.reportOptionText, { color: theme.colors.text }]}>Block Post</Text>
+                                    </View>
+                                </TouchableOpacity>
+                            </>
+                        ) : (
+                            <>
+                                <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 15, width: '100%'}}>
+                                    <TouchableOpacity onPress={() => setMenuStage('initial')} style={{padding: 5}}>
+                                        <FontAwesome6 name="arrow-left" size={18} color={theme.colors.text} />
+                                    </TouchableOpacity>
+                                    <Text style={[styles.modalTitle, { color: theme.colors.text, marginBottom: 0, marginLeft: 10 }]}>Report Reason</Text>
+                                </View>
+                                
+                                {reportReasons.map((reason, index) => (
+                                    <TouchableOpacity 
+                                        key={index} 
+                                        style={styles.reportOption} 
+                                        onPress={() => handleReport(reason)}
+                                    >
+                                        <Text style={[styles.reportOptionText, { color: theme.colors.text }]}>{reason}</Text>
+                                        <FontAwesome6 name="chevron-right" size={14} color={theme.colors.greyedOut} />
+                                    </TouchableOpacity>
+                                ))}
+                            </>
+                        )}
+
+                        <TouchableOpacity 
+                            style={styles.cancelButton} 
+                            onPress={() => setMenuStage('none')}
+                        >
+                            <Text style={styles.cancelButtonText}>Cancel</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            )}
         </GestureHandlerRootView>
     );
 }
@@ -872,5 +1023,69 @@ const styles = StyleSheet.create({
     progressBar: {
         height: '100%',
         backgroundColor: 'white',
+    },
+    modalOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalContent: {
+        width: '80%',
+        padding: 20,
+        borderRadius: 20,
+        alignItems: 'center',
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginBottom: 10,
+    },
+    modalSubtitle: {
+        fontSize: 14,
+        marginBottom: 20,
+        textAlign: 'center',
+    },
+    reportOption: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        width: '100%',
+        paddingVertical: 15,
+        borderBottomWidth: 1,
+        borderBottomColor: '#eee',
+    },
+    reportOptionText: {
+        fontSize: 16,
+    },
+    cancelButton: {
+        marginTop: 20,
+        padding: 10,
+    },
+    cancelButtonText: {
+        color: '#FF3B30',
+        fontWeight: 'bold',
+        fontSize: 16,
+    },
+    blockedContainer: {
+        backgroundColor: '#000',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 15,
+        zIndex: 50,
+    },
+    blockedText: {
+        fontSize: 18,
+        fontWeight: 'bold',
+    },
+    unblockButton: {
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+    },
+    unblockButtonText: {
+        color: 'white',
+        fontWeight: '600',
     },
 });
