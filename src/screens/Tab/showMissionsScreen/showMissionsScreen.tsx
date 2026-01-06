@@ -23,6 +23,7 @@ import DraggableBottomSheet from '../../../components/DraggableBottomSheet';
 import { useUserStore } from '../../../stores/UserStore';
 import DailyStreakComponent from '~/features/ShowMissions/components/DailyStreak';
 import BoosterWidget from '~/features/ShowMissions/components/BoosterWidget';
+import XPOverlay from '../../../components/XPOverlay';
 
 
 const { height, width } = Dimensions.get('window');
@@ -84,6 +85,7 @@ export default function ShowMissionsScreen() {
   const [quests, setQuests] = useState<UserQuest[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [xpToast, setXPToast] = useState<{ visible: boolean; startXP: number; endXP: number; level: number } | null>(null);
 
   const { addXP, updateStreak, profile, fetchProfile, fetchInventory } = useUserStore();
 
@@ -148,6 +150,10 @@ export default function ShowMissionsScreen() {
 
   // --- CLAIM LOGIC ---
   const handleClaim = useCallback(async (userQuestId: number) => {
+    // Capture Start State immediately (Closure value is reliable as logical 'Before' state)
+    const startXP = profile?.xp || 0;
+    const currentLevel = profile?.level || 1;
+
     try {
       setLoading(true);
 
@@ -168,13 +174,23 @@ export default function ShowMissionsScreen() {
       const gainedXP = result.xp_gained;
       const newStreak = result.new_streak;
       const multiplier = result.multiplier;
+      
+      const endXP = startXP + gainedXP;
 
-      // 1. Update Profile Store
+      // 1. Trigger XP Toast (Visual feedback first)
+      setXPToast({
+        visible: true,
+        startXP: startXP,
+        endXP: endXP,
+        level: currentLevel
+      });
+
+      // 2. Update Profile Store
       await addXP(gainedXP);
       const todayDate = new Date().toISOString().split('T')[0];
       updateStreak(newStreak, todayDate);
 
-      // 2. Update Quest List locally to avoid full refetch
+      // 3. Update Quest List locally to avoid full refetch
       setQuests((currentQuests) =>
         currentQuests.map((q) => {
           if (q.id === userQuestId) {
@@ -184,19 +200,13 @@ export default function ShowMissionsScreen() {
         })
       );
 
-      // 3. Show Success Message
-      Alert.alert(
-        'Quest Claimed!',
-        `You earned ${gainedXP} XP!\nStreak: ${newStreak} days (${multiplier}x Multiplier)`
-      );
-
     } catch (e) {
       console.error('Error claiming:', e);
       Alert.alert('Error', 'Failed to claim quest.');
     } finally {
       setLoading(false);
     }
-  }, [addXP, updateStreak]);
+  }, [addXP, updateStreak, profile]); // Add profile to deps to use latest value
 
   // Listen filtern
   const dailyQuests = quests.filter((q) => {
@@ -340,6 +350,16 @@ export default function ShowMissionsScreen() {
 
 
       </View>
+      
+      {xpToast && (
+        <XPOverlay
+          isVisible={xpToast.visible}
+          startXP={xpToast.startXP}
+          endXP={xpToast.endXP}
+          level={xpToast.level}
+          onComplete={() => setXPToast({ ...xpToast, visible: false })}
+        />
+      )}
     </GestureHandlerRootView>
   );
 }

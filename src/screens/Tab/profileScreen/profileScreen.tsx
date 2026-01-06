@@ -157,15 +157,8 @@ export default function ProfileScreen() {
           />
 
           <View style={styles.headerContent}>
-            {/* Header Top Row: BackButton & Settings */}
+            {/* Header Top Row: Settings Only */}
             <View style={styles.headerTopRow}>
-              <TouchableOpacity
-                style={styles.iconButton}
-                onPress={() => navigation.goBack()}
-              >
-                <FontAwesome6 name="chevron-left" size={20} color={theme.colors.textDark} />
-              </TouchableOpacity>
-
               {/* Settings Button */}
               <TouchableOpacity
                 style={styles.iconButton}
@@ -373,7 +366,7 @@ const styles = StyleSheet.create({
   },
   headerTopRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     alignItems: 'center',
     marginBottom: 20,
   },

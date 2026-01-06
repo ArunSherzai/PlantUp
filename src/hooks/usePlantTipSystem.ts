@@ -10,16 +10,40 @@ export function usePlantTipSystem() {
         activeTip,
         latestPlantData,
         setLatestPlantData,
-        setLatestThresholds
+        setLatestThresholds,
+        // Pause Logic
+        isPaused,
+        addToQueue,
+        pendingQueue,
+        popFromQueue
     } = useTipStore();
 
     // Helper to save tip history
     const setAndSaveTip = (tip: TipObject | null) => {
+        // If we are trying to set a NEW tip (not null) and we are PAUSED
+        if (tip && isPaused) {
+            console.log("Sprig is paused. Queuing tip:", tip.message);
+            addToQueue(tip);
+            return;
+        }
+
         setActiveTip(tip);
         if (tip) {
             saveTip(tip);
         }
     };
+
+    // Queue Processor: Watch for Un-Pause and Tip Dismissal
+    useEffect(() => {
+        // Only pop next tip if system is resumed AND no tip is currently showing
+        if (!isPaused && !activeTip && pendingQueue.length > 0) {
+            const nextTip = popFromQueue();
+            if (nextTip) {
+                console.log("Sprig resuming. Showing queued tip:", nextTip.message);
+                setAndSaveTip(nextTip);
+            }
+        }
+    }, [isPaused, pendingQueue, activeTip]);
 
     // 1. Polling System (Every 1 Minute)
     const checkPlantHealth = useCallback(async () => {
@@ -83,7 +107,7 @@ export function usePlantTipSystem() {
             console.log("Polling error:", err);
             return false;
         }
-    }, [setActiveTip, setLatestPlantData, setLatestThresholds]);
+    }, [setActiveTip, setLatestPlantData, setLatestThresholds, isPaused, addToQueue]); // Added deps
 
     useEffect(() => {
         // Run immediately on mount
@@ -105,7 +129,7 @@ export function usePlantTipSystem() {
         }, 30 * 60 * 1000); // 30 minutes
 
         return () => clearInterval(interval);
-    }, [activeTip]);
+    }, [activeTip, isPaused]); // Added isPaused dep if relevant, but setAndSaveTip handles it
 
     // 3. Manual Trigger
     const triggerManualTip = () => {
