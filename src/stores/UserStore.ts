@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { User } from '@supabase/supabase-js';
 import { db } from '../utils/supabase';
 import { getLevelFromXP } from '../utils/leveling';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type Border = {
   id: string;
@@ -66,6 +67,9 @@ type State = {
   equipTitle: (titleId: string | null) => Promise<void>;
   fetchUnclaimedRewards: () => Promise<void>;
   claimReward: (level: number) => Promise<boolean>;
+  sprigNotificationsEnabled: boolean;
+  loadSettings: () => Promise<void>;
+  toggleSprigNotifications: (enabled: boolean) => Promise<void>;
 };
 
 export const useUserStore = create<State>((set, get) => ({
@@ -75,12 +79,34 @@ export const useUserStore = create<State>((set, get) => ({
   ownedBorders: [],
   ownedTitles: [],
   unclaimedRewards: [],
+  sprigNotificationsEnabled: true,
+
+  loadSettings: async () => {
+    try {
+      const value = await AsyncStorage.getItem('sprigNotificationsEnabled');
+      if (value !== null) {
+        set({ sprigNotificationsEnabled: JSON.parse(value) });
+      }
+    } catch (e) {
+      console.error('Failed to load settings', e);
+    }
+  },
+
+  toggleSprigNotifications: async (enabled: boolean) => {
+    set({ sprigNotificationsEnabled: enabled });
+    try {
+      await AsyncStorage.setItem('sprigNotificationsEnabled', JSON.stringify(enabled));
+    } catch (e) {
+      console.error('Failed to save settings', e);
+    }
+  },
 
   setUser: (user) => {
     set({ user });
     if (user) {
       get().fetchProfile();
       get().fetchInventory();
+      get().loadSettings();
     } else {
       set({ profile: null, inventory: [], ownedBorders: [] });
     }

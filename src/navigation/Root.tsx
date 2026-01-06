@@ -16,6 +16,7 @@ export type RootStackParamList = {
   'Add a Plant': undefined;
   Settings: undefined;
   Appearance: undefined;
+  Notifications: undefined;
   Account: undefined;
   CreatePost: undefined;
   FeedPostDetail: { post: any }; // Using any to match Post interface roughly for now, or import it
@@ -69,6 +70,7 @@ import BorderInventoryScreen from '~/screens/Tab/profileScreen/BorderInventorySc
 import TitleInventoryScreen from '~/screens/Tab/profileScreen/TitleInventoryScreen';
 import ShowPlantStats from '~/screens/Tab/plantStats/ShowPlantStats';
 import AppearanceScreen from '~/screens/Tab/SettingsScreen/AppearanceScreen';
+import NotificationsScreen from '~/screens/Tab/SettingsScreen/NotificationsScreen';
 import AccountScreen from '~/screens/Tab/SettingsScreen/AccountScreen';
 
 export default function RootStack() {

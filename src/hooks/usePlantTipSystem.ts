@@ -3,6 +3,7 @@ import { db } from '../utils/supabase';
 import { getTriggeredTip, getRandomGeneralTip, PlantDataInput, TipObject } from '../utils/tipResolver';
 import { saveTip } from '../utils/tipHistory';
 import { useTipStore } from '../stores/TipStore';
+import { useUserStore } from '../stores/UserStore';
 
 export function usePlantTipSystem() {
     const {
@@ -12,6 +13,15 @@ export function usePlantTipSystem() {
         setLatestPlantData,
         setLatestThresholds
     } = useTipStore();
+
+    const { sprigNotificationsEnabled } = useUserStore();
+
+    // Clear active tip immediately if disabled
+    useEffect(() => {
+        if (!sprigNotificationsEnabled) {
+            setActiveTip(null);
+        }
+    }, [sprigNotificationsEnabled, setActiveTip]);
 
     // Helper to save tip history
     const setAndSaveTip = (tip: TipObject | null) => {
@@ -23,6 +33,9 @@ export function usePlantTipSystem() {
 
     // 1. Polling System (Every 1 Minute)
     const checkPlantHealth = useCallback(async () => {
+        await useUserStore.getState().loadSettings(); // Ensure settings are loaded
+        if (!useUserStore.getState().sprigNotificationsEnabled) return; // Check setting
+
         try {
             const { data: { user } } = await db.public.auth.getUser();
             if (!user) return;
@@ -97,7 +110,10 @@ export function usePlantTipSystem() {
 
     // 2. General Tips Timer
     useEffect(() => {
-        const interval = setInterval(() => {
+        const interval = setInterval(async () => {
+            await useUserStore.getState().loadSettings();
+            if (!useUserStore.getState().sprigNotificationsEnabled) return; // Check setting
+
             if (!activeTip) {
                 const randomTip = getRandomGeneralTip();
                 setAndSaveTip(randomTip);
@@ -108,7 +124,10 @@ export function usePlantTipSystem() {
     }, [activeTip]);
 
     // 3. Manual Trigger
-    const triggerManualTip = () => {
+    const triggerManualTip = async () => {
+        await useUserStore.getState().loadSettings();
+        if (!useUserStore.getState().sprigNotificationsEnabled) return; // Check setting
+
         const { latestPlantData, latestThresholds } = useTipStore.getState();
 
         if (latestPlantData) {
