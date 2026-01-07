@@ -90,104 +90,130 @@ export default function RootStack() {
             },
             headerTintColor: theme.colors.accent,
           }}>
-          <Stack.Screen name="Auth" component={AuthStack} options={{ headerShown: false }} />
-          <Stack.Screen
-            name="TabNavigator"
-            component={TabNavigator}
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="Add a Plant"
-            component={AddPlantScreen}
-            options={{
-              title: 'Add a Plant',
-              headerShown: false,
-            }}
-          />
-          <Stack.Screen
-            name="Settings"
-            component={SettingsScreen}
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="Appearance"
-            component={AppearanceScreen}
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="Notifications"
-            component={NotificationsScreen}
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="Account"
-            component={AccountScreen}
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="CreatePost"
-            component={CreatePostScreen}
-            options={{
-              headerShown: false,
+          
+          {/* STANDARD NAVIGATION FLOW */}
+          <Stack.Group>
+            <Stack.Screen name="Auth" component={AuthStack} options={{ headerShown: false }} />
+            <Stack.Screen
+              name="TabNavigator"
+              component={TabNavigator}
+              options={{ headerShown: false }}
+            />
+
+            <Stack.Screen
+              name="Settings"
+              component={SettingsScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="Appearance"
+              component={AppearanceScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="Account"
+              component={AccountScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="FeedPostDetail"
+              component={FeedPostDetailScreen}
+              options={{
+                headerShown: false,
+              }}
+            />
+            <Stack.Screen
+              name="UserPlants"
+              component={UserPlantsScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="MessageDetail"
+              component={MessageDetailScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="Connections"
+              component={ConnectionsScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="PublicProfile"
+              component={PublicProfileScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="DirectMessages"
+              component={DirectMessagesScreen}
+              options={{ headerShown: false }}
+            />
+
+            <Stack.Screen
+              name="PlantStats"
+              component={ShowPlantStats}
+              options={{ headerShown: false }}
+            />
+          </Stack.Group>
+
+          {/* MODAL FLOWS (Slide up + Swipe to dismiss) */}
+          <Stack.Group
+            screenOptions={{
               presentation: 'modal',
-            }}
-          />
-          <Stack.Screen
-            name="FeedPostDetail"
-            component={FeedPostDetailScreen}
-            options={{
-              headerShown: false,
-              // presentation: 'transparentModal', // Optional: if we want to see underlying feed, but standard stack is usually fine for "open new screen"
-            }}
-          />
-          <Stack.Screen
-            name="UserPlants"
-            component={UserPlantsScreen}
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="Lootbox"
-            component={LootboxScreen}
-            options={{
-              headerShown: false,
+              gestureEnabled: true, // Enables swipe to dismiss
+            }}>
+            <Stack.Screen
+              name="CreatePost"
+              component={CreatePostScreen}
+              options={{
+                headerShown: false,
+              }}
+            />
+            <Stack.Screen
+              name="Add a Plant"
+              component={AddPlantScreen}
+              options={{
+                title: 'Add a Plant',
+                headerShown: false,
+              }}
+            />
+            <Stack.Screen
+              name="BorderInventory"
+              component={BorderInventoryScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="TitleInventory"
+              component={TitleInventoryScreen}
+              options={{ headerShown: false }}
+            />
+          </Stack.Group>
+
+          {/* TRANSPARENT OVERLAYS (Fade in/out) */}
+          <Stack.Group
+            screenOptions={{
               presentation: 'transparentModal',
-            }}
-          />
-          <Stack.Screen
-            name="MessageDetail"
-            component={MessageDetailScreen}
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="Connections"
-            component={ConnectionsScreen}
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="PublicProfile"
-            component={PublicProfileScreen}
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="DirectMessages"
-            component={DirectMessagesScreen}
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="BorderInventory"
-            component={BorderInventoryScreen}
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="TitleInventory"
-            component={TitleInventoryScreen}
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="PlantStats"
-            component={ShowPlantStats}
-            options={{ headerShown: false }}
-          />
+              headerShown: false,
+              // Manually force a fade transition for Android compatibility
+              cardStyleInterpolator: ({ current: { progress } }) => ({
+                cardStyle: {
+                  opacity: progress,
+                },
+                overlayStyle: {
+                  opacity: progress.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, 0.5],
+                    extrapolate: 'clamp',
+                  }),
+                },
+              }),
+            }}>
+            <Stack.Screen
+              name="Lootbox"
+              component={LootboxScreen}
+            />
+            {/* If you have other dialog-like screens, add them here */}
+          </Stack.Group>
+
         </Stack.Navigator>
         <SpriteComponent />
       </View>
