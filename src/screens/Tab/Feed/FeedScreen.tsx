@@ -26,8 +26,11 @@ const getRankColor = (level: number) => {
 export default function FeedScreen() {
     const { theme } = useUnistyles();
     const navigation = useNavigation<any>();
-    const { posts, loading: postsLoading, refreshPosts: refreshFeed } = usePosts();
+    const { posts: allPosts, loading: postsLoading, refreshPosts: refreshFeed } = usePosts();
     const [refreshing, setRefreshing] = useState(false);
+    
+    // Filter out blocked posts
+    const posts = allPosts.filter(p => !p.is_blocked);
 
     // Search State
     const [isSearching, setIsSearching] = useState(false);

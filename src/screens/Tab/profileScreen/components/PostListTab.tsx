@@ -14,7 +14,9 @@ interface PostListTabProps {
 export default function PostListTab({ userId, likedBy, emptyMessage = 'No posts found.' }: PostListTabProps) {
     const { theme } = useUnistyles();
     const navigation = useNavigation<any>();
-    const { posts, loading, error } = usePosts({ userId, likedBy });
+    const { posts: allPosts, loading, error } = usePosts({ userId, likedBy });
+
+    const posts = allPosts.filter(p => !p.is_blocked);
 
     if (loading && posts.length === 0) {
         return (
