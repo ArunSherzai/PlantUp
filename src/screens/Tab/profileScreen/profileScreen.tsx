@@ -12,9 +12,10 @@ import GradientIcon from '../../../components/GradientIcon';
 import GradientText from '../../../components/GradientText';
 import RankCard from '../../../components/RankCard';
 import RewardItem from '../../../components/RewardItem';
-import { REWARDS, getRankName } from '../../../utils/leveling';
+import { REWARDS, getRankName, Reward } from '../../../utils/leveling';
 import PostListTab from './components/PostListTab';
 import { FontAwesome5 } from '@expo/vector-icons';
+import RewardDetailsModal from '../../../components/RewardDetailsModal';
 
 export default function ProfileScreen() {
   const { theme } = useUnistyles();
@@ -23,6 +24,7 @@ export default function ProfileScreen() {
   const [activeTab, setActiveTab] = useState('leveling');
   const [isBioExpanded, setIsBioExpanded] = useState(false);
   const [isBioTruncated, setIsBioTruncated] = useState(false);
+  const [selectedReward, setSelectedReward] = useState<Reward | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -63,13 +65,11 @@ export default function ProfileScreen() {
   ];
 
   const handleClaimReward = async (level: number, title: string) => {
-    console.log("Hallo")
     const success = await claimReward(level);
-    if (success) {
-      Alert.alert('Reward Claimed!', `You have claimed: ${title}`);
-    } else {
+    if (!success) {
       Alert.alert('Error', 'Could not claim reward. Try again later.');
     }
+    // Success: modal will auto-update to "Collected" state, no alert needed
   };
 
   const renderContent = () => {
@@ -103,7 +103,7 @@ export default function ProfileScreen() {
               style={styles.rewardsScroll}>
               {REWARDS.map((reward) => {
                 const isClaimable = unclaimedRewards.some(r => r.level === reward.level);
-    
+
                 
                 const isUnlocked = currentLevel >= reward.level;
                 const isClaimed = isUnlocked && !isClaimable; 
@@ -115,12 +115,7 @@ export default function ProfileScreen() {
                     description={reward.description}
                     isUnlocked={isUnlocked}
                     isClaimed={isClaimed}
-                    onClaim={() => {
-                      console.log("Hallo")
-                        if (isClaimable) handleClaimReward(reward.level, reward.title);
-                        else if (isClaimed) Alert.alert("Already Claimed", "You have already claimed this reward.");
-                        else Alert.alert("Locked", "Reach the required level to unlock.");
-                    }}
+                    onClaim={isClaimed ? undefined : () => setSelectedReward(reward)}
                   />
               )})}
             </ScrollView>
@@ -340,6 +335,23 @@ export default function ProfileScreen() {
 
           </ScrollView>
         </DraggableBottomSheet>
+
+        {/* Reward Details Modal */}
+        <RewardDetailsModal 
+            visible={!!selectedReward} 
+            reward={selectedReward}
+            isLocked={selectedReward ? (profile?.level || 1) < selectedReward.level : false} 
+            isClaimed={selectedReward ? !unclaimedRewards.some(r => r.level === selectedReward.level) && (profile?.level || 1) >= selectedReward.level : false}
+            onClose={() => setSelectedReward(null)}
+            onClaimAction={() => {
+                if (selectedReward) {
+                    handleClaimReward(selectedReward.level, selectedReward.title);
+                    // Optionally close modal or let it auto-update to "Collected"
+                    // If we close: setSelectedReward(null);
+                    // If we keep open: The 'isClaimed' prop will update when store updates!
+                }
+            }} 
+        />
       </View>
     </GestureHandlerRootView>
   );

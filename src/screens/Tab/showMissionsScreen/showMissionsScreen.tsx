@@ -24,6 +24,8 @@ import { useUserStore } from '../../../stores/UserStore';
 import DailyStreakComponent from '~/features/ShowMissions/components/DailyStreak';
 import BoosterWidget from '~/features/ShowMissions/components/BoosterWidget';
 import XPOverlay from '../../../components/XPOverlay';
+import StreakSavedOverlay from '../../../components/StreakSavedOverlay';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 
 const { height, width } = Dimensions.get('window');
@@ -131,22 +133,56 @@ export default function ShowMissionsScreen() {
   }, []);
 
   useEffect(() => {
-    fetchQuests();
-    fetchProfile(); 
+    const initData = async () => {
+        setLoading(true);
+        try {
+            await fetchQuests();
+            await fetchProfile(); // This triggers checkStreakRescue() internally
+            await fetchInventory(); // Now fetch inventory AFTER potential item consumption
+        } finally {
+            setLoading(false);
+        }
+    };
+    initData();
   }, [fetchQuests]);
 
   // Alert for Rescued Streak
+  const [showRescueOverlay, setShowRescueOverlay] = useState(false);
+  const [triggerThaw, setTriggerThaw] = useState(false);
+
+  // Check for Rescued Streak & Animation History
   useEffect(() => {
-    if (profile?.streak_rescued_date) {
-        const today = new Date().toISOString().split('T')[0];
-        if (profile.streak_rescued_date === today) {
-            Alert.alert(
-                'Streak Rescued! ❄️', 
-                'You missed a day, but your streak was saved by a Freeze item!'
-            );
+    const checkRescueAnimation = async () => {
+        if (profile?.streak_rescued_date) {
+            const today = new Date().toISOString().split('T')[0];
+            
+            // IF rescued TODAY
+            if (profile.streak_rescued_date === today) {
+                const storageKey = `streak_rescued_animation_shown_${today}`;
+                
+                const hasShown = await AsyncStorage.getItem(storageKey);
+
+                if (!hasShown) {
+                    setShowRescueOverlay(true);
+                } else {
+                    // Already shown, ensure thaw doesn't re-trigger or maybe it should act melted? 
+                    // For now, if already shown, we assume "melted" state or standard view.
+                }
+            }
         }
-    }
+    };
+    checkRescueAnimation();
   }, [profile?.streak_rescued_date]);
+
+  const handleDismissRescueOverlay = async () => {
+      setShowRescueOverlay(false);
+      setTriggerThaw(true);
+
+      // Save that we showed it
+      const today = new Date().toISOString().split('T')[0];
+      const storageKey = `streak_rescued_animation_shown_${today}`;
+      await AsyncStorage.setItem(storageKey, 'true');
+  };
 
   // --- CLAIM LOGIC ---
   const handleClaim = useCallback(async (userQuestId: number) => {
@@ -273,9 +309,14 @@ export default function ShowMissionsScreen() {
           </MaskedView>
 
           <View style={styles.wrapper}>
-            <DailyStreakComponent />
+            <DailyStreakComponent triggerThaw={triggerThaw} />
           </View>
         </View>
+        
+        {/* STREAK RESCUE OVERLAY */}
+        {showRescueOverlay && (
+            <StreakSavedOverlay onDismiss={handleDismissRescueOverlay} />
+        )}
 
         {/* DRAGGABLE BOTTOM SHEET */}
         <DraggableBottomSheet initialHeight={SHEET_INITIAL_HEIGHT} maxHeight={0.75}>
