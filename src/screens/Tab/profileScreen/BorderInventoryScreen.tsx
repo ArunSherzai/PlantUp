@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, RefreshControl } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import { useUnistyles } from 'react-native-unistyles';
 import { useNavigation } from '@react-navigation/native';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
@@ -107,7 +108,19 @@ export default function BorderInventoryScreen() {
                     style={styles.avatarPreview}
                   />
                   {border.media_url && (
-                    <Image source={{ uri: border.media_url }} style={styles.borderPreview} resizeMode="contain" />
+                    <ExpoImage 
+                        source={{ uri: border.media_url }} 
+                        style={[
+                          styles.borderPreview,
+                          border.media_url.includes('.gif') && {
+                            width: 160,
+                            height: 160,
+                            top: -30,
+                            left: -30,
+                          }
+                        ]}
+                        contentFit="contain"
+                    />
                   )}
                 </View>
 
@@ -216,6 +229,7 @@ const styles = StyleSheet.create({
     height: '100%',
     top: 0,
     left: 0,
+    pointerEvents: 'none',
   },
   borderName: {
     fontSize: 16,

@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, Image, ScrollView, TouchableOpacity, Alert, ActivityIndicator, StyleSheet } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useUnistyles } from 'react-native-unistyles';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -188,19 +189,32 @@ export default function ProfileScreen() {
                     style={[styles.avatar, { backgroundColor: theme.colors.greyedOut }]}
                     resizeMode="cover"
                   />
-                  {/* --- NEW: Render Equipped Border --- */}
                   {profile?.equipped_border?.media_url && (
-                    <Image
+                    <ExpoImage
                       source={{ uri: profile.equipped_border.media_url }}
-                      style={{
-                        position: 'absolute',
-                        width: 134, // 80 * 1.675 (matching inventory ratio)
-                        height: 134,
-                        top: -27,
-                        left: -27,
-                        zIndex: 1
-                      }}
-                      resizeMode="contain"
+                      style={
+                        profile.equipped_border.media_url.includes('.gif')
+                          ? {
+                              // Large size for GIFs with padding
+                              position: 'absolute',
+                              width: 210,
+                              height: 210,
+                              top: -65,
+                              left: -65,
+                              zIndex: 1,
+                            }
+                          : {
+                              // Standard size for PNGs
+                              position: 'absolute',
+                              width: 134,
+                              height: 134,
+                              top: -27,
+                              left: -27,
+                              zIndex: 1,
+                            }
+                      }
+                      pointerEvents="none"
+                      contentFit="contain"
                     />
                   )}
                 </View>
