@@ -191,6 +191,7 @@ export default function ProfileScreen() {
                   />
                   {profile?.equipped_border?.media_url && (
                     <ExpoImage
+                      key={profile.equipped_border.media_url} // Force re-mount on change!
                       source={{ uri: profile.equipped_border.media_url }}
                       style={
                         profile.equipped_border.media_url.includes('.gif')
