@@ -5,14 +5,13 @@ import Animated, {
     useSharedValue, 
     useAnimatedStyle, 
     withTiming, 
-    FadeOut, 
     SlideInDown, 
-    withDelay,
     Easing,
     useAnimatedProps,
     runOnJS,
     withSpring,
-    withSequence
+    withSequence,
+    cancelAnimation
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useUnistyles } from 'react-native-unistyles';
@@ -23,6 +22,7 @@ import { useTipStore } from '../stores/TipStore';
 
 Animated.addWhitelistedNativeProps({ text: true });
 const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
+import { Image as ExpoImage } from 'expo-image';
 
 // --- Worklet Helpers for UI Thread Calculations ---
 function xpToNextLevelWorklet(level: number) {
@@ -47,7 +47,7 @@ function getTotalXPForLevelWorklet(level: number) {
   
     let total = 0;
     for (let i = 1; i < level; i++) {
-      total += xpToNextLevelWorklet(i);
+        total += xpToNextLevelWorklet(i);
     }
     return total;
 }
@@ -77,17 +77,21 @@ export default function XPOverlay({ startXP, endXP, level, isVisible, onComplete
     const startLevelNext = getXPForNextLevel(level);
     const startLevelNeeded = startLevelNext - startLevelBase;
     
-    const isLevelUp = endXP >= startLevelNext;
-    
     // -- Animated Values --
     const xpValue = useSharedValue(startXP);
     const currentLevelVal = useSharedValue(level);
     const translateY = useSharedValue(0);
+    const opacity = useSharedValue(1); 
     const scale = useSharedValue(1); 
 
     const [showLevelUpText, setShowLevelUpText] = useState(false);
-
+    const isLevelUp = endXP >= startLevelNext;
     const gained = endXP - startXP;
+
+    // Refs for cleanup
+    const timerRef = React.useRef<NodeJS.Timeout | null>(null);
+    // 🟢 Fix: Use SharedValue for isMounted validation in worklets
+    const isMounted = useSharedValue(0); // 0 = false, 1 = true
     
     // Pause Control
     useEffect(() => {
@@ -99,48 +103,56 @@ export default function XPOverlay({ startXP, endXP, level, isVisible, onComplete
         return () => setPaused(false);
     }, [isVisible, setPaused]);
 
+    const handleComplete = () => {
+        if (onComplete) onComplete();
+    };
+
     useEffect(() => {
         if (isVisible) {
+            isMounted.value = 1; // Set mounted
             // Reset Init Values
             xpValue.value = startXP;
             translateY.value = 0; 
+            opacity.value = 1;
             currentLevelVal.value = level;
             scale.value = 1;
             setShowLevelUpText(false);
 
             // 1. Determine all animation milestones
-            // We need to know which levels we pass through
             const milestones: number[] = [];
             let tempLevel = level;
             let tempXPBase = getTotalXPForLevel(tempLevel);
             let tempXPNext = getXPForNextLevel(tempLevel);
 
-            // While our Target XP is greater than the cap of the current temp level
-            // we have a milestone at that cap.
             while (endXP >= tempXPNext) {
                 milestones.push(tempXPNext);
                 tempLevel++;
-                tempXPBase = tempXPNext; // New base is old max
+                tempXPBase = tempXPNext; 
                 tempXPNext = getXPForNextLevel(tempLevel);
             }
-            // Finally append the actual end XP
             milestones.push(endXP);
 
             // 2. Recursive Animation Function
             const animateStep = (index: number) => {
+                // Abort if unmounted (Value check works on JS thread too)
+                if (isMounted.value === 0) return;
+
                 if (index >= milestones.length) {
                     // Start Exit Timer when sequence fully done
-                    const timer = setTimeout(() => {
-                        handleComplete();
-                    }, 8000); // 8s wait after finish
+                    timerRef.current = setTimeout(() => {
+                        if (isMounted.value === 0) return;
+                        // Manual Fade Out for Auto-Dismiss
+                        opacity.value = withTiming(0, { duration: 500 }, (finished) => {
+                             // Check SharedValue on UI Thread
+                             if (finished && isMounted.value === 1) runOnJS(handleComplete)();
+                        });
+                    }, 8000); 
                     return;
                 }
 
                 const targetXP = milestones[index];
                 const isFinalStep = index === milestones.length - 1;
                 
-                // Determine duration based on how much XP we are covering in this step
-                // to keep speed somewhat consistent, or just fixed fast speed for level ups
                 const duration = isFinalStep ? 1500 : 1000;
 
                 xpValue.value = withTiming(targetXP, {
@@ -148,52 +160,42 @@ export default function XPOverlay({ startXP, endXP, level, isVisible, onComplete
                     easing: Easing.out(Easing.quad),
                 }, (finished) => {
                     if (finished) {
-                        if (!isFinalStep) {
-                            // We hit a Level Cap Milestone!
-                            // 1. Trigger Level Up Visuals
-                            runOnJS(setShowLevelUpText)(true);
-                            
-                            // 2. Bump Level Value (Visually resets bar because Base increases)
-                            currentLevelVal.value = currentLevelVal.value + 1;
+                        // 🟢 Safe check on UI thread
+                        if (isMounted.value === 0) return; 
 
-                            // 3. Pop Effect
+                        if (!isFinalStep) {
+                            runOnJS(setShowLevelUpText)(true);
+                            currentLevelVal.value = currentLevelVal.value + 1;
                             scale.value = withSequence(
                                 withTiming(1.2, { duration: 150 }),
                                 withTiming(1, { duration: 150 })
                             );
-
-                            // 4. Slight Pause before next bar starts filling
-                            // (We use a dummy delay by scheduling next step via runOnJS or another withDelay??
-                            //  Reanimated callbacks are on UI thread. We can't use setTimeout there easily unless runOnJS.)
-                            //  Actually we can just Chain `withDelay` on the next start? 
-                            //  No, we need to call `animateStep(index + 1)`.
-                            //  Recursive calls in worklets are okay if defined. 
-                            //  But `animateStep` uses `milestones` closure from JS thread... dangerous if not careful.
-                            //  Actually `useEffect` closure is JS Thread. `withTiming` callback runs on UI Thread.
-                            //  We must use `runOnJS` to call the next step recursion if it relies on JS closure scope variables like `milestones`.
                             runOnJS(animateStep)(index + 1);
                         } else {
-                            // Final step done
-                             runOnJS(animateStep)(index + 1); // To trigger the exit timer
+                             runOnJS(animateStep)(index + 1); 
                         }
                     }
                 });
             };
 
             // Start the chain
-            // Initial Delay before starting first fill
-            setTimeout(() => {
+            timerRef.current = setTimeout(() => {
                 animateStep(0);
             }, 400);
 
-            // Cleanup not easily possible with recursive chain, but Component unmount handles it mostly.
-            return () => {};
+            return () => {
+                // CLEANUP
+                isMounted.value = 0; // Set unmounted
+                if (timerRef.current) clearTimeout(timerRef.current);
+                cancelAnimation(xpValue);
+                cancelAnimation(translateY);
+                cancelAnimation(opacity);
+                cancelAnimation(scale);
+                cancelAnimation(currentLevelVal);
+            };
         }
     }, [isVisible, startXP, endXP]);
 
-    const handleComplete = () => {
-        if (onComplete) onComplete();
-    };
 
     // Gestures
     const pan = Gesture.Pan()
@@ -203,18 +205,21 @@ export default function XPOverlay({ startXP, endXP, level, isVisible, onComplete
             }
         })
         .onFinalize((event) => {
-            if (event.translationY < -50) {
-                runOnJS(handleComplete)();
+            // Dismiss if dragged up slightly (>30px) OR flicked up
+            const isFlickUp = event.velocityY < -200;
+            const isDraggedUp = event.translationY < -30;
+
+            if (isDraggedUp || isFlickUp) {
+                // Animate completely off screen then unmount
+                translateY.value = withTiming(-1000, { duration: 300, easing: Easing.out(Easing.quad) }, (finished) => {
+                    if (finished) {
+                        runOnJS(handleComplete)();
+                    }
+                });
             } else {
-                translateY.value = withSpring(0);
+                translateY.value = withSpring(0, { damping: 15 });
             }
         });
-
-    const tap = Gesture.Tap().onEnd(() => {
-        runOnJS(handleComplete)();
-    });
-
-    const composed = Gesture.Simultaneous(pan, tap);
 
     // -- Derived Animations --
     const animatedBarStyle = useAnimatedStyle(() => {
@@ -232,6 +237,7 @@ export default function XPOverlay({ startXP, endXP, level, isVisible, onComplete
     });
 
     const animatedCardStyle = useAnimatedStyle(() => ({
+        opacity: opacity.value,
         transform: [
             { translateY: translateY.value },
             { scale: scale.value }
@@ -251,16 +257,32 @@ export default function XPOverlay({ startXP, endXP, level, isVisible, onComplete
 
     if (!isVisible) return null;
 
-    // Use insets for top padding responsiveness
-    const topPosition = insets.top + 10; // 10px spacing from safe area
+    const topPosition = insets.top + 60; // Increased spacing to sit lower
 
     return (
-        <GestureDetector gesture={composed}>
-            <Animated.View 
-                entering={SlideInDown.springify().damping(12)} 
-                exiting={FadeOut.duration(400)}
+        <GestureDetector gesture={pan}>
+            <Animated.View
+                entering={SlideInDown.springify().damping(20).stiffness(150)} 
+                // No Exiting Prop - Handled Manually
                 style={[styles.container, { top: topPosition }, animatedCardStyle]} 
             >
+                {/* Happy Sprig Decoration */}
+                <View style={{
+                    position: 'absolute',
+                    top: -75,
+                    right: -25,
+                    width: 140,
+                    height: 140,
+                    zIndex: 20,
+                    elevation: 50,
+                }}>
+                     <ExpoImage 
+                        source={require('../../assets/animations/happy_sprig.gif')}
+                        style={{ width: '100%', height: '100%' }}
+                        contentFit="contain"
+                     />
+                </View>
+
                 <View style={[styles.card, isLevelUp && showLevelUpText && styles.cardLevelUp]}>
                     {/* Header Row */}
                     <View style={styles.row}>
@@ -317,12 +339,12 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         alignItems: 'center',
-        zIndex: 9999,
-        paddingHorizontal: 20, // Move horizontal spacing to padding for better centering
+        zIndex: 999999, // Extreme Z-Index to beat DraggableSheet
+        paddingHorizontal: 20, 
     },
     card: {
         width: '100%',
-        maxWidth: 500, // Tablet constraint
+        maxWidth: 500, 
         backgroundColor: 'rgba(20, 20, 30, 0.95)',
         borderRadius: 16,
         padding: 16,
@@ -332,7 +354,7 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
-        elevation: 6,
+        elevation: 100, // Extreme Elevation for Android
     },
     cardLevelUp: {
         borderColor: '#64DD17', // Green border for Level Up

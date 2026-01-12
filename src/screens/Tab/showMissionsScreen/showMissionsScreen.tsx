@@ -26,6 +26,7 @@ import BoosterWidget from '~/features/ShowMissions/components/BoosterWidget';
 import XPOverlay from '../../../components/XPOverlay';
 import StreakSavedOverlay from '../../../components/StreakSavedOverlay';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import RewardDetailsModal from '../../../components/RewardDetailsModal';
 
 
 const { height, width } = Dimensions.get('window');
@@ -88,6 +89,8 @@ export default function ShowMissionsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [xpToast, setXPToast] = useState<{ visible: boolean; startXP: number; endXP: number; level: number } | null>(null);
+  const [selectedQuestForModal, setSelectedQuestForModal] = useState<UserQuest | null>(null);
+  const [recentlyClaimedQuest, setRecentlyClaimedQuest] = useState<UserQuest | null>(null);
 
   const { addXP, updateStreak, profile, fetchProfile, fetchInventory } = useUserStore();
 
@@ -227,14 +230,19 @@ export default function ShowMissionsScreen() {
       updateStreak(newStreak, todayDate);
 
       // 3. Update Quest List locally to avoid full refetch
-      setQuests((currentQuests) =>
-        currentQuests.map((q) => {
+      setQuests((currentQuests) => {
+        const questToClaim = currentQuests.find(q => q.id === userQuestId);
+        if (questToClaim) {
+             // We use the updated status 'claimed' for the modal
+             setRecentlyClaimedQuest({ ...questToClaim, status: 'claimed' });
+        }
+        return currentQuests.map((q) => {
           if (q.id === userQuestId) {
             return { ...q, status: 'claimed' };
           }
           return q;
-        })
-      );
+        });
+      });
 
     } catch (e) {
       console.error('Error claiming:', e);
@@ -392,15 +400,29 @@ export default function ShowMissionsScreen() {
 
       </View>
       
-      {xpToast && (
+      {xpToast?.visible && (
         <XPOverlay
-          isVisible={xpToast.visible}
+          isVisible={true} // Always true if rendered
           startXP={xpToast.startXP}
           endXP={xpToast.endXP}
           level={xpToast.level}
-          onComplete={() => setXPToast({ ...xpToast, visible: false })}
+          onComplete={() => setXPToast(prev => prev ? { ...prev, visible: false } : null)}
         />
       )}
+
+      {/* REWARD DETAILS MODAL (For claimed quests to show Happy Sprig) */}
+      <RewardDetailsModal
+        visible={!!selectedQuestForModal}
+        reward={selectedQuestForModal ? {
+            level: 1, // Dummy
+            title: selectedQuestForModal.Quests.title,
+            description: selectedQuestForModal.Quests.description,
+            // Use fallback icon
+        } : null}
+        isClaimed={true} // Always claimed when viewing history? Or check status
+        isLocked={false}
+        onClose={() => setSelectedQuestForModal(null)}
+      />
     </GestureHandlerRootView>
   );
 }
@@ -409,11 +431,13 @@ export default function ShowMissionsScreen() {
 function QuestCard({
   quest,
   onClaim,
+  onPress,
   isLast,
   multiplier,
 }: {
   quest: UserQuest;
   onClaim: () => void;
+  onPress?: () => void;
   isLast: boolean;
   multiplier: number;
 }) {
@@ -438,12 +462,11 @@ function QuestCard({
   const xpBgColor = '#FFF';
   const xpBorderColor = hasMultiplier ? fireColor : '#329D9C';
   const xpTextColor = hasMultiplier ? fireColor : '#329D9C';
-
   // Calculate potential XP with multiplier for display
   const baseXP = quest.Quests.xp_reward;
   const displayXP = Math.floor(baseXP * multiplier);
 
-  return (
+  const content = (
     <View style={[styles.card, isClaimed && { opacity: 0.6 }]}>
       <View
         style={{
@@ -505,7 +528,7 @@ function QuestCard({
             colors={['#329D9C', '#8bdcbd']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
-            style={[styles.progressBarFill, { width: `${percentage}%` }]}
+            style={[styles.progressBarFill, { width: `${percentage}%`}]}
           />
         </View>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
@@ -517,6 +540,16 @@ function QuestCard({
       </View>
     </View>
   );
+
+  if (onPress) {
+      return (
+          <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
+              {content}
+          </TouchableOpacity>
+      );
+  }
+
+  return content;
 }
 
 const MultiplierBanner = ({ multiplier, isBoosterActive }: { multiplier: number, isBoosterActive: boolean }) => {

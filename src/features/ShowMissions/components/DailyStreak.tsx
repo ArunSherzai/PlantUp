@@ -38,32 +38,26 @@ export default function DailyStreakComponent({ triggerThaw }: Props) {
     if (triggerThaw) {
         iceOpacity.value = 1;
         iceScale.value = 1;
-
-        // 1. Shake the whole card (Very Subtle)
+        
+        // Shake
         containerShake.value = withRepeat(withSequence(
             withTiming(-1.5, { duration: 50 }),
             withTiming(1.5, { duration: 50 }),
-            withTiming(-0.5, { duration: 50 }),
-            withTiming(0.5, { duration: 50 }),
-            withTiming(0, { duration: 50 })
-        ), 7, true); // Fewer repeats -> shorter duration
+            withTiming(-0, { duration: 50 })
+        ), 7, true);
 
-        // Add Wiggle/Rotation (Micro movement)
+        // Rotation
         containerRotate.value = withRepeat(withSequence(
             withTiming(-0.5, { duration: 70 }),
             withTiming(0.5, { duration: 70 }),
-            withTiming(-0.25, { duration: 70 }),
-            withTiming(0.25, { duration: 70 }),
             withTiming(0, { duration: 70 })
         ), 5, true);
 
-        // 2. SHATTER (Scale UP + Fade Out)
+        // Shatter
         setTimeout(() => {
-             // Scale up quickly to simulate expansion/shattering
              iceScale.value = withTiming(1.4, { duration: 800, easing: Easing.out(Easing.exp) });
-             // Fade out
              iceOpacity.value = withTiming(0, { duration: 600 });
-        }, 1200); // Wait longer (1.2s) before shattering
+        }, 1200);
     }
   }, [triggerThaw]);
 
@@ -71,6 +65,8 @@ export default function DailyStreakComponent({ triggerThaw }: Props) {
       opacity: iceOpacity.value,
       transform: [{ scale: iceScale.value }],
       zIndex: 100, 
+      borderRadius: 14, // 🟢 Visually match card's radius (minus padding adj)
+      overflow: 'hidden', // Ensure image clips to radius
   }));
 
   const containerAnimatedStyle = useAnimatedStyle(() => ({
@@ -79,7 +75,6 @@ export default function DailyStreakComponent({ triggerThaw }: Props) {
           { rotate: `${containerRotate.value}deg` }
       ]
   }));
-
 
   // Refresh inventory on mount to ensure we see new items
   useEffect(() => {
@@ -180,10 +175,10 @@ export default function DailyStreakComponent({ triggerThaw }: Props) {
         {/* --- REALISTIC ICE OVERLAY IMAGE --- */}
         {(triggerThaw || isProtected) && (
             <Animated.View style={[NativeStyleSheet.absoluteFillObject, styles.fullIceOverlay, iceOverlayStyle]} pointerEvents="none">
-                {/* Image Texture */}
+                {/* Image Texture: Inset Style */}
                 <Image 
                     source={ICE_OVERLAY_IMG} 
-                    style={[NativeStyleSheet.absoluteFillObject, { opacity: 0.85 }]} 
+                    style={{ width: '100%', height: '100%', opacity: 0.85 }} 
                     resizeMode="cover"
                 />
                 
@@ -294,6 +289,7 @@ const styles = UnistylesSheet.create((theme) => ({
       justifyContent: 'center',
       alignItems: 'center',
       zIndex: 50,
+      margin: 4, // 🟢 Visually Inset
   },
   topRow: {
     flexDirection: 'row',

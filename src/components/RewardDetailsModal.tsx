@@ -1,5 +1,7 @@
+
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Image, ImageSourcePropType } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, StyleSheet, Dimensions, Image as RNImage, ImageSourcePropType } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import { BlurView } from 'expo-blur';
 import Animated, { 
     useSharedValue, 
@@ -205,7 +207,7 @@ export default function RewardDetailsModal({ visible, reward, isClaimed, isLocke
         // For items with images (coins, XP boost)
         if (reward.image) {
             return (
-                <Image 
+                <RNImage 
                     source={reward.image} 
                     style={styles.rewardImageLarge} 
                     resizeMode="contain" 
@@ -233,10 +235,10 @@ export default function RewardDetailsModal({ visible, reward, isClaimed, isLocke
         // For Border rewards - show border image large
         if (isBorder && fetchedImage) {
             return (
-                <Image 
+                <ExpoImage 
                     source={{ uri: fetchedImage }} 
                     style={styles.borderImageLarge} 
-                    resizeMode="contain" 
+                    contentFit="contain" 
                 />
             );
         }
@@ -287,6 +289,26 @@ export default function RewardDetailsModal({ visible, reward, isClaimed, isLocke
                     </Animated.View>
                 </View>
 
+                {/* Happy Sprig Celebration (appears when collected) */}
+                {isClaimed && (
+                    <View style={{ 
+                        position: 'absolute', 
+                        top: -65, 
+                        right: -25, 
+                        zIndex: 999, // Ensure it's on top of everything
+                        elevation: 50, // Android requirement to break out of parent elevation
+                        width: 130, // Explicit container size
+                        height: 130,
+                        overflow: 'visible'
+                    }}>
+                        <ExpoImage
+                            source={require('../../assets/animations/happy_sprig.gif')}
+                            style={{ width: '100%', height: '100%' }}
+                            contentFit="contain"
+                        />
+                    </View>
+                )}
+                
                 {/* Content */}
                 <Text style={[styles.title, { color: theme.colors.text }]}>{reward.title}</Text>
                 <Text style={[styles.levelLabel, { color: rewardTheme.colors[0] }]}>
@@ -354,8 +376,9 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 15 },
         shadowOpacity: 0.25,
         shadowRadius: 25,
-        elevation: 15,
-        overflow: 'hidden',
+        elevation: 15, // Android shadow
+        overflow: 'visible', // CRITICAL for Sprig to verify
+        backgroundColor: '#FFF'
     },
     glowBackground: {
         position: 'absolute',

@@ -117,7 +117,8 @@ export function usePlantTipSystem() {
         const interval = setInterval(checkPlantHealth, 60 * 10000);
 
         return () => clearInterval(interval);
-    }, [checkPlantHealth]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // 2. General Tips Timer
     useEffect(() => {
