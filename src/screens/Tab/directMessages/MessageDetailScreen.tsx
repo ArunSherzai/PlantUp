@@ -46,13 +46,7 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
             loadRealMessages();
             subscribeToConversation(id);
 
-            // Poll for messages every 2 seconds
-            const interval = setInterval(() => {
-                loadRealMessages();
-            }, 2000);
-
             return () => {
-                clearInterval(interval);
                 unsubscribeFromConversation(id);
             };
         }
@@ -130,7 +124,10 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
         } else {
             // Real Send
             const success = await sendMessage(id, textToSend);
-            if (!success) {
+            if (success) {
+                // Fetch immediately to show the new message (in case Realtime is slow)
+                fetchMessages(id);
+            } else {
                 alert('Failed to send message');
                 // Optional: Restore text to input
                 setInputText(textToSend);
@@ -229,7 +226,7 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
                 keyExtractor={(item) => item.id}
                 contentContainerStyle={styles.listContent}
                 onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
-                ListFooterComponent={loading && !isSprig ? <ActivityIndicator size="small" color={theme.colors.primary} /> : null}
+                ListFooterComponent={loading && !isSprig && uiMessages.length === 0 ? <ActivityIndicator size="small" color={theme.colors.primary} /> : null}
             />
 
             {/* Input Area */}

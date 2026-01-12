@@ -264,12 +264,19 @@ export const useDMStore = create<DMState>((set, get) => ({
                 {
                     event: 'INSERT',
                     schema: 'social_media_schema',
-                    table: 'dm_messages',
-                    filter: `conversation_id=eq.${conversationId}`
+                    table: 'dm_messages'
                 },
                 (payload) => {
-                    console.log('New Message Received:', payload.new);
+                    console.log('[DMStore] Realtime Event Received:', payload);
                     const newMessage = payload.new as ChatMessage;
+
+                    // Client-side filter
+                    if (newMessage.conversation_id !== conversationId) {
+                        console.log('[DMStore] Ignoring message for other conversation:', newMessage.conversation_id);
+                        return;
+                    }
+
+                    console.log('[DMStore] processing new message for current conversation');
 
                     set(state => {
                         const currentMessages = state.messages[conversationId] || [];
@@ -285,7 +292,18 @@ export const useDMStore = create<DMState>((set, get) => ({
                     });
                 }
             )
-            .subscribe();
+            .subscribe((status) => {
+                console.log('[DMStore] Realtime subscription status for', conversationId, ':', status);
+                if (status === 'SUBSCRIBED') {
+                    console.log('[DMStore] Successfully subscribed to channel');
+                }
+                if (status === 'CHANNEL_ERROR') {
+                    console.error('[DMStore] Realtime channel error');
+                }
+                if (status === 'TIMED_OUT') {
+                    console.error('[DMStore] Realtime connection timed out');
+                }
+            });
 
         activeChannel = channel;
         activeChannelId = conversationId;
