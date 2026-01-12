@@ -43,10 +43,15 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
             loadSprigMessages();
         } else {
             // Real Chat
-            loadRealMessages();
             subscribeToConversation(id);
 
+            // Poll for messages every 1 second
+            const interval = setInterval(() => {
+                loadRealMessages();
+            }, 1000);
+
             return () => {
+                clearInterval(interval);
                 unsubscribeFromConversation(id);
             };
         }
