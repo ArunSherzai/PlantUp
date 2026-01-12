@@ -37,7 +37,7 @@ export default function DirectMessagesScreen() {
     const [isSearching, setIsSearching] = useState(false);
 
     // Store hooks
-    const { conversations, fetchConversations, loading, getOrCreateConversation } = useDMStore();
+    const { conversations, fetchConversations, loading, getOrCreateConversation, subscribeToInbox } = useDMStore();
     const { user } = useUserStore();
 
     useFocusEffect(
@@ -51,7 +51,13 @@ export default function DirectMessagesScreen() {
             // Fetch real conversations
             if (user) {
                 fetchConversations();
+                subscribeToInbox();
             }
+
+            return () => {
+                const { unsubscribeFromInbox } = useDMStore.getState();
+                unsubscribeFromInbox();
+            };
         }, [user])
     );
 

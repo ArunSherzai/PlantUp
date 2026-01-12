@@ -39,11 +39,16 @@ interface DMState {
     sendMessage: (conversationId: string, content: string) => Promise<boolean>;
     subscribeToConversation: (conversationId: string) => void;
     unsubscribeFromConversation: (conversationId: string) => void;
+    markAsRead: (conversationId: string) => Promise<void>;
+    subscribeToInbox: () => void;
+    unsubscribeFromInbox: () => void;
+    handleConversationUpdate: (updatedConv: any) => void;
 }
 
 // Keep track of active subscriptions outside the store to avoid serialization issues if any
 let activeChannel: RealtimeChannel | null = null;
 let activeChannelId: string | null = null;
+let inboxChannels: RealtimeChannel[] = [];
 
 export const useDMStore = create<DMState>((set, get) => ({
     conversations: [],
@@ -58,70 +63,57 @@ export const useDMStore = create<DMState>((set, get) => ({
         set({ loading: true });
 
         try {
-            // 1. Get my conversations
-            const { data: participations, error: partError } = await db.social
-                .from('dm_participants')
-                .select('conversation_id')
-                .eq('user_id', user.id);
-
-            if (partError) throw partError;
-            if (!participations || participations.length === 0) {
-                set({ conversations: [], loading: false });
-                return;
-            }
-
-            const conversationIds = participations.map(p => p.conversation_id);
-
-            // 2. Fetch conversations details
+            // 1. Fetch conversations 
+            // Now we can just select * because last_message info is directly on the conversation row!
+            // Using logic to check if user is low or high
             const { data: convData, error: convError } = await db.social
                 .from('dm_conversations')
                 .select('*')
-                .in('id', conversationIds)
+                .or(`user_low.eq.${user.id},user_high.eq.${user.id}`)
                 .order('updated_at', { ascending: false });
 
             if (convError) throw convError;
 
-            // 3. Fetch participants for these conversations (to get names/avatars)
-            const { data: allParticipants, error: allPartError } = await db.social
-                .from('dm_participants')
-                .select('conversation_id, user_id')
-                .in('conversation_id', conversationIds);
+            if (!convData || convData.length === 0) {
+                set({ conversations: [], loading: false });
+                return;
+            }
 
-            if (allPartError) throw allPartError;
+            // 2. Resolve "other" user IDs
+            const otherUserIds = convData.map(c => {
+                return c.user_low === user.id ? c.user_high : c.user_low;
+            });
+            const uniqueOtherIds = [...new Set(otherUserIds.filter(Boolean))];
 
-            // Need to fetch User details (username, avatar) for the *other* participants
-            // Filter out 'me'
-            const otherParticipantIds = allParticipants
-                ?.filter(p => p.user_id !== user.id)
-                .map(p => p.user_id);
-
+            // 3. Fetch User details
             let usersMap: Record<string, any> = {};
-            if (otherParticipantIds && otherParticipantIds.length > 0) {
+            if (uniqueOtherIds.length > 0) {
                 const { data: usersData } = await db.user
                     .from('Users')
                     .select('id, username, avatar_path')
-                    .in('id', otherParticipantIds);
+                    .in('id', uniqueOtherIds);
 
                 usersData?.forEach(u => { usersMap[u.id] = u; });
             }
 
-            // 4. Fetch last message for each conversation
-            const { data: lastMessages, error: msgError } = await db.social
+            // 4. Fetch Unread Counts (Still need to count messages)
+            const conversationIds = convData.map(c => c.id);
+            const { data: unreadData, error: unreadError } = await db.social
                 .from('dm_messages')
-                .select('*')
+                .select('conversation_id')
                 .in('conversation_id', conversationIds)
-                .order('created_at', { ascending: false });
+                .neq('sender_id', user.id)
+                .is('read_at', null);
 
-            // Helper to find latest message per conversation
-            // Since we can't easily do "distinct on" via simple query with RLS sometimes, let's process in JS or optimize later
-            // A better way is a Postgres function or view, but let's do JS for flexibility right now.
+            const unreadCounts: Record<string, number> = {};
+            unreadData?.forEach((row: any) => {
+                unreadCounts[row.conversation_id] = (unreadCounts[row.conversation_id] || 0) + 1;
+            });
 
+            // 5. Assemble
             const conversations: Conversation[] = convData.map(c => {
-                // Find other participant
-                const myPartRecord = participations.find(p => p.conversation_id === c.id);
-                const parts = allParticipants?.filter(p => p.conversation_id === c.id) || [];
-                const otherPart = parts.find(p => p.user_id !== user.id);
-                const otherUser = otherPart ? usersMap[otherPart.user_id] : null;
+                const otherUserId = c.user_low === user.id ? c.user_high : c.user_low;
+                const otherUser = usersMap[otherUserId];
 
                 // Resolve avatar URL
                 let avatarUrl = undefined;
@@ -134,28 +126,36 @@ export const useDMStore = create<DMState>((set, get) => ({
                     }
                 }
 
-                // Find last message
-                // This is inefficient O(N^2) effectively if many messages, but strict limit usually applies
-                // Optimally, we fetch only 1 message per conversation from DB
-                const cMessages = lastMessages?.filter(m => m.conversation_id === c.id) || [];
-                const latestMsg = cMessages[0]; // Assumes order by created_at desc
+                // Construct last message from the new columns on the conversation row
+                let lastMsg: ChatMessage | null = null;
+                if (c.last_message_id) {
+                    lastMsg = {
+                        id: c.last_message_id,
+                        conversation_id: c.id,
+                        sender_id: c.last_message_sender_id,
+                        content: c.last_message_text,
+                        created_at: c.last_message_at,
+                        read_at: null, // Not tracked on convo row, but sufficient for preview
+                        message_type: 'text'
+                    };
+                }
 
                 return {
                     ...c,
-                    last_message: latestMsg,
+                    last_message: lastMsg,
                     participants: otherUser ? [{
                         user_id: otherUser.id,
                         username: otherUser.username,
                         avatar_path: avatarUrl
                     }] : [],
-                    unread_count: 0 // TODO: Calculate based on last_read_at
+                    unread_count: unreadCounts[c.id] || 0
                 };
             });
 
             set({ conversations, loading: false });
 
         } catch (e) {
-            console.error('Error fetching conversations:', e);
+            console.error('[DMStore] Error fetching conversations:', e);
             set({ loading: false });
         }
     },
@@ -171,7 +171,6 @@ export const useDMStore = create<DMState>((set, get) => ({
 
             if (error) {
                 console.error('Error creating conversation:', error);
-                // If error says proper message about mutual follow, maybe toast it?
                 return null;
             }
 
@@ -255,32 +254,25 @@ export const useDMStore = create<DMState>((set, get) => ({
             activeChannelId = null;
         }
 
-        console.log('Subscribing to conversation:', conversationId);
+        console.log('[DMStore] Subscribing to conversation:', conversationId);
 
         const channel = db.public
-            .channel(`conversation:${conversationId}`)
+            .channel(`dm:${conversationId}`)
             .on(
                 'postgres_changes',
                 {
                     event: 'INSERT',
                     schema: 'social_media_schema',
-                    table: 'dm_messages'
+                    table: 'dm_messages',
+                    filter: `conversation_id=eq.${conversationId}`
                 },
                 (payload) => {
                     console.log('[DMStore] Realtime Event Received:', payload);
                     const newMessage = payload.new as ChatMessage;
 
-                    // Client-side filter
-                    if (newMessage.conversation_id !== conversationId) {
-                        console.log('[DMStore] Ignoring message for other conversation:', newMessage.conversation_id);
-                        return;
-                    }
-
-                    console.log('[DMStore] processing new message for current conversation');
-
                     set(state => {
                         const currentMessages = state.messages[conversationId] || [];
-                        // Avoid duplicates if any
+                        // Avoid duplicates
                         if (currentMessages.find(m => m.id === newMessage.id)) return state;
 
                         return {
@@ -294,15 +286,6 @@ export const useDMStore = create<DMState>((set, get) => ({
             )
             .subscribe((status) => {
                 console.log('[DMStore] Realtime subscription status for', conversationId, ':', status);
-                if (status === 'SUBSCRIBED') {
-                    console.log('[DMStore] Successfully subscribed to channel');
-                }
-                if (status === 'CHANNEL_ERROR') {
-                    console.error('[DMStore] Realtime channel error');
-                }
-                if (status === 'TIMED_OUT') {
-                    console.error('[DMStore] Realtime connection timed out');
-                }
             });
 
         activeChannel = channel;
@@ -315,6 +298,129 @@ export const useDMStore = create<DMState>((set, get) => ({
             activeChannel = null;
             activeChannelId = null;
         }
+    },
+
+    markAsRead: async (conversationId: string) => {
+        const user = useUserStore.getState().user;
+        if (!user) return;
+
+        try {
+            await db.social
+                .from('dm_messages')
+                .update({ read_at: new Date().toISOString() })
+                .eq('conversation_id', conversationId)
+                .is('read_at', null)
+                .neq('sender_id', user.id);
+        } catch (e) {
+            console.error('[DMStore] Error marking as read:', e);
+        }
+    },
+
+    subscribeToInbox: () => {
+        const user = useUserStore.getState().user;
+        const state = get();
+
+        if (!user) return;
+
+        // Prevent duplicate subscriptions
+        if (inboxChannels.length > 0) {
+            console.log('[DMStore] Inbox already subscribed');
+            return;
+        }
+
+        console.log('[DMStore] Subscribing to Inbox updates for user:', user.id);
+
+        const handleStatus = (status: string, channelName: string) => {
+            console.log(`[DMStore] Inbox ${channelName} status:`, status);
+        };
+
+        // Channel 1: Where I am user_low
+        const ch1 = db.public
+            .channel(`inbox-low-${user.id}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'social_media_schema',
+                    table: 'dm_conversations',
+                    filter: `user_low=eq.${user.id}`
+                },
+                (payload) => {
+                    console.log('[DMStore] Inbox Update Received (Low):', payload);
+                    get().handleConversationUpdate(payload.new);
+                }
+            )
+            .subscribe((status) => handleStatus(status, 'user_low'));
+
+        // Channel 2: Where I am user_high
+        const ch2 = db.public
+            .channel(`inbox-high-${user.id}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'social_media_schema',
+                    table: 'dm_conversations',
+                    filter: `user_high=eq.${user.id}`
+                },
+                (payload) => {
+                    console.log('[DMStore] Inbox Update Received (High):', payload);
+                    get().handleConversationUpdate(payload.new);
+                }
+            )
+            .subscribe((status) => handleStatus(status, 'user_high'));
+
+        inboxChannels = [ch1, ch2];
+    },
+
+    unsubscribeFromInbox: () => {
+        if (inboxChannels.length > 0) {
+            console.log('[DMStore] Unsubscribing from Inbox');
+            inboxChannels.forEach(ch => db.public.removeChannel(ch));
+            inboxChannels = [];
+        }
+    },
+
+    handleConversationUpdate: (updatedConv: any) => {
+        console.log('[DMStore] Conversation updated:', updatedConv.id);
+        set(state => {
+            // Find existing
+            const existingIdx = state.conversations.findIndex(c => c.id === updatedConv.id);
+            if (existingIdx === -1) {
+                // Ideally trigger a full re-fetch or fetch single, but for now ignore if new
+                return state;
+            }
+
+            // Clone and update
+            const oldConv = state.conversations[existingIdx];
+
+            // Construct new last_message
+            let lastMsg: ChatMessage | null = null;
+            if (updatedConv.last_message_id) {
+                lastMsg = {
+                    id: updatedConv.last_message_id,
+                    conversation_id: updatedConv.id,
+                    sender_id: updatedConv.last_message_sender_id,
+                    content: updatedConv.last_message_text,
+                    created_at: updatedConv.last_message_at,
+                    read_at: null,
+                    message_type: 'text'
+                };
+            }
+
+            const newConv = {
+                ...oldConv,
+                ...updatedConv,
+                last_message: lastMsg,
+                // Preserves participants
+            };
+
+            // Remove old, add to top
+            const otherConvs = state.conversations.filter(c => c.id !== updatedConv.id);
+            return {
+                conversations: [newConv, ...otherConvs]
+            };
+        });
     }
 
 }));

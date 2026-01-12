@@ -31,6 +31,7 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
         sendMessage,
         subscribeToConversation,
         unsubscribeFromConversation,
+        markAsRead,
         loading
     } = useDMStore();
     const { user } = useUserStore();
@@ -43,15 +44,11 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
             loadSprigMessages();
         } else {
             // Real Chat
+            loadRealMessages();
             subscribeToConversation(id);
-
-            // Poll for messages every 1 second
-            const interval = setInterval(() => {
-                loadRealMessages();
-            }, 1000);
+            markAsRead(id);
 
             return () => {
-                clearInterval(interval);
                 unsubscribeFromConversation(id);
             };
         }
