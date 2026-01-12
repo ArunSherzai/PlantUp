@@ -20,8 +20,9 @@ interface UIMessage {
 export default function MessageDetailScreen({ route, navigation }: Props) {
     const { id, name, avatar } = route.params;
     const { theme } = useUnistyles();
-    const [uiMessages, setUiMessages] = useState<UIMessage[]>([]);
     const [inputText, setInputText] = useState('');
+    const [uiMessages, setUiMessages] = useState<UIMessage[]>([]);
+    const [loadingMore, setLoadingMore] = useState(false);
     const flatListRef = useRef<FlatList>(null);
 
     // Store hooks
@@ -43,8 +44,8 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
         if (isSprig) {
             loadSprigMessages();
         } else {
-            // Real Chat
-            loadRealMessages();
+            // Real Chat: Initial Load (Offset 0)
+            loadRealMessages(0);
             subscribeToConversation(id);
             markAsRead(id);
 
@@ -58,6 +59,8 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
     useEffect(() => {
         if (!isSprig && messages[id]) {
             const storeMsgs = messages[id];
+            // Store is now "Newest First", and Inverted List wants "Newest First" (item[0] is bottom).
+            // So we directly map.
             const formatted: UIMessage[] = storeMsgs.map(m => ({
                 id: m.id,
                 text: m.content,
@@ -65,28 +68,33 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
                 timestamp: new Date(m.created_at).getTime()
             }));
             setUiMessages(formatted);
-
-            // Scroll to bottom on new message
-            setTimeout(() => {
-                flatListRef.current?.scrollToEnd({ animated: true });
-            }, 200);
         }
     }, [messages[id], user]);
 
-    const loadRealMessages = async () => {
-        await fetchMessages(id);
+    const loadRealMessages = async (offset = 0) => {
+        if (offset > 0) setLoadingMore(true);
+        await fetchMessages(id, offset);
+        if (offset > 0) setLoadingMore(false);
+    };
+
+    const loadMoreMessages = () => {
+        if (loading || loadingMore || isSprig) return;
+        const currentCount = messages[id]?.length || 0;
+        if (currentCount >= 15) { // Only fetch more if we have at least one page
+            console.log('Loading more messages, offset:', currentCount);
+            loadRealMessages(currentCount);
+        }
     };
 
     const loadSprigMessages = async () => {
         const history = await getTipHistory();
 
-        // Deduplicate messages (keep latest)
+        // Sprig tips... dedupe
         const uniqueMessagesMap = new Map();
         history.forEach((tip: StoredTip) => {
             if (!uniqueMessagesMap.has(tip.message)) {
                 uniqueMessagesMap.set(tip.message, tip);
             } else {
-                // If duplicate, keep the one with later timestamp
                 const existing = uniqueMessagesMap.get(tip.message);
                 if (tip.timestamp > existing.timestamp) {
                     uniqueMessagesMap.set(tip.message, tip);
@@ -103,8 +111,8 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
             timestamp: tip.timestamp,
         }));
 
-        // Sort by timestamp ascending
-        formattedMessages.sort((a, b) => a.timestamp - b.timestamp);
+        // Sort by timestamp descending (Newest First) for inverted list
+        formattedMessages.sort((a, b) => b.timestamp - a.timestamp);
         setUiMessages(formattedMessages);
     };
 
@@ -121,17 +129,14 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
                 sender: 'me',
                 timestamp: Date.now(),
             };
-            setUiMessages((prev) => [...prev, newMessage]);
-            // Maybe trigger Sprig reply logic here?
+            setUiMessages((prev) => [newMessage, ...prev]);
         } else {
-            // Real Send
+            // Real Send: Store handles optimistic update via subscription usually, 
+            // but we can rely on immediate append in store if we wanted.
+            // For now, sendMessage just inserts, and subscription event adds to list.
             const success = await sendMessage(id, textToSend);
-            if (success) {
-                // Fetch immediately to show the new message (in case Realtime is slow)
-                fetchMessages(id);
-            } else {
+            if (!success) {
                 alert('Failed to send message');
-                // Optional: Restore text to input
                 setInputText(textToSend);
             }
         }
@@ -155,20 +160,50 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
     const renderItem = ({ item, index }: { item: UIMessage, index: number }) => {
         const isMe = item.sender === 'me';
 
-        // Check if we need a date header
+        // Date Header Logic for Inverted List:
+        // Render header if the *next* item (visually above, array index + 1) has a different day.
+        // OR if this is the last item in the array (topmost visually).
         let showDateHeader = false;
-        if (index === 0) {
+        const nextItem = uiMessages[index + 1]; // "Older" message
+
+        if (!nextItem) {
+            // Top of the list (oldest loaded) - Always show date
             showDateHeader = true;
         } else {
-            const prevItem = uiMessages[index - 1];
-            const prevLabel = getDayLabel(prevItem.timestamp);
             const currentLabel = getDayLabel(item.timestamp);
-            if (prevLabel !== currentLabel) {
+            const prevLabel = getDayLabel(nextItem.timestamp);
+            if (currentLabel !== prevLabel) {
                 showDateHeader = true;
             }
         }
 
         const timeString = new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        // In inverted list, render order is bottom-up. 
+        // We usually want Date Header ABOVE the message group.
+        // But since we render Item, then Next Item... 
+        // If we attach header to `item`, it appears at `item` position.
+        // Inverted: [Newest (Index 0), ..., Oldest (Index N)]
+        // Visually:
+        // [Index N (Oldest)]  <-- Render Header Here?
+        // [Index N-1]
+        // ...
+        // [Index 0 (Newest)]
+
+        // If showDateHeader is true, we want to render it AFTER the bubble (which is visually "above" because inverted).
+        // Wait, native column-reverse... 
+        // Inverted FlatList renders items from bottom up. 
+        // component 0 (bottom)
+        // component 1 (above 0)
+
+        // So strict structure:
+        // <View>
+        //    {showDateHeader && <Header style={{marginBottom: 20}}/>}  <-- This would put it visually BELOW the bubble? 
+        //    No, in DOM flow: Top -> Bottom.
+        //    Inverted list just flips the scroll container. The items themselves are normal Views.
+        //    So <View><Text>Header</Text><Bubble/></View> 
+        //    Will render Header ABOVE Bubble. 
+        //    Which is what we want.
 
         return (
             <View>
@@ -177,9 +212,9 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
                         <Text style={styles.dateHeaderText}>{getDayLabel(item.timestamp)}</Text>
                     </View>
                 )}
+
                 <View style={[styles.messageBubbleContainer, isMe ? styles.myMessageContainer : styles.otherMessageContainer]}>
                     {!isMe && (
-                        // Avatar logic: if Sprig, use passed avatar. If real, use passed avatar (which might be object or require)
                         <Image source={avatar} style={styles.avatarSmall} />
                     )}
                     <View style={[
@@ -226,9 +261,11 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
                 data={uiMessages}
                 renderItem={renderItem}
                 keyExtractor={(item) => item.id}
+                inverted={true}
                 contentContainerStyle={styles.listContent}
-                onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
-                ListFooterComponent={loading && !isSprig && uiMessages.length === 0 ? <ActivityIndicator size="small" color={theme.colors.primary} /> : null}
+                onEndReached={loadMoreMessages}
+                onEndReachedThreshold={0.2}
+                ListFooterComponent={loadingMore ? <ActivityIndicator size="small" color={theme.colors.primary} style={{ marginVertical: 10 }} /> : null}
             />
 
             {/* Input Area */}

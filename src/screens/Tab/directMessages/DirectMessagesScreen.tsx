@@ -266,9 +266,12 @@ export default function DirectMessagesScreen() {
                 {/* Message List */}
                 <FlatList
                     data={filteredMessages}
+                    extraData={conversations} // added to ensure re-render on store update
                     renderItem={renderItem}
                     keyExtractor={(item) => item.id}
                     contentContainerStyle={styles.listContent}
+                    refreshing={loading}
+                    onRefresh={fetchConversations}
                     ListEmptyComponent={
                         <View style={{ alignItems: 'center', marginTop: 50 }}>
                             <Text style={{ color: theme.colors.greyedOut }}>No messages yet.</Text>
