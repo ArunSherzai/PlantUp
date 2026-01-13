@@ -1,55 +1,27 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, FlatList, Image, TouchableOpacity, SafeAreaView, StatusBar, ImageBackground } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TextInput, FlatList, Image, TouchableOpacity, SafeAreaView, StatusBar, ImageBackground, Modal, ActivityIndicator, Alert } from 'react-native';
 import { useUnistyles } from 'react-native-unistyles';
 import { StackScreenProps } from '@react-navigation/stack';
 import { RootStackParamList } from '../../../navigation/Root';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6'; // Import FontAwesome6
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import DeveloperMenu from '../../../components/DeveloperMenu'; // Import DeveloperMenu
+import { useDMStore, Conversation } from '../../../stores/DMStore'; // Import DMStore
+import { useUserStore } from '../../../stores/UserStore';
+import { db } from '../../../utils/supabase';
 
 type Props = StackScreenProps<RootStackParamList, 'DirectMessages'>;
-
-interface Message {
-    id: string;
-    name: string;
-    lastMessage: string;
-    time: string;
-    avatar: any; // Using any for require() images
-}
-
-const MOCK_MESSAGES: Message[] = [
-    {
-        id: '1',
-        name: 'Yoyo123',
-        lastMessage: 'Yo, i have a question reagard...',
-        time: '13:00',
-        avatar: require('../../../../assets/images/pfp3.png'), // Placeholder
-    },
-    {
-        id: '2',
-        name: 'Mirkoyedo',
-        lastMessage: 'What is this app...',
-        time: 'Yesterday',
-        avatar: require('../../../../assets/images/pfp2.webp'), // Placeholder
-    },
-    {
-        id: '3',
-        name: 'Abudi',
-        lastMessage: 'Yo what is this app...',
-        time: 'Yesterday',
-        avatar: require('../../../../assets/images/pfp4.png'), // Placeholder
-    },
-    {
-        id: '4',
-        name: 'Mina',
-        lastMessage: 'Hi how are you...',
-        time: 'Yesterday',
-        avatar: require('../../../../assets/images/pfp5.png'), // Placeholder
-    },
-];
 
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { getLatestTip, StoredTip } from '../../../utils/tipHistory';
+
+// Simple user interface for search
+interface SearchUser {
+    id: string;
+    username: string;
+    avatar_path: string | null;
+}
 
 export default function DirectMessagesScreen() {
     const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
@@ -58,6 +30,16 @@ export default function DirectMessagesScreen() {
     const [sprigTip, setSprigTip] = useState<StoredTip | null>(null);
     const [showDevMenu, setShowDevMenu] = useState(false); // State for dev menu
 
+    // New Chat Modal State
+    const [showNewChatModal, setShowNewChatModal] = useState(false);
+    const [userSearchQuery, setUserSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState<SearchUser[]>([]);
+    const [isSearching, setIsSearching] = useState(false);
+
+    // Store hooks
+    const { conversations, fetchConversations, loading, getOrCreateConversation, subscribeToInbox } = useDMStore();
+    const { user } = useUserStore();
+
     useFocusEffect(
         React.useCallback(() => {
             const fetchTip = async () => {
@@ -65,36 +47,161 @@ export default function DirectMessagesScreen() {
                 setSprigTip(latest);
             };
             fetchTip();
-        }, [])
+
+            // Fetch real conversations
+            if (user) {
+                fetchConversations();
+                subscribeToInbox();
+            }
+
+            return () => {
+                const { unsubscribeFromInbox } = useDMStore.getState();
+                unsubscribeFromInbox();
+            };
+        }, [user])
     );
 
-    const allMessages = React.useMemo(() => {
-        const messages = [...MOCK_MESSAGES];
-        if (sprigTip) {
-            messages.unshift({
-                id: 'sprig',
-                name: 'Sprig',
-                lastMessage: sprigTip.message,
-                time: new Date(sprigTip.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                avatar: require('../../../../assets/images/sprig_idle.png'),
-            });
-        }
-        return messages;
-    }, [sprigTip]);
+    // Helper to resolve avatar URL
+    const getAvatarSource = (path: string | null) => {
+        if (!path) return require('../../../../assets/images/pfp2.webp');
+        if (path.startsWith('http')) return { uri: path };
+        const { data } = db.public.storage.from('avatar').getPublicUrl(path);
+        return { uri: data.publicUrl };
+    };
 
-    const filteredMessages = allMessages.filter(msg =>
+    // Search Users Effect
+    useEffect(() => {
+        const searchUsers = async () => {
+            if (!userSearchQuery.trim()) {
+                setSearchResults([]);
+                return;
+            }
+            setIsSearching(true);
+            try {
+                // Search by username
+                const { data, error } = await db.user
+                    .from('Users')
+                    .select('id, username, avatar_path')
+                    .ilike('username', `%${userSearchQuery}%`)
+                    .neq('id', user?.id) // Don't show myself
+                    .limit(10);
+
+                if (error) throw error;
+
+                if (data) {
+                    setSearchResults(data);
+                }
+            } catch (e) {
+                console.error(e);
+            } finally {
+                setIsSearching(false);
+            }
+        };
+
+        const timeout = setTimeout(searchUsers, 500); // Debounce
+        return () => clearTimeout(timeout);
+    }, [userSearchQuery]);
+
+    const handleUserSelect = async (selectedUser: SearchUser) => {
+        setIsSearching(true);
+        try {
+            const conversationId = await getOrCreateConversation(selectedUser.id);
+            if (conversationId) {
+                setShowNewChatModal(false);
+                setUserSearchQuery('');
+
+                const avatarSource = getAvatarSource(selectedUser.avatar_path);
+
+                navigation.navigate('MessageDetail', {
+                    id: conversationId,
+                    name: selectedUser.username,
+                    avatar: avatarSource,
+                });
+            } else {
+                Alert.alert('Unable to Message', 'You can only message users who follow you back (Mutual Followers).');
+            }
+        } catch (e) {
+            console.error(e);
+            Alert.alert('Error', 'Something went wrong starting the chat.');
+        } finally {
+            setIsSearching(false);
+        }
+    };
+
+
+    const mergedData = React.useMemo(() => {
+        // 1. Convert "Sprig" tip to a conversation-like object
+        const sprigItem = sprigTip ? {
+            id: 'sprig',
+            special: true,
+            name: 'Sprig',
+            lastMessage: sprigTip.message,
+            time: new Date(sprigTip.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            avatar: require('../../../../assets/images/sprig_idle.png'),
+        } : null;
+
+        // 2. Map real conversations to UI format
+        const realItems = conversations.map(c => {
+            const partner = c.participants[0]; // Assuming 1-on-1
+            const name = partner?.username || 'Unknown';
+            // Avatar logic: standard object or default placeholder if missing
+            // DMStore already resolves the full URL into avatar_path for us
+            const avatar = partner?.avatar_path ? { uri: partner.avatar_path } : require('../../../../assets/images/pfp2.webp'); // Fallback
+
+            let timeStr = '';
+            if (c.last_message) {
+                const d = new Date(c.last_message.created_at);
+                const now = new Date();
+                if (d.toDateString() === now.toDateString()) {
+                    timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                } else {
+                    timeStr = d.toLocaleDateString();
+                }
+            }
+
+            return {
+                id: c.id,
+                special: false,
+                name: name,
+                lastMessage: c.last_message?.content || 'Start chatting!',
+                time: timeStr,
+                avatar: avatar,
+                conversationData: c
+            };
+        });
+
+        const list = sprigItem ? [sprigItem, ...realItems] : [...realItems];
+        return list;
+    }, [sprigTip, conversations]);
+
+    const filteredMessages = mergedData.filter(msg =>
         msg.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         msg.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    const renderItem = ({ item }: { item: Message }) => (
+    const renderItem = ({ item }: { item: any }) => (
         <TouchableOpacity
             style={styles.messageItem}
-            onPress={() => navigation.navigate('MessageDetail', {
-                id: item.id,
-                name: item.name,
-                avatar: item.avatar,
-            })}
+            onPress={() => {
+                if (item.id === 'sprig') {
+                    // Navigate to Sprig chat (legacy/special)
+                    navigation.navigate('MessageDetail', {
+                        id: 'sprig',
+                        name: 'Sprig',
+                        avatar: item.avatar,
+                    });
+                } else {
+                    // Navigate to Real chat
+                    // We pass ID as conversation ID, and partner info
+                    navigation.navigate('MessageDetail', {
+                        id: item.id, // Conversation ID
+                        name: item.name,
+                        avatar: item.avatar,
+                        // Optionally pass userId if needed to refetch, but convId is enough
+                        // We might need partnerId if we strictly used userId before
+                    });
+                }
+            }}
         >
             <View style={styles.avatarContainer}>
                 <Image source={item.avatar} style={styles.avatar} resizeMode="cover" />
@@ -134,16 +241,22 @@ export default function DirectMessagesScreen() {
             <View style={[styles.contentContainer, { backgroundColor: theme.colors.background }]}>
                 <View style={styles.contentHeader}>
                     <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Messages</Text>
-                    <Text style={[styles.subtitle, { color: theme.colors.greyedOut }]}>
-                        Have questions? Ask away!
-                    </Text>
+
+                    {/* Add New Chat Button */}
+                    <TouchableOpacity
+                        style={[styles.newChatButton, { backgroundColor: theme.colors.primary }]}
+                        onPress={() => setShowNewChatModal(true)}
+                    >
+                        <FontAwesome name="plus" size={20} color="#FFF" />
+                    </TouchableOpacity>
+
                 </View>
 
                 {/* Search Bar */}
                 <View style={styles.searchContainer}>
                     <TextInput
                         style={[styles.searchInput, { backgroundColor: '#F0F0F0', color: '#000' }]}
-                        placeholder="Search"
+                        placeholder="Search messages..."
                         placeholderTextColor="#999"
                         value={searchQuery}
                         onChangeText={setSearchQuery}
@@ -153,11 +266,71 @@ export default function DirectMessagesScreen() {
                 {/* Message List */}
                 <FlatList
                     data={filteredMessages}
+                    extraData={conversations} // added to ensure re-render on store update
                     renderItem={renderItem}
                     keyExtractor={(item) => item.id}
                     contentContainerStyle={styles.listContent}
+                    refreshing={loading}
+                    onRefresh={fetchConversations}
+                    ListEmptyComponent={
+                        <View style={{ alignItems: 'center', marginTop: 50 }}>
+                            <Text style={{ color: theme.colors.greyedOut }}>No messages yet.</Text>
+                        </View>
+                    }
                 />
             </View>
+
+            {/* New Chat Modal */}
+            <Modal
+                visible={showNewChatModal}
+                animationType="slide"
+                presentationStyle="pageSheet"
+                onRequestClose={() => setShowNewChatModal(false)}
+            >
+                <View style={[styles.modalContainer, { backgroundColor: theme.colors.background }]}>
+                    <View style={styles.modalHeader}>
+                        <Text style={[styles.modalTitle, { color: theme.colors.text }]}>New Message</Text>
+                        <TouchableOpacity onPress={() => setShowNewChatModal(false)}>
+                            <Text style={[styles.modalCloseText, { color: theme.colors.primary }]}>Cancel</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.modalSearchContainer}>
+                        <Text style={{ marginBottom: 5, color: theme.colors.greyedOut }}>Search for a mutual follower:</Text>
+                        <TextInput
+                            style={[styles.searchInput, { backgroundColor: '#F0F0F0', color: '#000' }]}
+                            placeholder="Type a username..."
+                            placeholderTextColor="#999"
+                            autoFocus
+                            value={userSearchQuery}
+                            onChangeText={setUserSearchQuery}
+                        />
+                    </View>
+
+                    {isSearching ? <ActivityIndicator size="large" style={{ marginTop: 20 }} /> : (
+                        <FlatList
+                            data={searchResults}
+                            keyExtractor={item => item.id}
+                            renderItem={({ item }) => (
+                                <TouchableOpacity style={styles.userResultItem} onPress={() => handleUserSelect(item)}>
+                                    <View style={styles.avatarContainerSmall}>
+                                        <Image
+                                            source={getAvatarSource(item.avatar_path)}
+                                            style={styles.avatar}
+                                        />
+                                    </View>
+                                    <Text style={[styles.userResultName, { color: theme.colors.text }]}>{item.username}</Text>
+                                </TouchableOpacity>
+                            )}
+                            ListEmptyComponent={
+                                userSearchQuery.length > 0 ? (
+                                    <Text style={{ textAlign: 'center', marginTop: 20, color: '#999' }}>No users found.</Text>
+                                ) : null
+                            }
+                        />
+                    )}
+                </View>
+            </Modal>
 
             <DeveloperMenu visible={showDevMenu} onClose={() => setShowDevMenu(false)} />
 
@@ -205,13 +378,15 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
     },
     contentHeader: {
+        flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'space-between',
         marginBottom: 20,
+        paddingRight: 10
     },
     sectionTitle: {
-        fontSize: 18,
+        fontSize: 24,
         fontWeight: 'bold',
-        marginBottom: 5,
     },
     subtitle: {
         fontSize: 14,
@@ -263,4 +438,57 @@ const styles = StyleSheet.create({
     lastMessage: {
         fontSize: 14,
     },
+    newChatButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 4
+    },
+    modalContainer: {
+        flex: 1,
+        padding: 20
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
+        marginTop: 10
+    },
+    modalTitle: {
+        fontSize: 22,
+        fontWeight: 'bold'
+    },
+    modalCloseText: {
+        fontSize: 16,
+        fontWeight: '600'
+    },
+    modalSearchContainer: {
+        marginBottom: 10
+    },
+    userResultItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 15,
+        borderBottomWidth: 1,
+        borderBottomColor: '#EEE'
+    },
+    avatarContainerSmall: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#E0E0E0',
+        overflow: 'hidden',
+        marginRight: 12,
+    },
+    userResultName: {
+        fontSize: 16,
+        fontWeight: '500'
+    }
 });

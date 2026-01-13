@@ -15,6 +15,26 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   db: { schema: 'public' }, // default
 });
 
+// Explicitly set realtime auth to fix RLS issues in RN
+// First, check if we already have a session and set auth immediately
+supabase.auth.getSession().then(({ data: { session } }) => {
+  if (session?.access_token) {
+    console.log('[Supabase] Setting initial realtime auth token');
+    supabase.realtime.setAuth(session.access_token);
+  } else {
+    console.log('[Supabase] No session found on init');
+  }
+});
+
+// Then listen for future session changes
+supabase.auth.onAuthStateChange((_event, session) => {
+  console.log('[Supabase] Auth state changed:', _event);
+  if (session?.access_token) {
+    console.log('[Supabase] Setting realtime auth token from state change');
+    supabase.realtime.setAuth(session.access_token);
+  }
+});
+
 
 const fetchRandomEntry = async (tableName: string) => {
   try {

@@ -1,22 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, Image, StatusBar, SafeAreaView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, Image, StatusBar, SafeAreaView, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { useUnistyles } from 'react-native-unistyles';
 import { StackScreenProps } from '@react-navigation/stack';
 import { RootStackParamList } from '../../../navigation/Root';
 import { getTipHistory, StoredTip } from '../../../utils/tipHistory';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-<<<<<<< Updated upstream
-=======
 import { useDMStore, ChatMessage } from '../../../stores/DMStore';
 import { useUserStore } from '../../../stores/UserStore';
-import { initializeSounds, unloadSounds } from '../../../utils/soundEffects';
-import { useTypingIndicator } from '../../../hooks/useTypingIndicator';
-import { TypingIndicator } from '../../../components/TypingIndicator';
->>>>>>> Stashed changes
 
 type Props = StackScreenProps<RootStackParamList, 'MessageDetail'>;
 
-interface ChatMessage {
+interface UIMessage {
     id: string;
     text: string;
     sender: 'me' | 'other';
@@ -26,12 +20,11 @@ interface ChatMessage {
 export default function MessageDetailScreen({ route, navigation }: Props) {
     const { id, name, avatar } = route.params;
     const { theme } = useUnistyles();
-    const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [inputText, setInputText] = useState('');
+    const [uiMessages, setUiMessages] = useState<UIMessage[]>([]);
+    const [loadingMore, setLoadingMore] = useState(false);
     const flatListRef = useRef<FlatList>(null);
 
-<<<<<<< Updated upstream
-=======
     // Store hooks
     const {
         messages,
@@ -47,89 +40,86 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
     // ID param: If 'sprig', it's the bot. If UUID, it's a conversation ID.
     const isSprig = id === 'sprig';
 
-    // Typing indicator (only for real chats, not sprig)
-    const { isOtherUserTyping, startTyping, stopTyping } = useTypingIndicator({
-        conversationId: id,
-        currentUserId: user?.id || '',
-        enabled: !isSprig && !!user?.id,
-    });
-
-    // Initialize sounds on mount
     useEffect(() => {
-        initializeSounds();
+        if (isSprig) {
+            loadSprigMessages();
+        } else {
+            // Real Chat: Initial Load (Offset 0)
+            loadRealMessages(0);
+            subscribeToConversation(id);
+            markAsRead(id);
 
-        return () => {
-            unloadSounds();
-        };
-    }, []);
-
->>>>>>> Stashed changes
-    useEffect(() => {
-        loadMessages();
+            return () => {
+                unsubscribeFromConversation(id);
+            };
+        }
     }, [id]);
 
-    const loadMessages = async () => {
-        if (id === 'sprig') {
-            const history = await getTipHistory();
-
-            // Deduplicate messages (keep latest)
-            const uniqueMessagesMap = new Map();
-            history.forEach((tip: StoredTip) => {
-                if (!uniqueMessagesMap.has(tip.message)) {
-                    uniqueMessagesMap.set(tip.message, tip);
-                } else {
-                    // If duplicate, keep the one with later timestamp
-                    const existing = uniqueMessagesMap.get(tip.message);
-                    if (tip.timestamp > existing.timestamp) {
-                        uniqueMessagesMap.set(tip.message, tip);
-                    }
-                }
-            });
-
-            const uniqueHistory = Array.from(uniqueMessagesMap.values());
-
-            const formattedMessages: ChatMessage[] = uniqueHistory.map((tip: StoredTip) => ({
-                id: tip.id,
-                text: tip.message,
-                sender: 'other',
-                timestamp: tip.timestamp,
+    // Sync store messages to UI
+    useEffect(() => {
+        if (!isSprig && messages[id]) {
+            const storeMsgs = messages[id];
+            // Store is now "Newest First", and Inverted List wants "Newest First" (item[0] is bottom).
+            // So we directly map.
+            const formatted: UIMessage[] = storeMsgs.map(m => ({
+                id: m.id,
+                text: m.content,
+                sender: m.sender_id === user?.id ? 'me' : 'other',
+                timestamp: new Date(m.created_at).getTime()
             }));
+            setUiMessages(formatted);
+        }
+    }, [messages[id], user]);
 
-            // Sort by timestamp ascending
-            formattedMessages.sort((a, b) => a.timestamp - b.timestamp);
-            setMessages(formattedMessages);
-        } else {
-            // Mock messages for other users
-            setMessages([
-                { id: '1', text: 'Hey, how are you?', sender: 'other', timestamp: Date.now() - 100000 },
-                { id: '2', text: 'I am good, thanks! How about you?', sender: 'me', timestamp: Date.now() - 90000 },
-                { id: '3', text: 'Doing great. Just checking on your plants.', sender: 'other', timestamp: Date.now() - 80000 },
-            ]);
+    const loadRealMessages = async (offset = 0) => {
+        if (offset > 0) setLoadingMore(true);
+        await fetchMessages(id, offset);
+        if (offset > 0) setLoadingMore(false);
+    };
+
+    const loadMoreMessages = () => {
+        if (loading || loadingMore || isSprig) return;
+        const currentCount = messages[id]?.length || 0;
+        if (currentCount >= 15) { // Only fetch more if we have at least one page
+            console.log('Loading more messages, offset:', currentCount);
+            loadRealMessages(currentCount);
         }
     };
 
-    const sendMessage = () => {
+    const loadSprigMessages = async () => {
+        const history = await getTipHistory();
+
+        // Sprig tips... dedupe
+        const uniqueMessagesMap = new Map();
+        history.forEach((tip: StoredTip) => {
+            if (!uniqueMessagesMap.has(tip.message)) {
+                uniqueMessagesMap.set(tip.message, tip);
+            } else {
+                const existing = uniqueMessagesMap.get(tip.message);
+                if (tip.timestamp > existing.timestamp) {
+                    uniqueMessagesMap.set(tip.message, tip);
+                }
+            }
+        });
+
+        const uniqueHistory = Array.from(uniqueMessagesMap.values());
+
+        const formattedMessages: UIMessage[] = uniqueHistory.map((tip: StoredTip) => ({
+            id: tip.id,
+            text: tip.message,
+            sender: 'other',
+            timestamp: tip.timestamp,
+        }));
+
+        // Sort by timestamp descending (Newest First) for inverted list
+        formattedMessages.sort((a, b) => b.timestamp - a.timestamp);
+        setUiMessages(formattedMessages);
+    };
+
+    const handleSend = async () => {
         if (!inputText.trim()) return;
-<<<<<<< Updated upstream
-
-        const newMessage: ChatMessage = {
-            id: Date.now().toString(),
-            text: inputText,
-            sender: 'me',
-            timestamp: Date.now(),
-        };
-
-        setMessages((prev) => [...prev, newMessage]);
-        setInputText('');
-
-        // Scroll to bottom
-        setTimeout(() => {
-            flatListRef.current?.scrollToEnd({ animated: true });
-        }, 100);
-=======
         const textToSend = inputText;
         setInputText(''); // Clear immediately for UX
-        stopTyping(); // Clear typing indicator when sending
 
         if (isSprig) {
             // Echo or mock response? For now just local visible
@@ -148,10 +138,8 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
             if (!success) {
                 alert('Failed to send message');
                 setInputText(textToSend);
-                // Don't restart typing on failure
             }
         }
->>>>>>> Stashed changes
     };
 
     const getDayLabel = (timestamp: number) => {
@@ -169,23 +157,53 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
         }
     };
 
-    const renderItem = ({ item, index }: { item: ChatMessage, index: number }) => {
+    const renderItem = ({ item, index }: { item: UIMessage, index: number }) => {
         const isMe = item.sender === 'me';
 
-        // Check if we need a date header
+        // Date Header Logic for Inverted List:
+        // Render header if the *next* item (visually above, array index + 1) has a different day.
+        // OR if this is the last item in the array (topmost visually).
         let showDateHeader = false;
-        if (index === 0) {
+        const nextItem = uiMessages[index + 1]; // "Older" message
+
+        if (!nextItem) {
+            // Top of the list (oldest loaded) - Always show date
             showDateHeader = true;
         } else {
-            const prevItem = messages[index - 1];
-            const prevLabel = getDayLabel(prevItem.timestamp);
             const currentLabel = getDayLabel(item.timestamp);
-            if (prevLabel !== currentLabel) {
+            const prevLabel = getDayLabel(nextItem.timestamp);
+            if (currentLabel !== prevLabel) {
                 showDateHeader = true;
             }
         }
 
         const timeString = new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        // In inverted list, render order is bottom-up. 
+        // We usually want Date Header ABOVE the message group.
+        // But since we render Item, then Next Item... 
+        // If we attach header to `item`, it appears at `item` position.
+        // Inverted: [Newest (Index 0), ..., Oldest (Index N)]
+        // Visually:
+        // [Index N (Oldest)]  <-- Render Header Here?
+        // [Index N-1]
+        // ...
+        // [Index 0 (Newest)]
+
+        // If showDateHeader is true, we want to render it AFTER the bubble (which is visually "above" because inverted).
+        // Wait, native column-reverse... 
+        // Inverted FlatList renders items from bottom up. 
+        // component 0 (bottom)
+        // component 1 (above 0)
+
+        // So strict structure:
+        // <View>
+        //    {showDateHeader && <Header style={{marginBottom: 20}}/>}  <-- This would put it visually BELOW the bubble? 
+        //    No, in DOM flow: Top -> Bottom.
+        //    Inverted list just flips the scroll container. The items themselves are normal Views.
+        //    So <View><Text>Header</Text><Bubble/></View> 
+        //    Will render Header ABOVE Bubble. 
+        //    Which is what we want.
 
         return (
             <View>
@@ -194,6 +212,7 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
                         <Text style={styles.dateHeaderText}>{getDayLabel(item.timestamp)}</Text>
                     </View>
                 )}
+
                 <View style={[styles.messageBubbleContainer, isMe ? styles.myMessageContainer : styles.otherMessageContainer]}>
                     {!isMe && (
                         <Image source={avatar} style={styles.avatarSmall} />
@@ -239,15 +258,15 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
             {/* Chat List */}
             <FlatList
                 ref={flatListRef}
-                data={messages}
+                data={uiMessages}
                 renderItem={renderItem}
                 keyExtractor={(item) => item.id}
+                inverted={true}
                 contentContainerStyle={styles.listContent}
-                onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+                onEndReached={loadMoreMessages}
+                onEndReachedThreshold={0.2}
+                ListFooterComponent={loadingMore ? <ActivityIndicator size="small" color={theme.colors.primary} style={{ marginVertical: 10 }} /> : null}
             />
-
-            {/* Typing Indicator */}
-            {!isSprig && <TypingIndicator visible={isOtherUserTyping} userName={name} />}
 
             {/* Input Area */}
             <KeyboardAvoidingView style={{ marginBottom: 10 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={10}>
@@ -257,16 +276,9 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
                         placeholder="Type a message..."
                         placeholderTextColor="#999"
                         value={inputText}
-                        onChangeText={(text) => {
-                            setInputText(text);
-                            if (text.trim() && !isSprig) {
-                                startTyping();
-                            } else if (!text.trim()) {
-                                stopTyping();
-                            }
-                        }}
+                        onChangeText={setInputText}
                     />
-                    <TouchableOpacity onPress={sendMessage} style={[styles.sendButton, { backgroundColor: theme.colors.primary, borderRadius: 15, height: 60, width: 60, justifyContent: 'center', alignItems: 'center' }]}>
+                    <TouchableOpacity onPress={handleSend} style={[styles.sendButton, { backgroundColor: theme.colors.primary, borderRadius: 15, height: 60, width: 60, justifyContent: 'center', alignItems: 'center' }]}>
                         <FontAwesome name="paper-plane" size={16} color="#FFF" />
                     </TouchableOpacity>
                 </View>
