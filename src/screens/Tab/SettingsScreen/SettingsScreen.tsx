@@ -3,12 +3,16 @@ import { View, Text, TouchableOpacity, Alert, Image, ScrollView } from 'react-na
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { db } from '../../../utils/supabase';
 import { useUserStore } from '../../../stores/UserStore';
+
+import { StatusBar } from 'expo-status-bar';
 
 export default function SettingsScreen() {
     const { theme } = useUnistyles();
     const navigation = useNavigation<any>();
+    const insets = useSafeAreaInsets();
     // Removed direct store access since we moved it
  
      // Sign Out
@@ -45,8 +49,9 @@ export default function SettingsScreen() {
 
     return (
         <View style={styles.container}>
+
             {/* Header Background */}
-            <View style={styles.headerBg}>
+            <View style={[styles.headerBg, { height: 140 + insets.top }]}>
                 <Image
                     source={require('../../../../assets/images/profileScreenBackground.png')}
                     style={styles.headerGradient}
@@ -55,7 +60,7 @@ export default function SettingsScreen() {
                 <View style={styles.headerOverlay} />
             </View>
 
-            <View style={styles.headerContent}>
+            <View style={[styles.headerContent, { paddingTop: insets.top + 10 }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                     <FontAwesome6 name="chevron-left" size={24} color="#fff" />
                 </TouchableOpacity>
@@ -119,7 +124,6 @@ const styles = StyleSheet.create((theme: any) => ({
         backgroundColor: theme.colors.background,
     },
     headerBg: {
-        height: 200,
         width: '100%',
         position: 'absolute',
         top: 0,
@@ -134,12 +138,11 @@ const styles = StyleSheet.create((theme: any) => ({
         backgroundColor: 'rgba(0,0,0,0.1)',
     },
     headerContent: {
-        paddingTop: 60,
         paddingHorizontal: 20,
         flexDirection: 'row',
         alignItems: 'center',
         zIndex: 1,
-        height: 120,
+        paddingBottom: 20,
     },
     backButton: {
         marginRight: 15,

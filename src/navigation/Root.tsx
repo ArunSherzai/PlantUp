@@ -73,11 +73,14 @@ import AppearanceScreen from '~/screens/Tab/SettingsScreen/AppearanceScreen';
 import NotificationsScreen from '~/screens/Tab/SettingsScreen/NotificationsScreen';
 import AccountScreen from '~/screens/Tab/SettingsScreen/AccountScreen';
 
+import { StatusBar } from 'expo-status-bar';
+
 export default function RootStack() {
   const { theme } = useUnistyles();
 
   return (
     <NavigationContainer linking={linking}>
+      <StatusBar hidden />
       <View style={{ flex: 1 }}>
         <Stack.Navigator
           initialRouteName="Auth"
@@ -108,6 +111,11 @@ export default function RootStack() {
             <Stack.Screen
               name="Appearance"
               component={AppearanceScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="Notifications"
+              component={NotificationsScreen}
               options={{ headerShown: false }}
             />
             <Stack.Screen

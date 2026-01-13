@@ -231,7 +231,7 @@ export const useUserStore = create<State>((set, get) => ({
       .from('Player_stats')
       .select('xp, level, streak_length, last_completed_date, active_boost_end_time, streak_rescued_date')
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
 
     // 2. Fetch Username
     const userPromise = db.user
@@ -379,8 +379,8 @@ export const useUserStore = create<State>((set, get) => ({
       finalProfile.last_completed_date = lastDateStr || null;
       finalProfile.active_boost_end_time = statsData.active_boost_end_time || null;
       finalProfile.streak_rescued_date = rescuedDateStr || null;
-    } else if (statsError && statsError.code === 'PGRST116') {
-      // Create if missing
+    } else if (!statsData) {
+      // Create if missing (PGRST116 or null from maybeSingle)
       const { data: newData } = await db.gamification
         .from('Player_stats')
         .insert([{ user_id: user.id, xp: 0, level: 1, streak_length: 0 }])

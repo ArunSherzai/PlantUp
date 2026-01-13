@@ -12,6 +12,7 @@ import {
   Alert,
 } from 'react-native';
 import { useUnistyles, StyleSheet } from 'react-native-unistyles';
+import { vw, vh } from '~/features/plantlist/styles/plantStyles';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaskedView from '@react-native-masked-view/masked-view';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
@@ -31,29 +32,7 @@ import RewardDetailsModal from '../../../components/RewardDetailsModal';
 
 const { height, width } = Dimensions.get('window');
 
-// --- RESPONSIVE LAYOUT CONSTANTS ---
-const isSmallScreen = height < 740; // Increased threshold
-const isMediumScreen = height >= 740 && height < 850;
-
-// 1. Header Top Position & Title Height
-// Make header higher up on small screens to save space
-const HEADER_TOP = isSmallScreen ? 10 : (isMediumScreen ? 40 : '6%');
-const HEADER_TOP_PIXELS = typeof HEADER_TOP === 'number' ? HEADER_TOP : height * 0.06;
-
-const TITLE_HEIGHT = isSmallScreen ? 90 : 110;
-
-// 2. Reserved Top Space Calculation
-// Header + Title (110) + StreakCard (~160) + Desired Gap (30)
-const STREAK_CARD_HEIGHT_EST = 170; // Safe estimate including margins
-const REQUIRED_TOP_SPACE = HEADER_TOP_PIXELS + TITLE_HEIGHT + STREAK_CARD_HEIGHT_EST + 20;
-
-// 3. Dynamic Bottom Sheet Height
-// Calculate how much space is left for the sheet (in percentage 0.0 - 1.0)
-const AVAILABLE_SHEET_PCT = 1 - (REQUIRED_TOP_SPACE / height);
-
-// Clamp: Max 0.55 (don't cover more than 55%), Min 0.35 (ensure at least 35% visible)
-// This guarantees the sheet is pushed down if space is tight.
-const SHEET_INITIAL_HEIGHT = Math.min(Math.max(AVAILABLE_SHEET_PCT, 0.35), 0.55);
+// Removed hardcoded layout constants in favor of responsive units
 
 // --- TYPES ---
 type QuestData = {
@@ -306,7 +285,7 @@ export default function ShowMissionsScreen() {
           </View>
 
           <MaskedView
-            style={{ height: TITLE_HEIGHT, width: '100%', marginBottom: 10 }}
+            style={{ height: vh * 15, width: '100%', marginBottom: vh * 1 }}
             maskElement={<Text style={styles.headerTitle}>Quests and{'\n'}Daily Rewards!</Text>}>
             <LinearGradient
               colors={['#FFFFFF', '#E0F7FA']}
@@ -320,14 +299,15 @@ export default function ShowMissionsScreen() {
             <DailyStreakComponent triggerThaw={triggerThaw} />
           </View>
         </View>
-        
+
         {/* STREAK RESCUE OVERLAY */}
         {showRescueOverlay && (
             <StreakSavedOverlay onDismiss={handleDismissRescueOverlay} />
         )}
 
         {/* DRAGGABLE BOTTOM SHEET */}
-        <DraggableBottomSheet initialHeight={SHEET_INITIAL_HEIGHT} maxHeight={0.75}>
+        {/* Set initialHeight to 0.50 to leave top 50% for header/streak (increased gap) */}
+        <DraggableBottomSheet initialHeight={0.50} maxHeight={0.75}>
           <View style={{ flex: 1, paddingHorizontal: 20 }}>
             {loading && !refreshing ? (
               <ActivityIndicator
@@ -578,7 +558,7 @@ const MultiplierBanner = ({ multiplier, isBoosterActive }: { multiplier: number,
       />
       <View style={styles.bannerContent}>
         <View style={styles.bannerIconContainer}>
-          <FontAwesome6 name="fire" size={16} color="white" solid />
+          <FontAwesome6 name="fire" size={vw * 4} color="white" solid />
         </View>
         <View style={{ flex: 1, paddingRight: 10 }}>
           <Text style={styles.bannerTitle}>{title}</Text>
@@ -604,14 +584,20 @@ const styles = StyleSheet.create((theme) => ({
   bgImage: { width: '100%', height: '100%' },
   headerWrapper: {
     position: 'absolute',
-    top: HEADER_TOP,
+    top: vh * 6, // Responsive top margin
     left: 0,
     right: 0,
-    paddingHorizontal: 20,
-    alignItems: 'center',
+    paddingHorizontal: vw * 5,
+    alignItems: 'flex-start', // Left align
   },
   brandText: { color: 'rgba(255,255,255,0.9)', fontWeight: '600', fontSize: 18 },
-  headerTitle: { fontSize: width < 380 ? 32 : 40, fontWeight: '900', color: 'white', lineHeight: width < 380 ? 36 : 44 },
+  headerTitle: { 
+    fontSize: vw * 10, 
+    fontWeight: '900', 
+    color: 'white', 
+    lineHeight: vw * 11,
+    textAlign: 'left' // Left align
+  },
   comingSoonBar: {
     borderRadius: 18,
     height: 60,
@@ -625,20 +611,20 @@ const styles = StyleSheet.create((theme) => ({
   },
   wrapper: { width: '100%', flexDirection: 'column' },
 
-  sectionHeaderContainer: { marginBottom: 10 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: theme.colors.text, textAlign: 'center' },
+  sectionHeaderContainer: { marginBottom: vh * 1 },
+  sectionTitle: { fontSize: vw * 4.5, fontWeight: 'bold', color: theme.colors.text, textAlign: 'center' },
   itemWrapperMint: {
     backgroundColor: theme.colors.surface,
-    paddingHorizontal: 15,
-    paddingVertical: 8,
+    paddingHorizontal: vw * 4,
+    paddingVertical: vh * 1,
     marginHorizontal: 0,
-    borderRadius: 12,
-    marginBottom: 10,
+    borderRadius: vw * 3,
+    marginBottom: vh * 1,
   },
   mintQuestContainerEmpty: {
     backgroundColor: theme.colors.surface,
-    borderRadius: 20,
-    padding: 15,
+    borderRadius: vw * 5,
+    padding: vw * 4,
     borderWidth: 2,
     borderColor: theme.colors.greyedOut,
   },
@@ -646,47 +632,48 @@ const styles = StyleSheet.create((theme) => ({
     textAlign: 'center',
     color: theme.colors.typography,
     fontStyle: 'italic',
-    padding: 10,
+    padding: vw * 2.5,
+    fontSize: vw * 3.5,
   },
 
   card: {
     backgroundColor: theme.colors.background,
-    borderRadius: 15,
-    padding: 15,
+    borderRadius: vw * 3.5,
+    padding: vw * 4,
     shadowColor: theme.colors.text,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
   },
-  questTitle: { fontSize: 15, fontWeight: '600', color: theme.colors.text },
-  questDescription: { fontSize: 12, color: theme.colors.typography, marginTop: 2, lineHeight: 16 },
+  questTitle: { fontSize: vw * 3.8, fontWeight: '600', color: theme.colors.text },
+  questDescription: { fontSize: vw * 3, color: theme.colors.typography, marginTop: 2, lineHeight: vw * 4 },
   xpContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.surface,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
+    paddingVertical: vh * 0.8,
+    paddingHorizontal: vw * 3,
+    borderRadius: vw * 5,
     borderWidth: 1,
     // borderColor overwritten by logic
     overflow: 'hidden', // for gradient bg
   },
-  xpText: { fontSize: 12, fontWeight: '700' },
+  xpText: { fontSize: vw * 3, fontWeight: '700' },
 
   multiplierTag: {
     backgroundColor: '#FF512F',
-    borderRadius: 8,
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    marginLeft: 6,
+    borderRadius: vw * 2,
+    paddingHorizontal: vw * 1,
+    paddingVertical: vh * 0.1,
+    marginLeft: vw * 1.5,
   },
-  multiplierText: { color: 'white', fontSize: 9, fontWeight: 'bold' },
+  multiplierText: { color: 'white', fontSize: vw * 2.5, fontWeight: 'bold' },
 
   claimButtonStyled: {
-    width: 70,
-    height: 32,
-    borderRadius: 16,
+    width: vw * 18,
+    height: vh * 4,
+    borderRadius: vw * 4,
     overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
@@ -696,21 +683,21 @@ const styles = StyleSheet.create((theme) => ({
     shadowRadius: 3,
     elevation: 3,
   },
-  claimButtonText: { color: 'white', fontWeight: '800', fontSize: 11, letterSpacing: 0.5 },
+  claimButtonText: { color: 'white', fontWeight: '800', fontSize: vw * 2.8, letterSpacing: 0.5 },
   progressBarBg: {
-    height: 10,
+    height: vh * 1.2,
     backgroundColor: theme.colors.greyedOut,
-    borderRadius: 5,
+    borderRadius: vw * 1.5,
     overflow: 'hidden',
-    marginTop: 5,
+    marginTop: vh * 0.6,
   },
-  progressBarFill: { height: '100%', borderRadius: 5 },
-  progressTextSubtle: { fontSize: 11, color: theme.colors.typography, fontWeight: '600' },
+  progressBarFill: { height: '100%', borderRadius: vw * 1.5 },
+  progressTextSubtle: { fontSize: vw * 2.8, color: theme.colors.typography, fontWeight: '600' },
   bannerContainer: {
-    marginHorizontal: 20,
-    marginTop: 10,
-    marginBottom: 20,
-    borderRadius: 16,
+    marginHorizontal: vw * 5,
+    marginTop: vh * 1,
+    marginBottom: vh * 2.5,
+    borderRadius: vw * 4,
     overflow: 'hidden',
     shadowColor: '#FF512F',
     shadowOffset: { width: 0, height: 4 },
@@ -721,30 +708,30 @@ const styles = StyleSheet.create((theme) => ({
   bannerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    padding: vw * 4,
   },
   bannerIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: vw * 8,
+    height: vw * 8,
+    borderRadius: vw * 4,
     backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: vw * 3,
   },
   bannerTitle: {
-    fontSize: 16,
+    fontSize: vw * 4,
     fontWeight: '800',
     color: 'white',
     marginBottom: 2,
   },
   bannerSubtitle: {
-    fontSize: 12,
+    fontSize: vw * 3,
     color: 'rgba(255,255,255,0.9)',
     fontWeight: '500',
   },
   bannerMultiplier: {
-    fontSize: 24,
+    fontSize: vw * 6,
     fontWeight: '900',
     color: 'white',
     marginLeft: 'auto',

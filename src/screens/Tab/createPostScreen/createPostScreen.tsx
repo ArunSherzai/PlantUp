@@ -349,7 +349,7 @@ export default function CreatePostScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+
 
       {/* FIXED BACKGROUND */}
       <View style={styles.bgContainer}>

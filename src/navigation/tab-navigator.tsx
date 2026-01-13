@@ -48,6 +48,16 @@ export default function TabLayout({ navigation }: Props) {
         }}
       />
 
+      <Tab.Screen
+        name="Missions"
+        component={ShowMissionsScreen}
+        options={{
+          title: 'Missions',
+          headerShown: false,
+          tabBarIcon: ({ color }) => <TabBarIcon name="check-square" color={color} />,
+        }}
+      />
+
       {/* --- HIER GEÄNDERT: Create Post statt Add a Plant --- */}
       {/* --- HIER GEÄNDERT: Feed Screen --- */}
       <Tab.Screen
@@ -61,16 +71,6 @@ export default function TabLayout({ navigation }: Props) {
       />
       {/* --------------------------------------------------- */}
       {/* --------------------------------------------------- */}
-
-      <Tab.Screen
-        name="Missions"
-        component={ShowMissionsScreen}
-        options={{
-          title: 'Missions',
-          headerShown: false,
-          tabBarIcon: ({ color }) => <TabBarIcon name="check-square" color={color} />,
-        }}
-      />
 
       <Tab.Screen
         name="Show Plants"

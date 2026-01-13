@@ -30,7 +30,15 @@ export default function BorderInventoryScreen() {
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+        <TouchableOpacity style={styles.backButton} onPress={() => {
+            if (navigation.canGoBack()) {
+                navigation.goBack();
+            } else {
+                // Determine fall back screen or just console log in dev
+                console.log("Cannot go back from BorderInventory");
+                // Optional: navigation.navigate('TabNavigator'); 
+            }
+        }}>
           <FontAwesome6 name="chevron-left" size={24} color={theme.colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.colors.text }]}>My Borders</Text>
@@ -113,10 +121,10 @@ export default function BorderInventoryScreen() {
                         style={[
                           styles.borderPreview,
                           border.media_url.includes('.gif') && {
-                            width: 160,
-                            height: 160,
-                            top: -30,
-                            left: -30,
+                            width: '158%', // 🟢 Scale up ONLY for GIFs
+                            height: '158%',
+                            top: '-29%',
+                            left: '-29%',
                           }
                         ]}
                         contentFit="contain"
@@ -210,22 +218,22 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   previewContainer: {
-    width: 100,
-    height: 100,
+    width: '100%',
+    aspectRatio: 1, // 🟢 Makes it a responsive square based on card width
     marginBottom: 10,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
   },
   avatarPreview: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: '60%', // 🟢 Relative to square container
+    height: '60%',
+    borderRadius: 100, // Large enough to be circle
     backgroundColor: '#ccc',
   },
   borderPreview: {
     position: 'absolute',
-    width: '100%',
+    width: '100%', // 🟢 PNGs should strictly fit the container (which is ~1.6x avatar)
     height: '100%',
     top: 0,
     left: 0,
@@ -247,7 +255,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 20,
     borderRadius: 20,
-    minWidth: 100,
+    minWidth: '80%',
     alignItems: 'center',
   },
   equipButtonText: {

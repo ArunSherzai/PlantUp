@@ -189,17 +189,22 @@ const styles = StyleSheet.create((theme: any) => ({
 
 // ... (keep styles) 
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+// ... (keep imports)
+
 export default function ConnectionsScreen() {
     const { theme } = useUnistyles();
     const navigation = useNavigation<any>();
     const route = useRoute<ConnectionsRouteProp>();
+    const insets = useSafeAreaInsets();
     // Get params
     const { initialTab, userId } = route.params || {};
 
     const layout = useWindowDimensions();
     const [index, setIndex] = useState(0);
 
-    const [activeTab, setActiveTab] = useState<'followers' | 'following'>(initialTab);
+    const [activeTab, setActiveTab] = useState<'followers' | 'following'>(initialTab || 'following');
     const [searchQuery, setSearchQuery] = useState('');
 
     // Real Data Hook
@@ -240,11 +245,6 @@ export default function ConnectionsScreen() {
     const filteredData = data.filter(user =>
         user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         user.username.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-
-    const renderHeader = () => (
-        // ... (Header logic inside main render)
-        null
     );
 
     const renderItem = ({ item }: { item: UserConnection }) => {
@@ -320,22 +320,26 @@ export default function ConnectionsScreen() {
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="light-content" />
+
 
             {/* Header Area */}
-            <View style={styles.headerArea}>
+            <View style={[styles.headerArea, { height: 120 + insets.top }]}>
                 <Image
                     source={require('../../../../assets/images/followBackground.png')}
                     style={styles.headerImage}
                     resizeMode="cover"
                 />
-                <View style={styles.headerContent}>
+                <View style={[styles.headerContent, { marginTop: insets.top + 10 }]}>
                     <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                         <FontAwesome6 name="chevron-left" size={24} color="#FFF" />
                     </TouchableOpacity>
 
                     <View style={styles.titleRow}>
-                        <Text style={styles.headerTitle}>
+                        <Text 
+                            style={styles.headerTitle} 
+                            adjustsFontSizeToFit 
+                            numberOfLines={1}
+                        >
                             {activeTab === 'followers' ? 'Followers' : 'Following'}
                         </Text>
                     </View>
