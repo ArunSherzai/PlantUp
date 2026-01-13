@@ -5,6 +5,14 @@ import { StackScreenProps } from '@react-navigation/stack';
 import { RootStackParamList } from '../../../navigation/Root';
 import { getTipHistory, StoredTip } from '../../../utils/tipHistory';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+<<<<<<< Updated upstream
+=======
+import { useDMStore, ChatMessage } from '../../../stores/DMStore';
+import { useUserStore } from '../../../stores/UserStore';
+import { initializeSounds, unloadSounds } from '../../../utils/soundEffects';
+import { useTypingIndicator } from '../../../hooks/useTypingIndicator';
+import { TypingIndicator } from '../../../components/TypingIndicator';
+>>>>>>> Stashed changes
 
 type Props = StackScreenProps<RootStackParamList, 'MessageDetail'>;
 
@@ -22,6 +30,40 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
     const [inputText, setInputText] = useState('');
     const flatListRef = useRef<FlatList>(null);
 
+<<<<<<< Updated upstream
+=======
+    // Store hooks
+    const {
+        messages,
+        fetchMessages,
+        sendMessage,
+        subscribeToConversation,
+        unsubscribeFromConversation,
+        markAsRead,
+        loading
+    } = useDMStore();
+    const { user } = useUserStore();
+
+    // ID param: If 'sprig', it's the bot. If UUID, it's a conversation ID.
+    const isSprig = id === 'sprig';
+
+    // Typing indicator (only for real chats, not sprig)
+    const { isOtherUserTyping, startTyping, stopTyping } = useTypingIndicator({
+        conversationId: id,
+        currentUserId: user?.id || '',
+        enabled: !isSprig && !!user?.id,
+    });
+
+    // Initialize sounds on mount
+    useEffect(() => {
+        initializeSounds();
+
+        return () => {
+            unloadSounds();
+        };
+    }, []);
+
+>>>>>>> Stashed changes
     useEffect(() => {
         loadMessages();
     }, [id]);
@@ -68,6 +110,7 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
 
     const sendMessage = () => {
         if (!inputText.trim()) return;
+<<<<<<< Updated upstream
 
         const newMessage: ChatMessage = {
             id: Date.now().toString(),
@@ -83,6 +126,32 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
         setTimeout(() => {
             flatListRef.current?.scrollToEnd({ animated: true });
         }, 100);
+=======
+        const textToSend = inputText;
+        setInputText(''); // Clear immediately for UX
+        stopTyping(); // Clear typing indicator when sending
+
+        if (isSprig) {
+            // Echo or mock response? For now just local visible
+            const newMessage: UIMessage = {
+                id: Date.now().toString(),
+                text: textToSend,
+                sender: 'me',
+                timestamp: Date.now(),
+            };
+            setUiMessages((prev) => [newMessage, ...prev]);
+        } else {
+            // Real Send: Store handles optimistic update via subscription usually, 
+            // but we can rely on immediate append in store if we wanted.
+            // For now, sendMessage just inserts, and subscription event adds to list.
+            const success = await sendMessage(id, textToSend);
+            if (!success) {
+                alert('Failed to send message');
+                setInputText(textToSend);
+                // Don't restart typing on failure
+            }
+        }
+>>>>>>> Stashed changes
     };
 
     const getDayLabel = (timestamp: number) => {
@@ -177,6 +246,9 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
                 onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
             />
 
+            {/* Typing Indicator */}
+            {!isSprig && <TypingIndicator visible={isOtherUserTyping} userName={name} />}
+
             {/* Input Area */}
             <KeyboardAvoidingView style={{ marginBottom: 10 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={10}>
                 <View style={[styles.inputContainer, { borderTopColor: 'transparent' }]}>
@@ -185,7 +257,14 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
                         placeholder="Type a message..."
                         placeholderTextColor="#999"
                         value={inputText}
-                        onChangeText={setInputText}
+                        onChangeText={(text) => {
+                            setInputText(text);
+                            if (text.trim() && !isSprig) {
+                                startTyping();
+                            } else if (!text.trim()) {
+                                stopTyping();
+                            }
+                        }}
                     />
                     <TouchableOpacity onPress={sendMessage} style={[styles.sendButton, { backgroundColor: theme.colors.primary, borderRadius: 15, height: 60, width: 60, justifyContent: 'center', alignItems: 'center' }]}>
                         <FontAwesome name="paper-plane" size={16} color="#FFF" />
