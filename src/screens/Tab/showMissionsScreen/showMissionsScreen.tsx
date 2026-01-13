@@ -23,6 +23,10 @@ import DraggableBottomSheet from '../../../components/DraggableBottomSheet';
 import { useUserStore } from '../../../stores/UserStore';
 import DailyStreakComponent from '~/features/ShowMissions/components/DailyStreak';
 import BoosterWidget from '~/features/ShowMissions/components/BoosterWidget';
+import XPOverlay from '../../../components/XPOverlay';
+import StreakSavedOverlay from '../../../components/StreakSavedOverlay';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import RewardDetailsModal from '../../../components/RewardDetailsModal';
 
 
 const { height, width } = Dimensions.get('window');
@@ -84,6 +88,9 @@ export default function ShowMissionsScreen() {
   const [quests, setQuests] = useState<UserQuest[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [xpToast, setXPToast] = useState<{ visible: boolean; startXP: number; endXP: number; level: number } | null>(null);
+  const [selectedQuestForModal, setSelectedQuestForModal] = useState<UserQuest | null>(null);
+  const [recentlyClaimedQuest, setRecentlyClaimedQuest] = useState<UserQuest | null>(null);
 
   const { addXP, updateStreak, profile, fetchProfile, fetchInventory } = useUserStore();
 
@@ -129,25 +136,63 @@ export default function ShowMissionsScreen() {
   }, []);
 
   useEffect(() => {
-    fetchQuests();
-    fetchProfile(); 
+    const initData = async () => {
+        setLoading(true);
+        try {
+            await fetchQuests();
+            await fetchProfile(); // This triggers checkStreakRescue() internally
+            await fetchInventory(); // Now fetch inventory AFTER potential item consumption
+        } finally {
+            setLoading(false);
+        }
+    };
+    initData();
   }, [fetchQuests]);
 
   // Alert for Rescued Streak
+  const [showRescueOverlay, setShowRescueOverlay] = useState(false);
+  const [triggerThaw, setTriggerThaw] = useState(false);
+
+  // Check for Rescued Streak & Animation History
   useEffect(() => {
-    if (profile?.streak_rescued_date) {
-        const today = new Date().toISOString().split('T')[0];
-        if (profile.streak_rescued_date === today) {
-            Alert.alert(
-                'Streak Rescued! ❄️', 
-                'You missed a day, but your streak was saved by a Freeze item!'
-            );
+    const checkRescueAnimation = async () => {
+        if (profile?.streak_rescued_date) {
+            const today = new Date().toISOString().split('T')[0];
+            
+            // IF rescued TODAY
+            if (profile.streak_rescued_date === today) {
+                const storageKey = `streak_rescued_animation_shown_${today}`;
+                
+                const hasShown = await AsyncStorage.getItem(storageKey);
+
+                if (!hasShown) {
+                    setShowRescueOverlay(true);
+                } else {
+                    // Already shown, ensure thaw doesn't re-trigger or maybe it should act melted? 
+                    // For now, if already shown, we assume "melted" state or standard view.
+                }
+            }
         }
-    }
+    };
+    checkRescueAnimation();
   }, [profile?.streak_rescued_date]);
+
+  const handleDismissRescueOverlay = async () => {
+      setShowRescueOverlay(false);
+      setTriggerThaw(true);
+
+      // Save that we showed it
+      const today = new Date().toISOString().split('T')[0];
+      const storageKey = `streak_rescued_animation_shown_${today}`;
+      await AsyncStorage.setItem(storageKey, 'true');
+  };
 
   // --- CLAIM LOGIC ---
   const handleClaim = useCallback(async (userQuestId: number) => {
+    // Capture Start State immediately (Closure value is reliable as logical 'Before' state)
+    const startXP = profile?.xp || 0;
+    const currentLevel = profile?.level || 1;
+
     try {
       setLoading(true);
 
@@ -168,27 +213,36 @@ export default function ShowMissionsScreen() {
       const gainedXP = result.xp_gained;
       const newStreak = result.new_streak;
       const multiplier = result.multiplier;
+      
+      const endXP = startXP + gainedXP;
 
-      // 1. Update Profile Store
+      // 1. Trigger XP Toast (Visual feedback first)
+      setXPToast({
+        visible: true,
+        startXP: startXP,
+        endXP: endXP,
+        level: currentLevel
+      });
+
+      // 2. Update Profile Store
       await addXP(gainedXP);
       const todayDate = new Date().toISOString().split('T')[0];
       updateStreak(newStreak, todayDate);
 
-      // 2. Update Quest List locally to avoid full refetch
-      setQuests((currentQuests) =>
-        currentQuests.map((q) => {
+      // 3. Update Quest List locally to avoid full refetch
+      setQuests((currentQuests) => {
+        const questToClaim = currentQuests.find(q => q.id === userQuestId);
+        if (questToClaim) {
+             // We use the updated status 'claimed' for the modal
+             setRecentlyClaimedQuest({ ...questToClaim, status: 'claimed' });
+        }
+        return currentQuests.map((q) => {
           if (q.id === userQuestId) {
             return { ...q, status: 'claimed' };
           }
           return q;
-        })
-      );
-
-      // 3. Show Success Message
-      Alert.alert(
-        'Quest Claimed!',
-        `You earned ${gainedXP} XP!\nStreak: ${newStreak} days (${multiplier}x Multiplier)`
-      );
+        });
+      });
 
     } catch (e) {
       console.error('Error claiming:', e);
@@ -196,7 +250,7 @@ export default function ShowMissionsScreen() {
     } finally {
       setLoading(false);
     }
-  }, [addXP, updateStreak]);
+  }, [addXP, updateStreak, profile]); // Add profile to deps to use latest value
 
   // Listen filtern
   const dailyQuests = quests.filter((q) => {
@@ -263,9 +317,14 @@ export default function ShowMissionsScreen() {
           </MaskedView>
 
           <View style={styles.wrapper}>
-            <DailyStreakComponent />
+            <DailyStreakComponent triggerThaw={triggerThaw} />
           </View>
         </View>
+        
+        {/* STREAK RESCUE OVERLAY */}
+        {showRescueOverlay && (
+            <StreakSavedOverlay onDismiss={handleDismissRescueOverlay} />
+        )}
 
         {/* DRAGGABLE BOTTOM SHEET */}
         <DraggableBottomSheet initialHeight={SHEET_INITIAL_HEIGHT} maxHeight={0.75}>
@@ -340,6 +399,30 @@ export default function ShowMissionsScreen() {
 
 
       </View>
+      
+      {xpToast?.visible && (
+        <XPOverlay
+          isVisible={true} // Always true if rendered
+          startXP={xpToast.startXP}
+          endXP={xpToast.endXP}
+          level={xpToast.level}
+          onComplete={() => setXPToast(prev => prev ? { ...prev, visible: false } : null)}
+        />
+      )}
+
+      {/* REWARD DETAILS MODAL (For claimed quests to show Happy Sprig) */}
+      <RewardDetailsModal
+        visible={!!selectedQuestForModal}
+        reward={selectedQuestForModal ? {
+            level: 1, // Dummy
+            title: selectedQuestForModal.Quests.title,
+            description: selectedQuestForModal.Quests.description,
+            // Use fallback icon
+        } : null}
+        isClaimed={true} // Always claimed when viewing history? Or check status
+        isLocked={false}
+        onClose={() => setSelectedQuestForModal(null)}
+      />
     </GestureHandlerRootView>
   );
 }
@@ -348,11 +431,13 @@ export default function ShowMissionsScreen() {
 function QuestCard({
   quest,
   onClaim,
+  onPress,
   isLast,
   multiplier,
 }: {
   quest: UserQuest;
   onClaim: () => void;
+  onPress?: () => void;
   isLast: boolean;
   multiplier: number;
 }) {
@@ -377,12 +462,11 @@ function QuestCard({
   const xpBgColor = '#FFF';
   const xpBorderColor = hasMultiplier ? fireColor : '#329D9C';
   const xpTextColor = hasMultiplier ? fireColor : '#329D9C';
-
   // Calculate potential XP with multiplier for display
   const baseXP = quest.Quests.xp_reward;
   const displayXP = Math.floor(baseXP * multiplier);
 
-  return (
+  const content = (
     <View style={[styles.card, isClaimed && { opacity: 0.6 }]}>
       <View
         style={{
@@ -444,7 +528,7 @@ function QuestCard({
             colors={['#329D9C', '#8bdcbd']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
-            style={[styles.progressBarFill, { width: `${percentage}%` }]}
+            style={[styles.progressBarFill, { width: `${percentage}%`}]}
           />
         </View>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
@@ -456,6 +540,16 @@ function QuestCard({
       </View>
     </View>
   );
+
+  if (onPress) {
+      return (
+          <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
+              {content}
+          </TouchableOpacity>
+      );
+  }
+
+  return content;
 }
 
 const MultiplierBanner = ({ multiplier, isBoosterActive }: { multiplier: number, isBoosterActive: boolean }) => {

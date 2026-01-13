@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, Image, ScrollView, TouchableOpacity, Alert, ActivityIndicator, StyleSheet } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useUnistyles } from 'react-native-unistyles';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,9 +13,10 @@ import GradientIcon from '../../../components/GradientIcon';
 import GradientText from '../../../components/GradientText';
 import RankCard from '../../../components/RankCard';
 import RewardItem from '../../../components/RewardItem';
-import { REWARDS, getRankName } from '../../../utils/leveling';
+import { REWARDS, getRankName, Reward } from '../../../utils/leveling';
 import PostListTab from './components/PostListTab';
 import { FontAwesome5 } from '@expo/vector-icons';
+import RewardDetailsModal from '../../../components/RewardDetailsModal';
 
 export default function ProfileScreen() {
   const { theme } = useUnistyles();
@@ -23,6 +25,7 @@ export default function ProfileScreen() {
   const [activeTab, setActiveTab] = useState('leveling');
   const [isBioExpanded, setIsBioExpanded] = useState(false);
   const [isBioTruncated, setIsBioTruncated] = useState(false);
+  const [selectedReward, setSelectedReward] = useState<Reward | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -63,13 +66,11 @@ export default function ProfileScreen() {
   ];
 
   const handleClaimReward = async (level: number, title: string) => {
-    console.log("Hallo")
     const success = await claimReward(level);
-    if (success) {
-      Alert.alert('Reward Claimed!', `You have claimed: ${title}`);
-    } else {
+    if (!success) {
       Alert.alert('Error', 'Could not claim reward. Try again later.');
     }
+    // Success: modal will auto-update to "Collected" state, no alert needed
   };
 
   const renderContent = () => {
@@ -103,7 +104,7 @@ export default function ProfileScreen() {
               style={styles.rewardsScroll}>
               {REWARDS.map((reward) => {
                 const isClaimable = unclaimedRewards.some(r => r.level === reward.level);
-    
+
                 
                 const isUnlocked = currentLevel >= reward.level;
                 const isClaimed = isUnlocked && !isClaimable; 
@@ -115,12 +116,7 @@ export default function ProfileScreen() {
                     description={reward.description}
                     isUnlocked={isUnlocked}
                     isClaimed={isClaimed}
-                    onClaim={() => {
-                      console.log("Hallo")
-                        if (isClaimable) handleClaimReward(reward.level, reward.title);
-                        else if (isClaimed) Alert.alert("Already Claimed", "You have already claimed this reward.");
-                        else Alert.alert("Locked", "Reach the required level to unlock.");
-                    }}
+                    onClaim={isClaimed ? undefined : () => setSelectedReward(reward)}
                   />
               )})}
             </ScrollView>
@@ -157,15 +153,8 @@ export default function ProfileScreen() {
           />
 
           <View style={styles.headerContent}>
-            {/* Header Top Row: BackButton & Settings */}
+            {/* Header Top Row: Settings Only */}
             <View style={styles.headerTopRow}>
-              <TouchableOpacity
-                style={styles.iconButton}
-                onPress={() => navigation.goBack()}
-              >
-                <FontAwesome6 name="chevron-left" size={20} color={theme.colors.textDark} />
-              </TouchableOpacity>
-
               {/* Settings Button */}
               <TouchableOpacity
                 style={styles.iconButton}
@@ -200,19 +189,33 @@ export default function ProfileScreen() {
                     style={[styles.avatar, { backgroundColor: theme.colors.greyedOut }]}
                     resizeMode="cover"
                   />
-                  {/* --- NEW: Render Equipped Border --- */}
                   {profile?.equipped_border?.media_url && (
-                    <Image
+                    <ExpoImage
+                      key={profile.equipped_border.media_url} // Force re-mount on change!
                       source={{ uri: profile.equipped_border.media_url }}
-                      style={{
-                        position: 'absolute',
-                        width: 134, // 80 * 1.675 (matching inventory ratio)
-                        height: 134,
-                        top: -27,
-                        left: -27,
-                        zIndex: 1
-                      }}
-                      resizeMode="contain"
+                      style={
+                        profile.equipped_border.media_url.includes('.gif')
+                          ? {
+                              // Large size for GIFs with padding
+                              position: 'absolute',
+                              width: 210,
+                              height: 210,
+                              top: -65,
+                              left: -65,
+                              zIndex: 1,
+                            }
+                          : {
+                              // Standard size for PNGs
+                              position: 'absolute',
+                              width: 134,
+                              height: 134,
+                              top: -27,
+                              left: -27,
+                              zIndex: 1,
+                            }
+                      }
+                      pointerEvents="none"
+                      contentFit="contain"
                     />
                   )}
                 </View>
@@ -347,6 +350,23 @@ export default function ProfileScreen() {
 
           </ScrollView>
         </DraggableBottomSheet>
+
+        {/* Reward Details Modal */}
+        <RewardDetailsModal 
+            visible={!!selectedReward} 
+            reward={selectedReward}
+            isLocked={selectedReward ? (profile?.level || 1) < selectedReward.level : false} 
+            isClaimed={selectedReward ? !unclaimedRewards.some(r => r.level === selectedReward.level) && (profile?.level || 1) >= selectedReward.level : false}
+            onClose={() => setSelectedReward(null)}
+            onClaimAction={() => {
+                if (selectedReward) {
+                    handleClaimReward(selectedReward.level, selectedReward.title);
+                    // Optionally close modal or let it auto-update to "Collected"
+                    // If we close: setSelectedReward(null);
+                    // If we keep open: The 'isClaimed' prop will update when store updates!
+                }
+            }} 
+        />
       </View>
     </GestureHandlerRootView>
   );
@@ -373,7 +393,7 @@ const styles = StyleSheet.create({
   },
   headerTopRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     alignItems: 'center',
     marginBottom: 20,
   },
