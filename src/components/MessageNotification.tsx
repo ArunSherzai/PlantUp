@@ -150,6 +150,14 @@ const styles = StyleSheet.create({
         fontSize: 13,
         fontWeight: '400',
     },
+    label: {
+        fontSize: 10,
+        fontWeight: '600',
+        color: '#888',
+        marginBottom: 1,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
     avatar: {
         width: 40,
         height: 40,

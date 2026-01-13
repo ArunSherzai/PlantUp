@@ -52,12 +52,14 @@ interface DMState {
 let activeChannel: RealtimeChannel | null = null;
 let activeChannelId: string | null = null;
 let inboxChannels: RealtimeChannel[] = [];
+// Track processed events to prevent duplicates from multiple subscriptions or echoes
+const processedEvents = new Set<string>();
 
 export const useDMStore = create<DMState>((set, get) => ({
     conversations: [],
-    activeConversationId: null,
     messages: {},
     loading: false,
+    activeConversationId: null,
 
     fetchConversations: async () => {
         const user = useUserStore.getState().user;
@@ -403,37 +405,81 @@ export const useDMStore = create<DMState>((set, get) => ({
                     event: 'UPDATE',
                     schema: 'social_media_schema',
                     table: 'dm_conversations',
-                    filter: `or(user_low.eq.${user.id},user_high.eq.${user.id})`,
+                    // filter: `or(user_low.eq.${user.id},user_high.eq.${user.id})`,
                 },
                 (payload) => {
-                    console.log('[DMStore] INBOX EVENT', payload);
+                    console.log('[DMStore] 📬 INBOX EVENT RECEIVED');
                     const updatedConvo = payload.new as any;
+                    const eventKey = `${updatedConvo.id}-${updatedConvo.last_message_time}`;
+
+                    if (processedEvents.has(eventKey)) {
+                        console.log('[DMStore] 🛑 Skipping duplicate event:', eventKey);
+                        return;
+                    }
+                    processedEvents.add(eventKey);
+                    // Clear after 5 seconds to free memory
+                    setTimeout(() => processedEvents.delete(eventKey), 5000);
+
+                    console.log('[DMStore] Payload:', JSON.stringify(payload.new, null, 2));
                     const user = useUserStore.getState().user;
 
-                    // Show notification if message is from another user
+                    console.log('[DMStore] Last message from:', updatedConvo.last_message_sender_id);
+                    console.log('[DMStore] Current user:', user?.id);
+                    console.log('[DMStore] Message text:', updatedConvo.last_message_text);
+
+                    // Show notification & Update Badge if message is from another user
+                    let nextUnreadCount = undefined;
+
                     if (updatedConvo.last_message_sender_id &&
                         updatedConvo.last_message_sender_id !== user?.id &&
                         updatedConvo.last_message_text) {
 
-                        // Find the conversation to get sender name
+                        console.log('[DMStore] ✅ New message from OTHER user - showing notification');
+
+                        // Find the conversation to get detailed info
                         const conversations = get().conversations;
-                        const convo = conversations.find(c => c.id === updatedConvo.id);
-                        const senderName = convo?.participants?.[0]?.username || 'New Message';
-                        const avatar = convo?.participants?.[0]?.avatar_path;
+                        const existingConvo = conversations.find(c => c.id === updatedConvo.id);
 
-                        // Play sound
-                        playReceiveSound();
+                        // DUPLICATE CHECK: Only notify if the time has actually changed or the message text is different
+                        // This prevents re-notifying on metadata updates (like 'read' status changes happening concurrently)
+                        console.log('[DuplicateCheck] Existing Time:', existingConvo?.last_message?.created_at);
+                        console.log('[DuplicateCheck] New Time:', updatedConvo.last_message_time);
 
-                        // Show notification banner
-                        useMessageNotificationStore.getState().showNotification({
-                            senderName,
-                            content: updatedConvo.last_message_text,
-                            avatar: avatar ? { uri: avatar } : undefined,
-                            conversationId: updatedConvo.id,
-                        });
+                        const existingTime = existingConvo?.last_message?.created_at ? new Date(existingConvo.last_message.created_at).getTime() : 0;
+                        const newTime = updatedConvo.last_message_time ? new Date(updatedConvo.last_message_time).getTime() : 0;
+
+                        const isDuplicate = existingConvo &&
+                            existingTime === newTime &&
+                            existingConvo.last_message?.content === updatedConvo.last_message_text;
+
+                        if (!isDuplicate) {
+                            const senderName = existingConvo?.participants?.[0]?.username || 'New Message';
+                            const avatar = existingConvo?.participants?.[0]?.avatar_path;
+
+                            // Increment badge locally
+                            const currentUnread = existingConvo?.unread_count || 0;
+                            nextUnreadCount = currentUnread + 1;
+
+                            // Play sound
+                            playReceiveSound();
+
+                            // Show notification banner
+                            useMessageNotificationStore.getState().showNotification({
+                                senderName,
+                                content: updatedConvo.last_message_text,
+                                avatar: avatar ? { uri: avatar } : undefined,
+                                conversationId: updatedConvo.id,
+                            });
+                        } else {
+                            console.log('[DMStore] ⚠️ Ignoring duplicate/redundant update');
+                        }
                     }
 
-                    get().upsertConversation(updatedConvo as Conversation);
+                    // Upsert with new unread count if applicable
+                    get().upsertConversation({
+                        ...updatedConvo as Conversation,
+                        ...(nextUnreadCount !== undefined ? { unread_count: nextUnreadCount } : {})
+                    });
                 }
             )
             .subscribe((status, err) => {

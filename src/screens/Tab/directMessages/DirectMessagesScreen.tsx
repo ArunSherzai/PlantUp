@@ -166,7 +166,8 @@ export default function DirectMessagesScreen() {
                 lastMessage: c.last_message?.content || 'Start chatting!',
                 time: timeStr,
                 avatar: avatar,
-                conversationData: c
+                conversationData: c,
+                unreadCount: c.unread_count || 0,
             };
         });
 
@@ -205,13 +206,21 @@ export default function DirectMessagesScreen() {
         >
             <View style={styles.avatarContainer}>
                 <Image source={item.avatar} style={styles.avatar} resizeMode="cover" />
+                {/* Unread Badge */}
+                {item.unreadCount > 0 && (
+                    <View style={styles.unreadBadge}>
+                        <Text style={styles.unreadBadgeText}>
+                            {item.unreadCount > 99 ? '99+' : item.unreadCount}
+                        </Text>
+                    </View>
+                )}
             </View>
             <View style={styles.messageContent}>
                 <View style={styles.messageHeader}>
-                    <Text style={[styles.name, { color: theme.colors.text }]}>{item.name}</Text>
+                    <Text style={[styles.name, { color: theme.colors.text, fontWeight: item.unreadCount > 0 ? '700' : '600' }]}>{item.name}</Text>
                     <Text style={[styles.time, { color: theme.colors.greyedOut }]}>{item.time}</Text>
                 </View>
-                <Text style={[styles.lastMessage, { color: theme.colors.greyedOut }]} numberOfLines={1}>
+                <Text style={[styles.lastMessage, { color: theme.colors.greyedOut, fontWeight: item.unreadCount > 0 ? '600' : '400' }]} numberOfLines={1}>
                     {item.lastMessage}
                 </Text>
             </View>
@@ -413,12 +422,12 @@ const styles = StyleSheet.create({
         height: 50,
         borderRadius: 25,
         backgroundColor: '#E0E0E0',
-        overflow: 'hidden',
         marginRight: 15,
     },
     avatar: {
         width: '100%',
         height: '100%',
+        borderRadius: 25,
     },
     messageContent: {
         flex: 1,
@@ -490,5 +499,24 @@ const styles = StyleSheet.create({
     userResultName: {
         fontSize: 16,
         fontWeight: '500'
-    }
+    },
+    unreadBadge: {
+        position: 'absolute',
+        top: -4,
+        right: -4,
+        backgroundColor: '#FF3B30',
+        borderRadius: 10,
+        minWidth: 20,
+        height: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 5,
+        borderWidth: 2,
+        borderColor: '#FFF',
+    },
+    unreadBadgeText: {
+        color: '#FFF',
+        fontSize: 11,
+        fontWeight: 'bold',
+    },
 });

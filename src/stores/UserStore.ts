@@ -107,8 +107,20 @@ export const useUserStore = create<State>((set, get) => ({
       get().fetchProfile();
       get().fetchInventory();
       get().loadSettings();
+
+      // Subscribe to DM inbox globally (for notifications anywhere in the app)
+      // Use setTimeout to ensure UserStore is set first
+      setTimeout(() => {
+        const { subscribeToInbox, fetchConversations } = require('./DMStore').useDMStore.getState();
+        fetchConversations();
+        subscribeToInbox();
+      }, 100);
     } else {
       set({ profile: null, inventory: [], ownedBorders: [] });
+
+      // Unsubscribe from inbox on logout
+      const { unsubscribeFromInbox } = require('./DMStore').useDMStore.getState();
+      unsubscribeFromInbox?.();
     }
   },
   setProfile: (profile) => set({ profile }),

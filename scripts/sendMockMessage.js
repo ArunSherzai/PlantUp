@@ -10,11 +10,21 @@ let SUPABASE_URL, SUPABASE_KEY;
 try {
     const envFile = fs.readFileSync(envPath, 'utf8');
     envFile.split('\n').forEach(line => {
-        if (line.startsWith('EXPO_PUBLIC_SUPABASE_URL=')) {
-            SUPABASE_URL = line.split('=')[1].trim();
+        const parts = line.split('=');
+        const key = parts[0].trim();
+        const val = parts.slice(1).join('=').trim();
+
+        if (key === 'EXPO_PUBLIC_SUPABASE_URL') {
+            SUPABASE_URL = val;
         }
-        if (line.startsWith('EXPO_PUBLIC_SUPABASE_ANON_KEY=')) {
-            SUPABASE_KEY = line.split('=')[1].trim();
+        if (key === 'EXPO_PUBLIC_SUPABASE_ANON_KEY') {
+            // Default to anon
+            if (!SUPABASE_KEY) SUPABASE_KEY = val;
+        }
+        if (key === 'SUPABASE_SERVICE_ROLE_KEY' || key === 'EXPO_PUBLIC_SUPABASE_SERVICE_ROLE_KEY') {
+            // Prefer service role if found (bypasses RLS)
+            console.log('FOUND SERVICE ROLE KEY! Using it...');
+            SUPABASE_KEY = val;
         }
     });
 } catch (e) {
@@ -37,13 +47,12 @@ const rl = readline.createInterface({
 async function main() {
     console.log('--- Mock Message Sender ---');
 
-    // 1. Fetch recent conversations from correct schema
     const { data: convs, error } = await supabase
         .schema('social_media_schema')
         .from('dm_conversations')
         .select('*')
         .order('updated_at', { ascending: false })
-        .limit(5);
+        .limit(10);
 
     if (error) {
         console.error('Error fetching conversations:', error);
@@ -57,7 +66,9 @@ async function main() {
 
     console.log('\nSelect a conversation to spam:');
     convs.forEach((c, i) => {
-        console.log(`${i + 1}. ID: ${c.id} (Last msg: ${c.last_message_text || 'None'})`);
+        console.log(`${i + 1}. ID: ${c.id}`);
+        console.log(`   Participants: ${c.user_low} & ${c.user_high}`);
+        console.log(`   Last msg: ${c.last_message_text || 'None'}`);
     });
 
     rl.question('\nEnter number (1-5): ', async (answer) => {
@@ -90,6 +101,26 @@ async function main() {
             console.error('Error sending message:', sendError);
         } else {
             console.log('SUCCESS! Message sent:', mockText);
+
+            // MANUALLY UPDATE CONVERSATION to trigger the realtime inbox event
+            // (In case DB trigger is missing or lazy)
+            const { error: updateError } = await supabase
+                .schema('social_media_schema')
+                .from('dm_conversations')
+                .update({
+                    last_message_text: mockText,
+                    last_message_sender_id: senderId,
+                    last_message_time: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', convId);
+
+            if (updateError) {
+                console.error('Error updating conversation:', updateError);
+            } else {
+                console.log('Conversation updated (Triggering Realtime Event...)');
+            }
+
             console.log('Check your app inbox. It should move to top and update text.');
         }
 
