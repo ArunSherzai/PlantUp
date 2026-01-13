@@ -94,7 +94,12 @@ export default function ProfileScreen() {
             </TouchableOpacity>
 
             {/* Rank Card */}
-            <RankCard level={currentLevel} xp={currentXP} rankName={currentRank} />
+            <RankCard
+              level={currentLevel}
+              xp={currentXP}
+              rankName={currentRank}
+              seed={user?.id ? user.id.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0) : 12345}
+            />
 
             {/* Rewards Section */}
             <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Rewards</Text>
@@ -105,10 +110,10 @@ export default function ProfileScreen() {
               {REWARDS.map((reward) => {
                 const isClaimable = unclaimedRewards.some(r => r.level === reward.level);
 
-                
+
                 const isUnlocked = currentLevel >= reward.level;
-                const isClaimed = isUnlocked && !isClaimable; 
-                
+                const isClaimed = isUnlocked && !isClaimable;
+
                 return (
                   <RewardItem
                     key={reward.level}
@@ -118,7 +123,8 @@ export default function ProfileScreen() {
                     isClaimed={isClaimed}
                     onClaim={isClaimed ? undefined : () => setSelectedReward(reward)}
                   />
-              )})}
+                )
+              })}
             </ScrollView>
           </>
         );
@@ -196,23 +202,23 @@ export default function ProfileScreen() {
                       style={
                         profile.equipped_border.media_url.includes('.gif')
                           ? {
-                              // Large size for GIFs with padding
-                              position: 'absolute',
-                              width: 210,
-                              height: 210,
-                              top: -65,
-                              left: -65,
-                              zIndex: 1,
-                            }
+                            // Large size for GIFs with padding
+                            position: 'absolute',
+                            width: 210,
+                            height: 210,
+                            top: -65,
+                            left: -65,
+                            zIndex: 1,
+                          }
                           : {
-                              // Standard size for PNGs
-                              position: 'absolute',
-                              width: 134,
-                              height: 134,
-                              top: -27,
-                              left: -27,
-                              zIndex: 1,
-                            }
+                            // Standard size for PNGs
+                            position: 'absolute',
+                            width: 134,
+                            height: 134,
+                            top: -27,
+                            left: -27,
+                            zIndex: 1,
+                          }
                       }
                       pointerEvents="none"
                       contentFit="contain"
@@ -226,19 +232,19 @@ export default function ProfileScreen() {
                       {profile?.username || user?.email?.split('@')[0] || 'Gardener'}
                     </Text>
                   </View>
-                  
-                  <TouchableOpacity 
+
+                  <TouchableOpacity
                     onPress={() => navigation.navigate('TitleInventory')}
                     style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}
                   >
                     <Text
-                        style={{
+                      style={{
                         fontSize: 14,
                         color: profile?.titlecolor || theme.colors.text,
                         fontWeight: '600',
                         marginRight: 8,
-                        }}>
-                        {profile?.title}
+                      }}>
+                      {profile?.title}
                     </Text>
                     <GradientIcon name="pen" size={12} />
                   </TouchableOpacity>
@@ -352,20 +358,20 @@ export default function ProfileScreen() {
         </DraggableBottomSheet>
 
         {/* Reward Details Modal */}
-        <RewardDetailsModal 
-            visible={!!selectedReward} 
-            reward={selectedReward}
-            isLocked={selectedReward ? (profile?.level || 1) < selectedReward.level : false} 
-            isClaimed={selectedReward ? !unclaimedRewards.some(r => r.level === selectedReward.level) && (profile?.level || 1) >= selectedReward.level : false}
-            onClose={() => setSelectedReward(null)}
-            onClaimAction={() => {
-                if (selectedReward) {
-                    handleClaimReward(selectedReward.level, selectedReward.title);
-                    // Optionally close modal or let it auto-update to "Collected"
-                    // If we close: setSelectedReward(null);
-                    // If we keep open: The 'isClaimed' prop will update when store updates!
-                }
-            }} 
+        <RewardDetailsModal
+          visible={!!selectedReward}
+          reward={selectedReward}
+          isLocked={selectedReward ? (profile?.level || 1) < selectedReward.level : false}
+          isClaimed={selectedReward ? !unclaimedRewards.some(r => r.level === selectedReward.level) && (profile?.level || 1) >= selectedReward.level : false}
+          onClose={() => setSelectedReward(null)}
+          onClaimAction={() => {
+            if (selectedReward) {
+              handleClaimReward(selectedReward.level, selectedReward.title);
+              // Optionally close modal or let it auto-update to "Collected"
+              // If we close: setSelectedReward(null);
+              // If we keep open: The 'isClaimed' prop will update when store updates!
+            }
+          }}
         />
       </View>
     </GestureHandlerRootView>

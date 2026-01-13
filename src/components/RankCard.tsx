@@ -1,17 +1,19 @@
 import React from 'react';
-import { View, Text, Image, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { useUnistyles } from 'react-native-unistyles';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { getLevelProgress, getXPForNextLevel, getTotalXPForLevel } from '../utils/leveling';
+import VirtualPlant from './VirtualPlant';
 
 type RankCardProps = {
   level: number;
   xp: number;
   rankName?: string;
+  seed?: number;
 };
 
-export default function RankCard({ level, xp, rankName = 'Blooming Sprout' }: RankCardProps) {
+export default function RankCard({ level, xp, rankName = 'Blooming Sprout', seed = 12345 }: RankCardProps) {
   const { theme } = useUnistyles();
 
   const RANK_GRADIENTS: Record<string, [string, string]> = {
@@ -43,27 +45,10 @@ export default function RankCard({ level, xp, rankName = 'Blooming Sprout' }: Ra
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={styles.container}>
-      {/* Rank Emblem */}
+
+      {/* Virtual Plant instead of Emblem */}
       <View style={styles.emblemContainer}>
-        <Image
-          source={
-            rankName === 'Seedling'
-              ? require('../../assets/emblems/Seedlin.png')
-              : rankName === 'Sprout'
-                ? require('../../assets/emblems/Sprout.png')
-                : rankName === 'Sapling'
-                  ? require('../../assets/emblems/Sapling.png')
-                  : rankName === 'Evergreen'
-                    ? require('../../assets/emblems/Evergreen.png')
-                    : rankName === 'Sunflower'
-                      ? require('../../assets/emblems/Sunflower.png')
-                      : rankName === 'Roseheart'
-                        ? require('../../assets/emblems/Roseheart.png')
-                        : require('../../assets/emblems/Seedlin.png')
-          }
-          style={{ width: 100, height: 100 }}
-          resizeMode="contain"
-        />
+        <VirtualPlant level={level} seed={seed} width={150} height={180} />
       </View>
 
       {/* Level & Rank Info */}
@@ -98,13 +83,14 @@ const styles = StyleSheet.create({
     elevation: 8,
     marginVertical: 20,
     width: '100%',
-    minHeight: 320,
+    minHeight: 380, // Increased height for the plant
     justifyContent: 'center',
   },
   emblemContainer: {
-    marginBottom: 25,
+    marginBottom: 10,
     alignItems: 'center',
     justifyContent: 'center',
+    height: 180, // Fixed height for plant container
   },
   infoContainer: {
     alignItems: 'center',
