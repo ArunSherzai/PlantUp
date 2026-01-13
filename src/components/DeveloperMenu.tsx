@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, TouchableWithoutFeedback, Alert } from 'react-native';
 import { useUnistyles } from 'react-native-unistyles';
+import { db } from '../utils/supabase';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { useNavigation } from '@react-navigation/native';
 import { usePlantTipSystem } from '../hooks/usePlantTipSystem';
@@ -76,6 +77,29 @@ export default function DeveloperMenu({ visible, onClose }: DeveloperMenuProps) 
                             <TouchableOpacity style={styles.menuItem} onPress={handleScanTips}>
                                 <FontAwesome6 name="magnifying-glass" size={20} color="#448AFF" style={styles.icon} />
                                 <Text style={styles.menuText}>Scan for Tips</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity style={styles.menuItem} onPress={async () => {
+                                try {
+                                    const { data: { user } } = await db.public.auth.getUser();
+                                    if (!user) return;
+                                    
+                                    const { error } = await db.gamification
+                                        .from('User_quests')
+                                        .update({ status: 'completed' })
+                                        .eq('user_id', user.id);
+                                        // Removed .eq('status', 'active') to allow resetting CLAIMED quests back to COMPLETED
+                                    
+                                    if (error) throw error;
+                                    Alert.alert("Success", "ALL quests (active & claimed) marked as completed.");
+                                    onClose();
+                                } catch (e) {
+                                    Alert.alert("Error", "Could not update quests.");
+                                    console.log(e);
+                                }
+                            }}>
+                                <FontAwesome6 name="check-double" size={20} color="#FFD700" style={styles.icon} />
+                                <Text style={styles.menuText}>Complete All Quests</Text>
                             </TouchableOpacity>
                         </View>
                     </TouchableWithoutFeedback>

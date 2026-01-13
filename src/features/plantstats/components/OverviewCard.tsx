@@ -1,5 +1,6 @@
 import { View, Text } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { Image as ExpoImage } from 'expo-image';
 
 export default function OverviewCard({ latest, health }: any) {
   const { theme } = useUnistyles();
@@ -19,6 +20,13 @@ export default function OverviewCard({ latest, health }: any) {
       <View style={styles.left}>
         <Text style={[styles.title, { color: theme.colors.text }]}>Current health</Text>
 
+        {/* 🟢 NEW: If health is low, show percentage HERE prominently */}
+        {health < 50 && (
+          <Text style={[styles.healthValueLeft, { color: '#ef4444' }]}>
+            {health != null ? `${health}%` : '--'}
+          </Text>
+        )}
+
         <Text style={[styles.subtitle, { color: theme.colors.greyedOut }]}>
           {latest ? 'Based on your most recent sensor snapshot' : 'No sensor data yet'}
         </Text>
@@ -33,15 +41,27 @@ export default function OverviewCard({ latest, health }: any) {
         style={[
           styles.circleOuter,
           {
-            borderColor: theme.colors.primary,
+            borderColor: health < 50 ? '#ef4444' : theme.colors.primary, // Red border if low health
             backgroundColor: theme.colors.surface,
           },
         ]}>
         <View style={[styles.circleInner, { backgroundColor: theme.colors.background }]}>
-          <Text style={[styles.healthValue, { color: theme.colors.text }]}>
-            {health != null ? `${health}%` : '--'}
-          </Text>
-          <Text style={[styles.healthLabel, { color: theme.colors.greyedOut }]}>HEALTH</Text>
+          {health < 50 ? (
+            /* 🟢 NEW: If health is low, show ONLY GIF inside circle */
+            <ExpoImage
+              source={require('../../../../assets/animations/sad_sprig.gif')}
+              style={styles.sadSprigCircle}
+              contentFit="contain"
+            />
+          ) : (
+            /* 🟢 STANDARD: Otherwise show percentage as usual */
+            <>
+              <Text style={[styles.healthValue, { color: theme.colors.text }]}>
+                {health != null ? `${health}%` : '--'}
+              </Text>
+              <Text style={[styles.healthLabel, { color: theme.colors.greyedOut }]}>HEALTH</Text>
+            </>
+          )}
         </View>
       </View>
     </View>
@@ -114,5 +134,18 @@ const styles = StyleSheet.create((theme) => ({
     marginTop: 2,
     letterSpacing: 0.7,
     fontFamily: theme.fonts.regular,
+  },
+
+  /* New Styles for Layout Shift */
+  healthValueLeft: {
+    fontSize: 32,
+    fontFamily: theme.fonts.header,
+    marginTop: 4,
+    marginBottom: 0,
+  },
+
+  sadSprigCircle: {
+    width: 120,
+    height: 120,
   },
 }));

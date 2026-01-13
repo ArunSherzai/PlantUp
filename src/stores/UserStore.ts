@@ -411,7 +411,7 @@ export const useUserStore = create<State>((set, get) => ({
     if (!user) return;
 
     try {
-      console.log('[UserStore] fetchBorders: Starting manual two-step fetch...');
+
 
       // Step 1: Get owned border IDs and equipped status
       const { data: ownedData, error: ownedError } = await db.gamification
@@ -425,20 +425,20 @@ export const useUserStore = create<State>((set, get) => ({
       }
 
       if (!ownedData || ownedData.length === 0) {
-        console.log('[UserStore] No borders owned.');
+
         set({ ownedBorders: [] });
         return;
       }
 
       const borderIds = ownedData.map((item: any) => item.border_id);
-      console.log('[UserStore] Fetching details for IDs:', borderIds);
+
 
       // Step 2: Fetch details for these IDs
       const { data: bordersData, error: bordersError } = await db.gamification
         .from('Cosmetic_avatar_borders')
         .select('*')
         .in('id', borderIds);
-      console.log('[UserStore] Fetching details for IDs:', bordersData);
+
       if (bordersError) {
         console.error('[UserStore] Error fetching border details:', bordersError);
         return;
@@ -473,7 +473,7 @@ export const useUserStore = create<State>((set, get) => ({
         };
       }));
 
-      console.log(`[UserStore] Successfully loaded ${mergedBorders.length} borders.`);
+
       set({ ownedBorders: mergedBorders });
 
     } catch (error) {
@@ -491,6 +491,44 @@ export const useUserStore = create<State>((set, get) => ({
       is_equipped: b.id === borderId
     }));
     set({ ownedBorders: newBorders });
+
+    // Optimistic Update for Main Profile (to fix delay)
+    // Find the full border object
+    const newlyEquipped = newBorders.find(b => b.id === borderId);
+    if (newlyEquipped) {
+      // Construct the expected profile object update
+      // We reuse the existing media_url (which should already have timestamp from fetchBorders if valid)
+      // If not, we append it to be safe for the main screen
+      let mediaUrl = newlyEquipped.media_url;
+      // Removed Anti-Cache Logic to prevent flickering
+      if (mediaUrl && mediaUrl.includes('?t=')) {
+        mediaUrl = mediaUrl.split('?t=')[0];
+      }
+
+      const { profile } = get();
+      if (profile) {
+        set({
+          profile: {
+            ...profile,
+            equipped_border: {
+              ...newlyEquipped,
+              media_url: mediaUrl
+            }
+          }
+        });
+      }
+    } else if (borderId === null) {
+      // Unequipped case
+      const { profile } = get();
+      if (profile) {
+        set({
+          profile: {
+            ...profile,
+            equipped_border: null
+          }
+        });
+      }
+    }
 
     // 1. Unequip all
     await db.gamification
@@ -514,7 +552,10 @@ export const useUserStore = create<State>((set, get) => ({
       }
     }
 
-    await fetchProfile(); // Update profile to show new border
+    // We can skip fetchProfile() if the optimistic update worked, 
+    // but keeping it as a background sync is safer. 
+    // We don't await it to unblock UI.
+    fetchProfile();
   },
 
   fetchTitles: async () => {

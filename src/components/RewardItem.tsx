@@ -14,14 +14,13 @@ type RewardItemProps = {
 
 export default function RewardItem({ title, description, isUnlocked, isClaimed, onClaim }: RewardItemProps) {
     const { theme } = useUnistyles();
-    // Only clickable if unlocked AND NOT claimed
-    const isClickable = isUnlocked && !isClaimed && onClaim;
-    const Container = isClickable ? TouchableOpacity : View;
+    // Always clickable to allow viewing details/animation or "Locked" info
+    const Container = TouchableOpacity;
 
     return (
         <Container
             style={[styles.container, !isUnlocked && styles.lockedContainer, isClaimed && styles.claimedContainer]}
-            onPress={isClickable ? onClaim : undefined}
+            onPress={onClaim}
             activeOpacity={0.7}
         >
             <View style={styles.iconContainer}>
