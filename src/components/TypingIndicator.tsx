@@ -32,20 +32,21 @@ const styles = StyleSheet.create({
     container: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 15,
-        paddingVertical: 8,
+        paddingHorizontal: 20,
+        paddingVertical: 14,
         backgroundColor: '#F5F5F5',
         borderTopWidth: 1,
         borderTopColor: '#E0E0E0',
     },
     gif: {
-        width: 24,
-        height: 24,
-        marginRight: 8,
+        width: 40,
+        height: 40,
+        marginRight: 12,
     },
     text: {
-        fontSize: 14,
-        color: '#666',
+        fontSize: 16,
+        color: '#555',
         fontStyle: 'italic',
+        fontWeight: '500',
     },
 });
