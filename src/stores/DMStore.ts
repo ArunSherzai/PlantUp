@@ -3,6 +3,7 @@ import { db } from '../utils/supabase';
 import { useUserStore } from './UserStore';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { playSendSound, playReceiveSound } from '../utils/soundEffects';
+import { useMessageNotificationStore } from './MessageNotificationStore';
 
 export interface ChatMessage {
     id: string;
@@ -406,7 +407,33 @@ export const useDMStore = create<DMState>((set, get) => ({
                 },
                 (payload) => {
                     console.log('[DMStore] INBOX EVENT', payload);
-                    get().upsertConversation(payload.new as Conversation);
+                    const updatedConvo = payload.new as any;
+                    const user = useUserStore.getState().user;
+
+                    // Show notification if message is from another user
+                    if (updatedConvo.last_message_sender_id &&
+                        updatedConvo.last_message_sender_id !== user?.id &&
+                        updatedConvo.last_message_text) {
+
+                        // Find the conversation to get sender name
+                        const conversations = get().conversations;
+                        const convo = conversations.find(c => c.id === updatedConvo.id);
+                        const senderName = convo?.participants?.[0]?.username || 'New Message';
+                        const avatar = convo?.participants?.[0]?.avatar_path;
+
+                        // Play sound
+                        playReceiveSound();
+
+                        // Show notification banner
+                        useMessageNotificationStore.getState().showNotification({
+                            senderName,
+                            content: updatedConvo.last_message_text,
+                            avatar: avatar ? { uri: avatar } : undefined,
+                            conversationId: updatedConvo.id,
+                        });
+                    }
+
+                    get().upsertConversation(updatedConvo as Conversation);
                 }
             )
             .subscribe((status, err) => {

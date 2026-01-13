@@ -1,29 +1,32 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
-import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
+import React from 'react';
+import { View, StyleSheet, Image, ImageSourcePropType } from 'react-native';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 interface TypingIndicatorProps {
-    userName?: string;
+    avatar?: ImageSourcePropType;
     visible: boolean;
 }
 
-export const TypingIndicator: React.FC<TypingIndicatorProps> = ({ userName, visible }) => {
+export const TypingIndicator: React.FC<TypingIndicatorProps> = ({ avatar, visible }) => {
     if (!visible) return null;
 
     return (
         <Animated.View
-            entering={FadeInDown.duration(200)}
-            exiting={FadeOutDown.duration(200)}
+            entering={FadeIn.duration(200)}
+            exiting={FadeOut.duration(200)}
             style={styles.container}
         >
+            {avatar && (
+                <Image
+                    source={avatar}
+                    style={styles.avatar}
+                />
+            )}
             <Image
                 source={require('../../assets/animations/writing.gif')}
                 style={styles.gif}
                 resizeMode="contain"
             />
-            <Text style={styles.text}>
-                {userName ? `${userName} is typing...` : 'Typing...'}
-            </Text>
         </Animated.View>
     );
 };
@@ -32,21 +35,17 @@ const styles = StyleSheet.create({
     container: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingVertical: 14,
-        backgroundColor: '#F5F5F5',
-        borderTopWidth: 1,
-        borderTopColor: '#E0E0E0',
+        paddingHorizontal: 15,
+        paddingVertical: 10,
+    },
+    avatar: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        marginRight: 8,
     },
     gif: {
-        width: 40,
-        height: 40,
-        marginRight: 12,
-    },
-    text: {
-        fontSize: 16,
-        color: '#555',
-        fontStyle: 'italic',
-        fontWeight: '500',
+        width: 36,
+        height: 36,
     },
 });

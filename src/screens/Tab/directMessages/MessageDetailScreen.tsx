@@ -289,7 +289,7 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
             />
 
             {/* Typing Indicator */}
-            {!isSprig && <TypingIndicator visible={isOtherUserTyping} userName={name} />}
+            {!isSprig && <TypingIndicator visible={isOtherUserTyping} avatar={avatar} />}
 
             {/* Input Area */}
             <KeyboardAvoidingView style={{ marginBottom: 10 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={10}>

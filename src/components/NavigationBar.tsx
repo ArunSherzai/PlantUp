@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, TouchableOpacity } from 'react-native';
+import { View, TouchableOpacity, Text } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useDMStore } from '../stores/DMStore';
 
 // HIER ANPASSEN:
 const iconMap: { [key: string]: keyof typeof FontAwesome6.glyphMap } = {
@@ -18,12 +19,18 @@ const iconMap: { [key: string]: keyof typeof FontAwesome6.glyphMap } = {
 export default function NavigationBar({ state, descriptors, navigation }: any) {
   const { theme } = useUnistyles();
   const insets = useSafeAreaInsets();
+  const conversations = useDMStore((state) => state.conversations);
+
+  // Calculate total unread count
+  const totalUnread = conversations.reduce((sum, c) => sum + (c.unread_count || 0), 0);
+
   return (
     <View style={[styles.wrapper, { paddingBottom: insets.bottom }]}>
       <View style={styles.container}>
         {state.routes.map((route: (typeof state.routes)[number], index: number) => {
           const isFocused = state.index === index;
           const iconName = iconMap[route.name] || 'circle-question';
+          const showBadge = route.name === 'DirectMessages' && totalUnread > 0;
 
           const onPress = () => {
             const event = navigation.emit({
@@ -39,11 +46,20 @@ export default function NavigationBar({ state, descriptors, navigation }: any) {
 
           return (
             <TouchableOpacity key={route.key} onPress={onPress} style={styles.touchable}>
-              <FontAwesome6
-                name={iconName}
-                size={24}
-                color={isFocused ? theme.colors.secondary : theme.colors.text}
-              />
+              <View>
+                <FontAwesome6
+                  name={iconName}
+                  size={24}
+                  color={isFocused ? theme.colors.secondary : theme.colors.text}
+                />
+                {showBadge && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>
+                      {totalUnread > 99 ? '99+' : totalUnread}
+                    </Text>
+                  </View>
+                )}
+              </View>
             </TouchableOpacity>
           );
         })}
@@ -79,5 +95,22 @@ const styles = StyleSheet.create((theme) => ({
   touchable: {},
   icon: {
     color: theme.colors.text,
+  },
+  badge: {
+    position: 'absolute',
+    top: -6,
+    right: -10,
+    backgroundColor: '#FF3B30',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
 }));

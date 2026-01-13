@@ -7,6 +7,7 @@ import { usePlantTipSystem } from '../hooks/usePlantTipSystem';
 import { getRandomGeneralTip } from '../utils/tipResolver';
 import { saveTip } from '../utils/tipHistory';
 import { useTipStore } from '../stores/TipStore';
+import { useMessageNotificationStore } from '../stores/MessageNotificationStore';
 
 interface DeveloperMenuProps {
     visible: boolean;
@@ -50,6 +51,15 @@ export default function DeveloperMenu({ visible, onClose }: DeveloperMenuProps) 
         navigation.navigate('Lootbox', { itemName: 'Test Box' });
     };
 
+    const handleTestMessageNotification = () => {
+        onClose();
+        useMessageNotificationStore.getState().showNotification({
+            senderName: 'Test User',
+            content: 'This is a test message notification! 🎉',
+            conversationId: 'test',
+        });
+    };
+
     return (
         <Modal
             transparent
@@ -76,6 +86,11 @@ export default function DeveloperMenu({ visible, onClose }: DeveloperMenuProps) 
                             <TouchableOpacity style={styles.menuItem} onPress={handleScanTips}>
                                 <FontAwesome6 name="magnifying-glass" size={20} color="#448AFF" style={styles.icon} />
                                 <Text style={styles.menuText}>Scan for Tips</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity style={styles.menuItem} onPress={handleTestMessageNotification}>
+                                <FontAwesome6 name="envelope" size={20} color="#FF5722" style={styles.icon} />
+                                <Text style={styles.menuText}>Test Message Banner</Text>
                             </TouchableOpacity>
                         </View>
                     </TouchableWithoutFeedback>

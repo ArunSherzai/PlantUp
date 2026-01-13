@@ -2,14 +2,17 @@ import React from 'react';
 import { TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { usePlantTipSystem } from '../hooks/usePlantTipSystem';
 import TipNotification from './TipNotification';
+import MessageNotification from './MessageNotification';
+import { useMessageNotificationStore } from '../stores/MessageNotificationStore';
 
 export default function SpriteComponent() {
     const { triggerManualTip, activeTip, dismissTip } = usePlantTipSystem();
+    const { notification, hideNotification } = useMessageNotificationStore();
 
     return (
         <>
             <TipNotification tip={activeTip} onClose={dismissTip} />
-
+            <MessageNotification message={notification} onClose={hideNotification} />
         </>
     );
 }
