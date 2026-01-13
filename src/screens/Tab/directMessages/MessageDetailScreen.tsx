@@ -7,6 +7,9 @@ import { getTipHistory, StoredTip } from '../../../utils/tipHistory';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useDMStore, ChatMessage } from '../../../stores/DMStore';
 import { useUserStore } from '../../../stores/UserStore';
+import { initializeSounds, unloadSounds } from '../../../utils/soundEffects';
+import { useTypingIndicator } from '../../../hooks/useTypingIndicator';
+import { TypingIndicator } from '../../../components/TypingIndicator';
 
 type Props = StackScreenProps<RootStackParamList, 'MessageDetail'>;
 
@@ -39,6 +42,22 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
 
     // ID param: If 'sprig', it's the bot. If UUID, it's a conversation ID.
     const isSprig = id === 'sprig';
+
+    // Typing indicator (only for real chats, not sprig)
+    const { isOtherUserTyping, startTyping, stopTyping } = useTypingIndicator({
+        conversationId: id,
+        currentUserId: user?.id || '',
+        enabled: !isSprig && !!user?.id,
+    });
+
+    // Initialize sounds on mount
+    useEffect(() => {
+        initializeSounds();
+
+        return () => {
+            unloadSounds();
+        };
+    }, []);
 
     useEffect(() => {
         if (isSprig) {
@@ -120,6 +139,7 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
         if (!inputText.trim()) return;
         const textToSend = inputText;
         setInputText(''); // Clear immediately for UX
+        stopTyping(); // Clear typing indicator when sending
 
         if (isSprig) {
             // Echo or mock response? For now just local visible
@@ -268,6 +288,9 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
                 ListFooterComponent={loadingMore ? <ActivityIndicator size="small" color={theme.colors.primary} style={{ marginVertical: 10 }} /> : null}
             />
 
+            {/* Typing Indicator */}
+            {!isSprig && <TypingIndicator visible={isOtherUserTyping} userName={name} />}
+
             {/* Input Area */}
             <KeyboardAvoidingView style={{ marginBottom: 10 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={10}>
                 <View style={[styles.inputContainer, { borderTopColor: 'transparent' }]}>
@@ -276,7 +299,14 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
                         placeholder="Type a message..."
                         placeholderTextColor="#999"
                         value={inputText}
-                        onChangeText={setInputText}
+                        onChangeText={(text) => {
+                            setInputText(text);
+                            if (text.trim() && !isSprig) {
+                                startTyping();
+                            } else if (!text.trim()) {
+                                stopTyping();
+                            }
+                        }}
                     />
                     <TouchableOpacity onPress={handleSend} style={[styles.sendButton, { backgroundColor: theme.colors.primary, borderRadius: 15, height: 60, width: 60, justifyContent: 'center', alignItems: 'center' }]}>
                         <FontAwesome name="paper-plane" size={16} color="#FFF" />
