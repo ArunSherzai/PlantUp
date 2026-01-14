@@ -7,7 +7,7 @@ import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+
 
 type BottomSheetProps = {
   children?: React.ReactNode;
@@ -21,19 +21,7 @@ export default function DraggableBottomSheet({
   maxHeight = 0.9,
 }: BottomSheetProps) {
   const { theme } = useUnistyles();
-<<<<<<< Updated upstream
   const tabBarHeight = useBottomTabBarHeight();
-=======
-  let tabBarHeight = 0;
-  try {
-    tabBarHeight = useBottomTabBarHeight();
-  } catch (e) {
-    // Fallback if used outside of TabNavigator or hook fails
-    tabBarHeight = 60;
-    console.log("faills")
-  }
-
->>>>>>> Stashed changes
   // BERECHNUNG DER GRENZEN (Prozentual)
   const START_Y = -SCREEN_HEIGHT * initialHeight;
   const MAX_Y = -SCREEN_HEIGHT * maxHeight;
@@ -81,7 +69,7 @@ export default function DraggableBottomSheet({
       </GestureDetector>
 
       {/* 2. Der Inhalt (Frei für ScrollView) */}
-      <View style={[styles.contentContainer, { paddingBottom: tabBarHeight }]}>{children}</View>
+      <View style={styles.contentContainer}>{children}</View>
     </Animated.View>
   );
 }
