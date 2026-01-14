@@ -34,7 +34,7 @@ export function usePosts(options?: UsePostsOptions) {
         try {
             setLoading(true);
 
-            // 0. Fetch Blocked Posts (if user is logged in)
+            // 0. Fetch Blocked Posts (individual post blocks)
             let blockedPostIds: Set<string> = new Set();
             if (user?.id) {
                 const { data: blockedData } = await db.social
@@ -47,6 +47,25 @@ export function usePosts(options?: UsePostsOptions) {
                 }
             }
 
+            // 0b. Fetch Blocked Users (users I blocked or who blocked me)
+            // We can rely on UserStore for 'users I blocked', but for 'who blocked me' we might need a check
+            // For now, let's grab the IDs of everyone involved in a block with me
+            let blockedUserSet: Set<string> = new Set();
+            if (user?.id) {
+                 const { data: blockData, error: blockError } = await db.social
+                    .from('user_blocks')
+                    .select('blocker_id, blocked_id')
+                    .or(`blocker_id.eq.${user.id},blocked_id.eq.${user.id}`);
+                
+                if (blockData) {
+                    blockData.forEach((b: any) => {
+                       if (b.blocker_id === user.id) blockedUserSet.add(b.blocked_id);
+                       if (b.blocked_id === user.id) blockedUserSet.add(b.blocker_id);
+                    });
+                }
+            }
+
+
             let query = db.social
                 .from('Posts')
                 .select('*')
@@ -54,11 +73,19 @@ export function usePosts(options?: UsePostsOptions) {
 
             // Filter 1: My Posts
             if (options?.userId) {
+                // Pre-check: if I am blocked by or have blocked this user, return empty immediately
+                if (blockedUserSet.has(options.userId)) {
+                    setPosts([]);
+                    setLoading(false);
+                    return;
+                }
                 query = query.eq('user_id', options.userId);
             }
 
             // Filter 2: Liked By User
             if (options?.likedBy) {
+                // If I'm blocked by this user, maybe I can't see their likes? Let's be permissive here unless critical.
+                
                 // 1. Get IDs of posts liked by this user
                 const { data: interactionData, error: interactionError } = await db.social
                     .from('post_interactions')
@@ -88,8 +115,17 @@ export function usePosts(options?: UsePostsOptions) {
                 return;
             }
 
+            // Client-side filtering for Global Feed or other lists where userId wasn't pre-filtered
+            // Filter out posts from blocked users
+            const filteredPostsData = postsData.filter((p: any) => !blockedUserSet.has(p.user_id));
+
+            if (filteredPostsData.length === 0) {
+                setPosts([]);
+                return;
+            }
+
             // 2. Extract User IDs to fetch authors
-            const userIds = [...new Set(postsData.map((p: any) => p.user_id))];
+            const userIds = [...new Set(filteredPostsData.map((p: any) => p.user_id))];
 
             // 3. Fetch Users
             // Note: Users table is in user_schema
@@ -107,7 +143,7 @@ export function usePosts(options?: UsePostsOptions) {
             const usersMap = new Map();
             usersData?.forEach((u: any) => usersMap.set(u.id, u));
 
-            const mergedPosts = postsData.map((post: any) => {
+            const mergedPosts = filteredPostsData.map((post: any) => {
                 const user = usersMap.get(post.user_id);
                 let profileImageUrl = null;
 
