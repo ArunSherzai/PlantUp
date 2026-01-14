@@ -3,6 +3,7 @@ import { View, Dimensions } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -18,6 +19,7 @@ export default function DraggableBottomSheet({
   maxHeight = 0.9,
 }: BottomSheetProps) {
   const { theme } = useUnistyles();
+  const tabBarHeight = useBottomTabBarHeight();
   // BERECHNUNG DER GRENZEN (Prozentual)
   const START_Y = -SCREEN_HEIGHT * initialHeight;
   const MAX_Y = -SCREEN_HEIGHT * maxHeight;
@@ -56,7 +58,7 @@ export default function DraggableBottomSheet({
   });
 
   return (
-    <Animated.View style={[styles.bottomSheetContainer, rBottomSheetStyle]}>
+    <Animated.View style={[styles.bottomSheetContainer, rBottomSheetStyle, { marginBottom: tabBarHeight }]}>
       {/* 1. Der Griff (GestureDetector) */}
       <GestureDetector gesture={gesture}>
         <View style={styles.lineWrapper}>
@@ -99,6 +101,5 @@ const styles = StyleSheet.create((theme) => ({
   },
   contentContainer: {
     flex: 1,
-    marginBottom: 100,
   },
 }));
