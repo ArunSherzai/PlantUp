@@ -37,14 +37,15 @@ export const styles = StyleSheet.create((theme) => ({
 
   headerContainer: {
     paddingLeft: vw * 5,
-    marginTop: vh * 18,
+    marginTop: vh * 16, // Slightly reduced top margin
   },
 
   headerTitle: {
-    fontSize: vw * 11,
+    fontSize: vw * 10, // Reduced to prevent overlap
     fontFamily: theme.fonts.header,
     fontWeight: theme.fontWeights.extraBold,
     color: theme.colors.textDark,
+    marginBottom: vh * 2, // Added spacing
   },
 
   arrowIcon: {
@@ -133,9 +134,9 @@ export const styles = StyleSheet.create((theme) => ({
 
   backRow: {
     flexDirection: 'row',
-    gap: vw * 5,
+    gap: vw * 5, // Kept gap
     width: '100%',
-    marginTop: vh * 1,
+    marginTop: vh * 1, // Restored margin
   },
 
   column: {
@@ -143,7 +144,7 @@ export const styles = StyleSheet.create((theme) => ({
   },
 
   field: {
-    marginBottom: vh * 1.8,
+    marginBottom: vh * 1.5,
   },
 
   label: {
@@ -160,19 +161,46 @@ export const styles = StyleSheet.create((theme) => ({
     paddingVertical: vh * 1,
     paddingHorizontal: vw * 3,
     color: theme.colors.text,
-    fontSize: vw * 4,
-  },
-
-  saveText: {
-    color: theme.colors.textDark,
-    fontFamily: theme.fonts.regular,
-    fontWeight: theme.fontWeights.bold,
+    fontSize: vw * 3.5,
   },
 
   buttonRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: vw * 2,
+    width: '100%',
+  },
+
+  saveButton: {
+    flex: 1, // Fill available space
+    backgroundColor: theme.colors.primary,
+    paddingVertical: vh * 1,
+    borderRadius: vw * 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  cancelButton: {
+    flex: 1, // Fill available space
+    backgroundColor: 'transparent',
+    paddingVertical: vh * 1,
+    borderRadius: vw * 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.typography,
+  },
+
+  buttonText: {
+    color: '#FFF',
+    fontSize: vw * 3.5,
+    fontWeight: 'bold',
+  },
+
+  cancelButtonText: {
+    color: theme.colors.typography,
+    fontSize: vw * 3.5,
+    fontWeight: 'bold',
   },
   iconsView: {
     flexDirection: 'column',

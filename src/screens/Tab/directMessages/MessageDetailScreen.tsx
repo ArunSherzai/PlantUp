@@ -20,9 +20,12 @@ interface UIMessage {
     timestamp: number;
 }
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 export default function MessageDetailScreen({ route, navigation }: Props) {
     const { id, name, avatar } = route.params;
     const { theme } = useUnistyles();
+    const insets = useSafeAreaInsets(); // Hook
     const [inputText, setInputText] = useState('');
     const [uiMessages, setUiMessages] = useState<UIMessage[]>([]);
     const [loadingMore, setLoadingMore] = useState(false);
@@ -261,10 +264,10 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-            <StatusBar barStyle="dark-content" backgroundColor={theme.colors.background} />
+
 
             {/* Header */}
-            <View style={styles.header}>
+            <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                     <FontAwesome name="angle-left" size={30} color={theme.colors.text} />
                 </TouchableOpacity>
@@ -326,7 +329,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 15,
-        paddingVertical: 10,
+        paddingBottom: 10,
         borderBottomWidth: 1,
         borderBottomColor: '#F0F0F0',
     },

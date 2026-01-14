@@ -151,7 +151,7 @@ export default function DailyStreakComponent({ triggerThaw }: Props) {
               <View style={styles.rewardIconContainer}>
                 <FontAwesome6
                   name={isMaxed ? "crown" : (isFilled ? "gift" : "lock")}
-                  size={isSmallDevice ? 10 : 14}
+                  size={vw * 3.5}
                   color={isFilled ? (isMaxed ? "#783f04" : "white") : theme.colors.greyedOut}
                 />
               </View>
@@ -260,15 +260,20 @@ export default function DailyStreakComponent({ triggerThaw }: Props) {
 }
 
 const { width, height } = Dimensions.get('window');
-const isSmallDevice = width < 380;
-const isShortDevice = height < 700;
+const vw = width / 100;
+const vh = height / 100;
+
+// Removed manual device checks & duplicate imports
+
+// ... (rest of component logic)
+
+// Removed manual device checks
 
 const styles = UnistylesSheet.create((theme) => ({
   containerWrapper: {
      width: '100%',
-     borderRadius: 16,
-     marginBottom: 10,
-     // Shadows moved here from container if possible, or keep in container
+     borderRadius: vw * 4,
+     marginBottom: vh * 1,
      shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -277,73 +282,70 @@ const styles = UnistylesSheet.create((theme) => ({
   },
   container: {
     width: '100%',
-    paddingVertical: (isSmallDevice || isShortDevice) ? 10 : 15,
-    paddingHorizontal: 15,
-    borderRadius: 16,
-    // Removed margins/shadows from here if wrapper handles it, or keep layout
+    paddingVertical: vh * 2,
+    paddingHorizontal: vw * 4,
+    borderRadius: vw * 4,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
-    overflow: 'hidden', // IMPORTANT for BlurView containment
+    overflow: 'hidden',
   },
   fullIceOverlay: {
       justifyContent: 'center',
       alignItems: 'center',
       zIndex: 50,
-      margin: 4, // 🟢 Visually Inset
+      margin: vw * 1,
   },
   topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: vh * 0.5,
   },
   statusRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: (isSmallDevice || isShortDevice) ? 8 : 12,
+    marginBottom: vh * 1.5,
   },
 
   // Badges & Text
   streakBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: vw * 2,
   },
   streakText: {
     color: 'white',
     fontWeight: '800',
-    fontSize: isSmallDevice ? 18 : 22,
+    fontSize: vw * 5.5,
     textShadowColor: 'rgba(0,0,0,0.1)',
     textShadowRadius: 2,
   },
   doneBadge: {
     backgroundColor: 'rgba(0, 217, 136, 0.2)',
-    padding: 4,
-    borderRadius: 8,
+    padding: vw * 1,
+    borderRadius: vw * 2,
   },
 
   // Status Text
   completedText: {
     color: '#00D988',
-    fontSize: 14,
+    fontSize: vw * 3.5,
     fontWeight: '600',
     letterSpacing: 0.5,
   },
   timeLeftText: {
     color: '#FFD700',
-    fontSize: 14,
+    fontSize: vw * 3.5,
     fontWeight: '600',
     opacity: 0.9,
   },
 
   // Reward Badges
-  maxBadge: {
-    // Removed container styles
-  },
+  maxBadge: {},
   maxReachedText: {
     color: '#FFD700',
-    fontSize: 12,
+    fontSize: vw * 3,
     fontWeight: '800',
     letterSpacing: 1,
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
@@ -354,16 +356,15 @@ const styles = UnistylesSheet.create((theme) => ({
     backgroundColor: 'rgba(255, 215, 0, 0.15)',
     borderWidth: 1,
     borderColor: 'rgba(255, 215, 0, 0.5)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: vw * 2,
+    paddingVertical: vh * 0.5,
+    borderRadius: vw * 3,
   },
   nextRewardText: {
     color: '#FFD700',
-    fontSize: 12,
+    fontSize: vw * 3,
     fontWeight: 'bold',
   },
-
 
   frozenStatusBadge: {
       flexDirection: 'row',
@@ -371,13 +372,13 @@ const styles = UnistylesSheet.create((theme) => ({
       backgroundColor: 'rgba(165, 242, 243, 0.15)',
       borderWidth: 1,
       borderColor: 'rgba(165, 242, 243, 0.5)',
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: 12,
+      paddingHorizontal: vw * 2,
+      paddingVertical: vh * 0.5,
+      borderRadius: vw * 3,
   },
   frozenStatusText: {
       color: '#A5F2F3',
-      fontSize: 12,
+      fontSize: vw * 3,
       fontWeight: 'bold',
       letterSpacing: 1,
   },
@@ -388,21 +389,21 @@ const styles = UnistylesSheet.create((theme) => ({
       backgroundColor: 'rgba(165, 242, 243, 0.1)',
       borderWidth: 1,
       borderColor: 'rgba(165, 242, 243, 0.3)',
-      paddingHorizontal: 6,
-      paddingVertical: 4,
-      borderRadius: 12,
-      gap: 4,
+      paddingHorizontal: vw * 1.5,
+      paddingVertical: vh * 0.5,
+      borderRadius: vw * 3,
+      gap: vw * 1,
   },
   freezeCountText: {
       color: '#A5F2F3',
-      fontSize: 12,
+      fontSize: vw * 3,
       fontWeight: 'bold',
   },
 
   barContainer: {
     flexDirection: 'row',
-    height: isSmallDevice ? 10 : 14,
-    gap: (isSmallDevice || isShortDevice) ? 3 : 5,
+    height: vh * 1.5,
+    gap: vw * 1,
   },
   
   // Progress Bar
@@ -416,7 +417,7 @@ const styles = UnistylesSheet.create((theme) => ({
     width: '100%',
     height: '100%',
     backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 4,
+    borderRadius: vw * 1,
     overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
@@ -430,8 +431,8 @@ const styles = UnistylesSheet.create((theme) => ({
 
   hintText: {
     color: 'rgba(255,255,255,0.6)',
-    fontSize: 14,
-    marginTop: 8,
+    fontSize: vw * 3.5,
+    marginTop: vh * 1,
     textAlign: 'center',
   },
 }));

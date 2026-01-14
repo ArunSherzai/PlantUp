@@ -12,8 +12,11 @@ import { usePosts } from '../../../hooks/usePosts';
 import MasonryFeedGrid from '../../../components/MasonryFeedGrid';
 import { useUserSearch } from '../../../features/social/hooks/useUserSearch';
 import { useConnections } from '../../../features/social/hooks/useConnections';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
+const vh = height / 100;
+const vw = width / 100;
 
 // Helper to determine rank color based on level
 const getRankColor = (level: number) => {
@@ -26,6 +29,7 @@ const getRankColor = (level: number) => {
 export default function FeedScreen() {
     const { theme } = useUnistyles();
     const navigation = useNavigation<any>();
+    const insets = useSafeAreaInsets();
     const { posts: allPosts, loading: postsLoading, refreshPosts: refreshFeed } = usePosts();
     const [refreshing, setRefreshing] = useState(false);
     
@@ -71,8 +75,8 @@ export default function FeedScreen() {
     const getStatus = (userId: string) => {
         // Simplified check just for "Do I follow them?"
         // We can do full friend logic if desired, but "Following/Not Following" is base.
-        const isFollowing = following.some(u => u.id === userId);
-        const isFollower = followers.some(u => u.id === userId); // To show 'Follow Back' if they follow us
+        const isFollowing = following.some((u: { id: string }) => u.id === userId);
+        const isFollower = followers.some((u: { id: string }) => u.id === userId); // To show 'Follow Back' if they follow us
 
         if (isFollowing) return 'following';
         if (isFollower) return 'follows_you'; // Meaning we don't follow them back yet
@@ -150,7 +154,7 @@ export default function FeedScreen() {
                         resizeMode="cover"
                     />
 
-                    <View style={styles.headerWrapper}>
+                    <View style={[styles.headerWrapper, { top: insets.top }]}>
                         {isSearching ? (
                             <View style={styles.searchContainer}>
                                 <TouchableOpacity onPress={closeSearch} style={{ marginRight: 10 }}>
@@ -169,14 +173,14 @@ export default function FeedScreen() {
                         ) : (
                             <>
                                 <TouchableOpacity
-                                    style={{ position: 'absolute', right: width * 0.05, top: 0, zIndex: 10, padding: 5 }}
+                                    style={{ position: 'absolute', right: vw * 5, top: vw * 5, zIndex: 10, padding: 5 }}
                                     onPress={() => setIsSearching(true)}
                                 >
-                                    <FontAwesome6 name="magnifying-glass" size={24} color="white" />
+                                    <FontAwesome6 name="magnifying-glass" size={vw * 6} color="white" />
                                 </TouchableOpacity>
 
                                 <MaskedView
-                                    style={{ height: 100, width: '100%', position: "absolute", top: 120, left: 0 }}
+                                    style={{ height: vh * 15, width: '100%', marginTop: vh * 10 }}
                                     maskElement={<Text style={styles.headerTitle}>Inspire and{'\n'}Be Inspired!</Text>}>
                                     <LinearGradient
                                         colors={['#FFFFFF', '#E0F7FA']}
@@ -191,9 +195,9 @@ export default function FeedScreen() {
                 </View>
 
                 {isSearching ? (
-                    <View style={styles.searchResultsContainer}>
+                    <View style={[styles.searchResultsContainer, { top: insets.top + vh * 15 }]}>
                         <ScrollView
-                            contentContainerStyle={{ padding: 20 }}
+                            contentContainerStyle={{ padding: vw * 5 }}
                             keyboardShouldPersistTaps="handled"
                         >
                             {searchResults.map(user => (
@@ -207,7 +211,7 @@ export default function FeedScreen() {
                         </ScrollView>
                     </View>
                 ) : (
-                    <DraggableBottomSheet initialHeight={0.65} maxHeight={0.9}>
+                    <DraggableBottomSheet initialHeight={0.70} maxHeight={0.9}>
                         {postsLoading && posts.length === 0 ? (
                             <View style={{ padding: 20 }}>
                                 <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -229,7 +233,7 @@ export default function FeedScreen() {
                                         <Text style={{ color: theme.colors.text }}>No posts yet. Be the first!</Text>
                                     </View>
                                 )}
-                                <View style={{ height: 100 }} />
+                                <View style={{ height: vh * 10 }} />
                             </ScrollView>
                         )}
                     </DraggableBottomSheet>
@@ -241,7 +245,7 @@ export default function FeedScreen() {
                         style={styles.fab}
                         onPress={() => navigation.navigate('CreatePost')}
                     >
-                        <FontAwesome6 name="plus" size={28} color="white" />
+                        <FontAwesome6 name="plus" size={vw * 7} color="white" />
                     </TouchableOpacity>
                 )}
             </View>
@@ -266,70 +270,69 @@ const styles = StyleSheet.create({
     },
     headerWrapper: {
         position: 'absolute',
-        top: '8%',
+        // top handled inline
         left: 0,
         right: 0,
-        paddingHorizontal: 20,
-        // alignItems: 'center', // Changed to allow full width search bar
+        paddingHorizontal: vw * 5,
     },
     searchContainer: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: 'rgba(255,255,255,0.9)',
-        borderRadius: 25,
-        paddingHorizontal: 15,
-        height: 50,
+        borderRadius: vw * 6,
+        paddingHorizontal: vw * 4,
+        height: vh * 6,
         width: '100%',
     },
     searchInput: {
         flex: 1,
-        fontSize: 16,
+        fontSize: vw * 4,
         color: '#333',
         height: '100%',
     },
     searchResultsContainer: {
         position: 'absolute',
-        top: 130, // Below header wrapper roughly
+        // top handled inline
         bottom: 0,
         left: 0,
         right: 0,
         backgroundColor: '#F5F5F7',
-        borderTopLeftRadius: 30,
-        borderTopRightRadius: 30,
-        paddingTop: 10,
+        borderTopLeftRadius: vw * 8,
+        borderTopRightRadius: vw * 8,
+        paddingTop: vh * 2,
     },
     resultItem: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         backgroundColor: '#FFF',
-        padding: 15,
-        borderRadius: 16,
-        marginBottom: 10,
+        padding: vw * 4,
+        borderRadius: vw * 4,
+        marginBottom: vh * 1.5,
         shadowColor: '#000',
         shadowOpacity: 0.05,
         shadowOffset: { width: 0, height: 2 },
         elevation: 2,
     },
     imageContainer: {
-        width: 50,
-        height: 50,
-        marginRight: 15,
+        width: vw * 12,
+        height: vw * 12,
+        marginRight: vw * 4,
         position: 'relative',
     },
     placeholderImage: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
+        width: '100%',
+        height: '100%',
+        borderRadius: vw * 6,
         backgroundColor: '#eee',
     },
     levelBadge: {
         position: 'absolute',
         bottom: -5,
-        right: -10, // Adjust for wider badge
+        right: -10,
         paddingHorizontal: 6,
         paddingVertical: 2,
-        borderRadius: 8, // Rounded rectangle
+        borderRadius: 8,
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 2,
@@ -344,59 +347,50 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
     },
-    // imageContainer and internal styles handled inline or nested if needed, but better flat.
-    // Let's use the new imageContainer style I added earlier for the avatar part.
     username: {
         fontWeight: 'bold',
-        fontSize: 16,
+        fontSize: vw * 4,
         color: '#333',
     },
     followersText: {
-        fontSize: 12,
+        fontSize: vw * 3,
         color: '#777',
     },
     actionButton: {
-        paddingHorizontal: 16,
-        paddingVertical: 8,
+        paddingHorizontal: vw * 4,
+        paddingVertical: vh * 1,
         borderRadius: 20,
     },
     actionButtonText: {
         color: '#FFF',
         fontWeight: '600',
-        fontSize: 12,
-    },
-    // ... (Keep existing styles below if not overwritten)
-    brandText: {
-        color: 'rgba(255,255,255,0.9)',
-        fontWeight: '600',
-        fontSize: 18
+        fontSize: vw * 3,
     },
     headerTitle: {
-        fontSize: 40,
+        fontSize: vw * 10,
         fontWeight: '900',
         color: 'white',
         textAlign: 'left',
-        paddingLeft: 20,
-        lineHeight: 44,
+        paddingLeft: vw * 1,
+        lineHeight: vw * 11,
     },
-    // ...
     scrollContent: {
-        paddingHorizontal: 15,
-        paddingTop: 10,
+        paddingHorizontal: vw * 4,
+        paddingTop: vh * 2,
+        paddingBottom: vh * 15, // Space for bottom tab bar
     },
     masonryContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
     },
-    // ...
     fab: {
         position: 'absolute',
-        bottom: 20,
+        bottom: vh * 3,
         alignSelf: 'center',
-        width: 60,
-        height: 60,
-        borderRadius: 20, // Rounded square / Squircle
-        backgroundColor: 'rgba(45, 48, 51, 0.9)', // Dark grey with slight transparency
+        width: vw * 15,
+        height: vw * 15,
+        borderRadius: vw * 5,
+        backgroundColor: 'rgba(45, 48, 51, 0.9)',
         alignItems: 'center',
         justifyContent: 'center',
         shadowColor: "#000",

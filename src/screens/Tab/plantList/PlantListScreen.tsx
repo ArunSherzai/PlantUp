@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   TouchableOpacity,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PlantCoinBox } from '~/components/PlantCoinBox';
 import { useNavigation } from '@react-navigation/native';
 import { StackScreenProps } from '@react-navigation/stack';
@@ -28,6 +29,7 @@ export default function PlantListScreen() {
 
   // CORRECT UNISTYLES USAGE
   const { theme } = useUnistyles();
+  const insets = useSafeAreaInsets();
   const styles = stylesheet(theme);
 
   const [actionMenuIndex, setActionMenuIndex] = useState<number | null>(null);
@@ -82,10 +84,10 @@ export default function PlantListScreen() {
           resizeMode="cover"
         />
         <PlantCoinBox />
-        <View style={styles.headerContainer}>
-          <Text style={styles.headerTitle}>View</Text>
-          <Text style={styles.headerTitle}>your</Text>
-          <Text style={styles.headerTitle}>Plants!</Text>
+        <View style={[styles.headerContainer, { top: vh * 8 + insets.top }]}>
+          <Text style={styles.headerTitle} adjustsFontSizeToFit numberOfLines={1}>View</Text>
+          <Text style={styles.headerTitle} adjustsFontSizeToFit numberOfLines={1}>your</Text>
+          <Text style={styles.headerTitle} adjustsFontSizeToFit numberOfLines={1}>Plants!</Text>
         </View>
       </View>
 
@@ -139,7 +141,7 @@ export default function PlantListScreen() {
             )}
           </View>
 
-          <FilledButton style={{ marginTop: 120 }} text="+ Add Plant" onPress={handleAddPlant} />
+          <FilledButton style={{ marginTop: vh * 5 }} text="+ Add Plant" onPress={handleAddPlant} />
         </View>
       </View>
     </View>
@@ -177,8 +179,9 @@ const stylesheet = (theme: any) =>
       left: 20,
     },
     headerTitle: {
-      fontSize: 48,
-      fontWeight: 'bold',
+      fontSize: vw * 10.5, // Matches ProfileScreen ~42px
+      fontWeight: '900',
+      lineHeight: vw * 11.5, // Matches ProfileScreen ~46px
       color: 'white',
     },
     staticSheetContainer: {

@@ -47,7 +47,13 @@
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.abehari.PlantUp"
+      "package": "com.abehari.PlantUp",
+      "statusBar": {
+        "translucent": true,
+        "backgroundColor": "#00000000",
+        "style": "light",
+        "hidden": true
+      }
     }
   }
 }

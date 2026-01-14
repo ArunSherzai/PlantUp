@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, Alert, Image } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, Image, Dimensions } from 'react-native';
 import { StyleSheet as UnistylesSheet, useUnistyles } from 'react-native-unistyles';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useUserStore } from '../../../stores/UserStore';
+
+const { width } = Dimensions.get('window');
+const vw = width / 100;
 
 const BOOSTER_ITEM_ID = 'xp_boost_24h';
 
@@ -108,14 +111,14 @@ export default function BoosterWidget() {
 
 const styles = UnistylesSheet.create((theme) => ({
   container: {
-    width: 80,
-    height: 80,
+    width: vw * 20,
+    height: vw * 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
   image: {
-    width: 60,
-    height: 60,
+    width: vw * 15,
+    height: vw * 15,
     resizeMode: 'contain',
   },
   activeImage: {
@@ -123,21 +126,21 @@ const styles = UnistylesSheet.create((theme) => ({
   },
   activeGlow: {
     position: 'absolute',
-    width: 95,
-    height: 95,
-    borderRadius: 47.5,
+    width: vw * 24,
+    height: vw * 24,
+    borderRadius: vw * 12,
     zIndex: -1,
   },
   
   // Badges
   countBadge: {
     position: 'absolute',
-    bottom: 5,
-    right: 5,
+    bottom: vw * 1,
+    right: vw * 1,
     backgroundColor: '#329D9C',
-    borderRadius: 14,
-    width: 28,
-    height: 28,
+    borderRadius: vw * 3.5,
+    width: vw * 7,
+    height: vw * 7,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
@@ -145,23 +148,23 @@ const styles = UnistylesSheet.create((theme) => ({
   },
   countText: {
     color: 'white',
-    fontSize: 14,
+    fontSize: vw * 3.5,
     fontWeight: 'bold',
   },
   
   timerBadge: {
     position: 'absolute',
-    bottom: -6,
+    bottom: -vw * 1.5,
     backgroundColor: '#2ecc71',
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 6,
+    paddingHorizontal: vw * 1.5,
+    paddingVertical: vw * 0.8,
+    borderRadius: vw * 1.5,
     borderWidth: 1.5,
     borderColor: 'white',
   },
   timerText: {
     color: 'white',
-    fontSize: 11,
+    fontSize: vw * 2.8,
     fontWeight: 'bold',
   }
 }));
