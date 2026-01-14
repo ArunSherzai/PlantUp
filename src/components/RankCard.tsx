@@ -4,7 +4,8 @@ import { useUnistyles } from 'react-native-unistyles';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { getLevelProgress, getXPForNextLevel, getTotalXPForLevel } from '../utils/leveling';
-import VirtualPlant from './VirtualPlant';
+import PlantPotPreview from './PlantPotPreview';
+
 
 type RankCardProps = {
   level: number;
@@ -46,9 +47,13 @@ export default function RankCard({ level, xp, rankName = 'Blooming Sprout', seed
       end={{ x: 1, y: 1 }}
       style={styles.container}>
 
-      {/* Virtual Plant instead of Emblem */}
+      {/* 3D Plant Preview */}
       <View style={styles.emblemContainer}>
-        <VirtualPlant level={level} seed={seed} width={150} height={180} />
+        <PlantPotPreview
+          seed={seed}
+          // potSource={require('../../assets/models/pots/pot1.glb')} // TODO: Add a pot model here
+          plantStyle="rosette"
+        />
       </View>
 
       {/* Level & Rank Info */}

@@ -264,7 +264,7 @@ export default function ProfileScreen() {
                 {/* Hidden Text for measurement */}
                 <Text
                   style={[styles.userBio, { position: 'absolute', opacity: 0, zIndex: -1 }]}
-                  onTextLayout={(e) => {
+                  onTextLayout={(e: { nativeEvent: { lines: any[] } }) => {
                     if (e.nativeEvent.lines.length > 1) setIsBioTruncated(true);
                   }}
                 >
