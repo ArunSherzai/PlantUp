@@ -88,9 +88,13 @@ function RotatingScene({
 
 
 
+// Loading Bar Component
 function Loader() {
-    const { active } = useProgress();
-    return active ? (
+    const { active, progress } = useProgress();
+    // Only show if active
+    if (!active) return null;
+
+    return (
         <View style={{
             position: 'absolute',
             top: 0,
@@ -99,12 +103,26 @@ function Loader() {
             bottom: 0,
             justifyContent: 'center',
             alignItems: 'center',
-            backgroundColor: 'rgba(0,0,0,0.1)', // Slight dim
+            backgroundColor: 'rgba(0,0,0,0.3)',
             zIndex: 10
         }}>
-            <ActivityIndicator size="large" color="#4CAF50" />
+            <View style={{ width: '60%', alignItems: 'center' }}>
+                <View style={{
+                    width: '100%',
+                    height: 6,
+                    backgroundColor: 'rgba(255,255,255,0.3)',
+                    borderRadius: 3,
+                    overflow: 'hidden'
+                }}>
+                    <View style={{
+                        width: `${progress}%`,
+                        height: '100%',
+                        backgroundColor: '#4CAF50'
+                    }} />
+                </View>
+            </View>
         </View>
-    ) : null;
+    );
 }
 
 export default function PlantPotPreview({
@@ -121,7 +139,6 @@ export default function PlantPotPreview({
 }: Props) {
     return (
         <View style={{ flex: 1 }}>
-            <Loader />
             <Canvas
                 dpr={[1, 2]}
                 camera={{ position: [1, 0.85, 1], fov: 45, near: 0.01, far: 50 }}
@@ -137,7 +154,7 @@ export default function PlantPotPreview({
                     enablePan={false}
                     minPolarAngle={0}
                     maxPolarAngle={Math.PI / 1.5} // Don't let user go under the pot
-                    minDistance={0.5}
+                    minDistance={0.1}
                     maxDistance={4}
                 />
 
@@ -168,6 +185,7 @@ export default function PlantPotPreview({
                     />
                 </Suspense>
             </Canvas>
+            <Loader />
         </View>
     );
 }

@@ -429,32 +429,27 @@ export default function LSystemPlant3D({ seed, growth = 50, config }: Props) {
         return { stemData: stems, leafData: leaves, bloomData: blooms };
     }, [seed, cfg, rng, flowerGeos.length]); // Re-run if geo count changes
 
+    // Create geometries
+    const cylinderGeo = new THREE.CylinderGeometry(1, 1, 1, 5); // Segments reduced for perf
+    cylinderGeo.translate(0, 0.5, 0);
 
-    // --- Materials ---
-    const stemMaterial = useMemo(() => new THREE.MeshStandardMaterial({
+    // Create Standard material to avoid dispersion/physical warnings
+    const branchMat = new THREE.MeshStandardMaterial({
         color: new THREE.Color().setHSL(cfg.hue, cfg.saturation, cfg.lightness),
-        roughness: 0.9,
-        metalness: 0,
-        flatShading: true
-    }), [cfg]);
-
-    const leafMaterial = useMemo(() => new THREE.MeshStandardMaterial({
-        color: new THREE.Color().setHSL(cfg.leafHue, 0.7, 0.45),
         roughness: 0.8,
-        metalness: 0,
-        flatShading: true,
-        side: THREE.DoubleSide,
-    }), [cfg]);
-
-    const bloomMaterial = useMemo(() => new THREE.MeshStandardMaterial({
+    });
+    const leafMat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color().setHSL(cfg.leafHue, 0.6, 0.4),
+        roughness: 0.6,
+        side: THREE.DoubleSide
+    });
+    const bloomMat = new THREE.MeshStandardMaterial({
         color: new THREE.Color().setHSL(cfg.bloomHue, 0.8, 0.6),
         roughness: 0.5,
-        flatShading: true,
-        side: THREE.DoubleSide,
-    }), [cfg]);
+        side: THREE.DoubleSide
+    });
 
-
-
+    // Create Instance Meshes
     if (stemData.length === 0) return null;
 
     // Group blooms by geometry index for rendering
@@ -473,8 +468,8 @@ export default function LSystemPlant3D({ seed, growth = 50, config }: Props) {
 
     return (
         <group>
-            <GenericInstancedMesh geo={branchGeoN} mat={stemMaterial} data={stemData} />
-            <GenericInstancedMesh geo={leafGeoN} mat={leafMaterial} data={leafData} />
+            <GenericInstancedMesh geo={cylinderGeo} mat={branchMat} data={stemData} />
+            <GenericInstancedMesh geo={leafGeoN} mat={leafMat} data={leafData} />
 
             {flowerGeosN.map((geo, index) => {
                 const blooms = groupedBlooms[index] || [];
@@ -483,7 +478,7 @@ export default function LSystemPlant3D({ seed, growth = 50, config }: Props) {
                     <GenericInstancedMesh
                         key={`bloom-${index}`}
                         geo={geo}
-                        mat={bloomMaterial}
+                        mat={bloomMat}
                         data={blooms}
                     />
                 );
