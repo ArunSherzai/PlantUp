@@ -21,7 +21,13 @@ export default function DraggableBottomSheet({
   maxHeight = 0.9,
 }: BottomSheetProps) {
   const { theme } = useUnistyles();
-  const tabBarHeight = useBottomTabBarHeight();
+  let tabBarHeight = 0;
+  try {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    tabBarHeight = useBottomTabBarHeight();
+  } catch (error) {
+    tabBarHeight = 0;
+  }
   // BERECHNUNG DER GRENZEN (Prozentual)
   const START_Y = -SCREEN_HEIGHT * initialHeight;
   const MAX_Y = -SCREEN_HEIGHT * maxHeight;
