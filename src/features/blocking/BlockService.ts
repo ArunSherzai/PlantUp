@@ -43,7 +43,13 @@ export const BlockService = {
         .from('follows')
         .delete()
         .eq('follower_id', userId)
-        .eq('following_id', user.id)
+        .eq('following_id', user.id),
+      // Delete any conversation between these users
+      // Condition: (user_low = me AND user_high = them) OR (user_low = them AND user_high = me)
+      db.social
+        .from('dm_conversations')
+        .delete()
+        .or(`and(user_low.eq.${user.id},user_high.eq.${userId}),and(user_low.eq.${userId},user_high.eq.${user.id})`)
     ]);
   },
 
