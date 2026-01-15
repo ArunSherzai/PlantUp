@@ -1,8 +1,8 @@
 import React, { Suspense, useRef, useEffect } from "react";
-import { View } from "react-native";
+import { View, ActivityIndicator } from "react-native";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import { OrbitControls } from "@react-three/drei/native";
+import { OrbitControls, useProgress } from "@react-three/drei/native";
 import PotModel, { PotType } from "./PotModel";
 import ProceduralPlant, { PlantStyle, PlantConfig } from "./ProceduralPlant";
 import LSystemPlant3D, { LSystemConfig } from "./LSystemPlant3D";
@@ -86,6 +86,27 @@ function RotatingScene({
     );
 }
 
+
+
+function Loader() {
+    const { active } = useProgress();
+    return active ? (
+        <View style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundColor: 'rgba(0,0,0,0.1)', // Slight dim
+            zIndex: 10
+        }}>
+            <ActivityIndicator size="large" color="#4CAF50" />
+        </View>
+    ) : null;
+}
+
 export default function PlantPotPreview({
     seed,
     growth,
@@ -100,6 +121,7 @@ export default function PlantPotPreview({
 }: Props) {
     return (
         <View style={{ flex: 1 }}>
+            <Loader />
             <Canvas
                 dpr={[1, 2]}
                 camera={{ position: [1, 0.85, 1], fov: 45, near: 0.01, far: 50 }}
