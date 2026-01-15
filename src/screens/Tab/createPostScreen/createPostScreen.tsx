@@ -26,6 +26,8 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { Video } from 'react-native-compressor';
+import DraggableBottomSheet from '~/components/DraggableBottomSheet';
+import SensorDisplayCard from '~/components/SensorDisplayCard';
 
 import { db } from '../../../utils/supabase';
 import { useUserStore } from '../../../stores/UserStore';
@@ -62,6 +64,14 @@ export default function CreatePostScreen() {
     sensorData?: any;
     thumbnailUri?: string; // New field for thumbnail
   } | null>(null);
+
+  // --- SENSOR SELECTION STATE ---
+  const [showSensorSelection, setShowSensorSelection] = useState(false);
+  const [selectionStep, setSelectionStep] = useState<'plants' | 'records'>('plants');
+  const [plants, setPlants] = useState<any[]>([]);
+  const [selectedPlant, setSelectedPlant] = useState<any>(null);
+  const [sensorRecords, setSensorRecords] = useState<any[]>([]);
+  const [fetchingSensorData, setFetchingSensorData] = useState(false);
 
   // Profile Image Logic with Fallback
   const profileImage = profile?.profile_image
@@ -128,43 +138,126 @@ export default function CreatePostScreen() {
 
   // --- FUNKTION: SENSOR DATEN ---
   const attachSensorData = async () => {
+    console.log('[CreatePost] attachSensorData started. UserID:', userId);
     closeMenu();
-    if (!userId) return;
-    setLoading(true);
+    if (!userId) {
+      console.log('[CreatePost] No User ID found.');
+      return;
+    }
+    setFetchingSensorData(true);
     try {
-      const { data: plants } = await db.social
+      console.log('[CreatePost] Fetching plants from db.social.Plants...');
+      // User requested "user table" for plants
+      const { data: userPlants, error } = await db.social
         .from('Plants')
         .select('id, nickname')
-        .eq('user_id', userId)
-        .limit(1);
-      if (!plants?.length) {
-        Alert.alert('No Plants', 'Add a plant first.');
+        .eq('user_id', userId);
+
+      if (error) {
+        console.error('[CreatePost] Error fetching plants:', error);
+        throw error;
+      }
+
+      console.log('[CreatePost] Fetched plants:', userPlants);
+
+      if (!userPlants || userPlants.length === 0) {
+        console.log('[CreatePost] No plants found.');
+        Alert.alert('No Plants', 'You haven\'t added any plants yet.');
         return;
       }
 
-      const { data: reading } = await db.micro
-        .from('Controllers')
-        .select('*')
-        .eq('plant_id', plants[0].id)
-        .order('time', { ascending: false })
-        .limit(1)
-        .single();
-
-      if (reading) {
-        setMedia({
-          uri: '',
-          type: 'sensor',
-          name: `${plants[0].nickname} Status`,
-          sensorData: reading,
-        });
-      } else {
-        Alert.alert('No Data', 'No sensor data found.');
-      }
+      // Initialize plants with empty records and collapsed state
+      const initializedPlants = userPlants.map(p => ({ ...p, records: [], expanded: false, loadingRecords: false }));
+      setPlants(initializedPlants);
+      setShowSensorSelection(true);
     } catch (e) {
-      console.log(e);
+      console.error('[CreatePost] Exception in attachSensorData:', e);
+      Alert.alert('Error', 'Could not load your plants.');
     } finally {
-      setLoading(false);
+      setFetchingSensorData(false);
     }
+  };
+
+  const togglePlantExpansion = async (plantIndex: number) => {
+    console.log('[CreatePost] Toggling expansion for plant index:', plantIndex);
+    const plant = plants[plantIndex];
+    console.log('[CreatePost] Plant info:', plant);
+
+    // Create a new copy of plants to avoid direct mutation
+    const newPlants = plants.map((p, i) => i === plantIndex ? { ...p } : p);
+
+    // If collapsing, just toggle off
+    if (plant.expanded) {
+      console.log('[CreatePost] Collapsing plant.');
+      newPlants[plantIndex].expanded = false;
+      setPlants(newPlants);
+      return;
+    }
+
+    // Toggle ON immediately so UI feels responsive (will show loading spinner)
+    newPlants[plantIndex].expanded = true;
+
+    // If no records yet, we need to fetch
+    if (!plant.records || plant.records.length === 0) {
+      console.log('[CreatePost] Fetching records for plant ID:', plant.id);
+      newPlants[plantIndex].loadingRecords = true;
+      setPlants(newPlants); // Update UI to show loading spinner
+
+      try {
+        const { data: records, error } = await db.micro
+          .from('Controllers')
+          .select('*')
+          .eq('plant_id', plant.id)
+          .order('time', { ascending: false })
+          .limit(10);
+
+        if (error) {
+          console.error('[CreatePost] Error fetching Controller records:', error);
+          throw error;
+        }
+
+        console.log('[CreatePost] Fetched records:', records);
+
+        // UPDATE STATE AGAIN with fetched records
+        // IMPORTANT: We need to get the latest state or just reuse our local copy if we assume no other race conditions
+        // For safety in this simple case, we update our local copy and set it.
+        // We need to re-copy potentially if other plants changed, but usually only one action happens at a time here.
+        // Better: use function update or just update the index of current state if possible, but map is safer.
+
+        setPlants(currentPlants => {
+          const updated = [...currentPlants];
+          updated[plantIndex] = {
+            ...updated[plantIndex],
+            loadingRecords: false,
+            records: records || []
+          };
+          return updated;
+        });
+
+      } catch (e) {
+        console.error('[CreatePost] Exception fetching records:', e);
+        Alert.alert('Error', 'Could not load records.');
+
+        setPlants(currentPlants => {
+          const updated = [...currentPlants];
+          updated[plantIndex] = { ...updated[plantIndex], loadingRecords: false };
+          return updated;
+        });
+      }
+    } else {
+      // Records already exist, just set state from earlier toggle
+      setPlants(newPlants);
+    }
+  };
+
+  const selectSensorRecord = (plant: any, record: any) => {
+    setMedia({
+      uri: '',
+      type: 'sensor',
+      name: `${plant.nickname} Status`,
+      sensorData: { ...record, nickname: plant.nickname },
+    });
+    setShowSensorSelection(false);
   };
 
   // --- HAUPTFUNKTION: POSTEN ---
@@ -297,9 +390,10 @@ export default function CreatePostScreen() {
           }
         }
       } else if (media && media.type === 'sensor') {
-        finalType = 'sensor';
-        const d = media.sensorData;
-        finalCaption += `\n\n🌿 Status:\n🌡️ ${d.temperature}°C | 💧 ${d.soil_moisture}%`;
+        finalType = 'sensorData';
+        // Store sensor JSON in caption with delimiter (not in media_url)
+        finalCaption = caption + '|||SENSOR_DATA|||' + JSON.stringify(media.sensorData);
+        finalUrl = null; // No media_url needed
       }
 
       // 3. Create DB Entry
@@ -423,27 +517,42 @@ export default function CreatePostScreen() {
           {/* 3. PREVIEW BAR */}
           {media && (
             <View style={styles.previewBar}>
-              <View style={styles.previewContent}>
-                <FontAwesome6
-                  name={
-                    media.type === 'image'
-                      ? 'image'
-                      : media.type === 'video'
-                        ? 'video'
-                        : media.type === 'sensor'
-                          ? 'leaf'
-                          : 'file-lines'
-                  }
-                  size={16}
-                  color="#329D9C"
-                />
-                <Text style={styles.previewText} numberOfLines={1}>
-                  {media.name || media.type}
-                </Text>
-              </View>
-              <TouchableOpacity onPress={() => setMedia(null)}>
-                <FontAwesome6 name="xmark" size={16} color="#999" />
-              </TouchableOpacity>
+              {media.type === 'sensor' ? (
+                <View style={{ width: '100%', paddingVertical: 10 }}>
+                  <View style={[styles.previewContent, { marginBottom: 10 }]}>
+                    <FontAwesome6 name="leaf" size={16} color="#329D9C" />
+                    <Text style={styles.previewText} numberOfLines={1}>
+                      {media.name}
+                    </Text>
+                    <TouchableOpacity onPress={() => setMedia(null)} style={{ marginLeft: 'auto' }}>
+                      <FontAwesome6 name="xmark" size={16} color="#999" />
+                    </TouchableOpacity>
+                  </View>
+                  <SensorDisplayCard data={media.sensorData} />
+                </View>
+              ) : (
+                <>
+                  <View style={styles.previewContent}>
+                    <FontAwesome6
+                      name={
+                        media.type === 'image'
+                          ? 'image'
+                          : media.type === 'video'
+                            ? 'video'
+                            : 'file-lines'
+                      }
+                      size={16}
+                      color="#329D9C"
+                    />
+                    <Text style={styles.previewText} numberOfLines={1}>
+                      {media.name || media.type}
+                    </Text>
+                  </View>
+                  <TouchableOpacity onPress={() => setMedia(null)}>
+                    <FontAwesome6 name="xmark" size={16} color="#999" />
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
           )}
 
@@ -486,6 +595,81 @@ export default function CreatePostScreen() {
                 onPress={attachSensorData}
               />
             </View>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* 6. SENSOR SELECTION MODAL */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showSensorSelection}
+        onRequestClose={() => setShowSensorSelection(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setShowSensorSelection(false)}>
+          <View style={[styles.modalContent, { minHeight: 400 }]}>
+            <View style={styles.modalHandle} />
+
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Plant + Data</Text>
+            </View>
+
+            {fetchingSensorData ? (
+              <ActivityIndicator size="large" color="#329D9C" style={{ marginTop: 40 }} />
+            ) : (
+              <KeyboardAwareScrollView showsVerticalScrollIndicator={false}>
+                {plants.map((plant, index) => (
+                  <View key={plant.id} style={styles.plantContainer}>
+                    {/* Plant Header */}
+                    <TouchableOpacity
+                      style={styles.plantHeader}
+                      onPress={() => togglePlantExpansion(index)}
+                    >
+                      <View style={styles.plantHeaderLeft}>
+                        <View style={styles.listItemIcon}>
+                          <FontAwesome6 name="leaf" size={18} color="#00C853" />
+                        </View>
+                        <Text style={styles.listItemTitle}>{plant.nickname}</Text>
+                      </View>
+                      <FontAwesome6
+                        name={plant.expanded ? "chevron-up" : "chevron-down"}
+                        size={16}
+                        color={theme.colors.greyedOut}
+                      />
+                    </TouchableOpacity>
+
+                    {/* Expandable Records List */}
+                    {plant.expanded && (
+                      <View style={styles.recordsList}>
+                        {plant.loadingRecords ? (
+                          <ActivityIndicator size="small" color="#329D9C" style={{ marginVertical: 10 }} />
+                        ) : plant.records.length === 0 ? (
+                          <Text style={styles.noRecordsText}>No recent data found.</Text>
+                        ) : (
+                          plant.records.map((record: any, rIndex: number) => (
+                            <TouchableOpacity
+                              key={`${record.id}-${rIndex}`}
+                              style={styles.recordItem}
+                              onPress={() => selectSensorRecord(plant, record)}
+                            >
+                              <FontAwesome6 name="clock" size={14} color="#329D9C" style={{ width: 20 }} />
+                              <Text style={styles.recordTime}>
+                                {new Date(record.time).toLocaleString([], {
+                                  month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                                })}
+                              </Text>
+                              <View style={styles.recordValues}>
+                                <Text style={styles.recordValueText}>🌡️ {record.temperature}°</Text>
+                                <Text style={styles.recordValueText}>💧 {record.soil_moisture}%</Text>
+                              </View>
+                            </TouchableOpacity>
+                          ))
+                        )}
+                      </View>
+                    )}
+                  </View>
+                ))}
+              </KeyboardAwareScrollView>
+            )}
           </View>
         </Pressable>
       </Modal>
@@ -751,5 +935,78 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: 'center',
     justifyContent: 'center',
     borderColor: theme.colors.icon, // Annahme: Icon Border passt zur Icon Farbe
+  },
+  // Sensor Modal Specific Styles
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    justifyContent: 'center',
+  },
+  plantContainer: {
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.greyedOut,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  plantHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    backgroundColor: theme.colors.background,
+  },
+  plantHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  listItemIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: theme.colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.greyedOut,
+  },
+  listItemTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.colors.text,
+  },
+  recordsList: {
+    backgroundColor: theme.colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.greyedOut,
+  },
+  recordItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.greyedOut,
+  },
+  recordTime: {
+    fontSize: 14,
+    color: theme.colors.text,
+    flex: 1,
+  },
+  recordValues: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  recordValueText: {
+    fontSize: 13,
+    color: theme.colors.secondary,
+    fontWeight: '500',
+  },
+  noRecordsText: {
+    padding: 20,
+    textAlign: 'center',
+    color: theme.colors.greyedOut,
+    fontStyle: 'italic',
   },
 }));
