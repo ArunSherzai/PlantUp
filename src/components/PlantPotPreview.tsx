@@ -1,7 +1,6 @@
 import React, { Suspense, useRef } from "react";
 import { View } from "react-native";
-import { Canvas, useFrame } from "@react-three/fiber";
-import { Environment } from "@react-three/drei";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import PotModel, { PotType } from "./PotModel";
 import ProceduralPlant, { PlantStyle, PlantConfig } from "./ProceduralPlant";
@@ -11,16 +10,33 @@ export type PlantMode = "procedural" | "lsystem";
 
 type Props = {
     seed: number;
+    growth?: number; // 0-100 scale
     potSource?: any;
     potType?: PotType;
     plantStyle?: PlantStyle;
     plantConfig?: Partial<PlantConfig>;
     mode?: PlantMode;
     lsystemConfig?: Partial<LSystemConfig>;
+    cameraY?: number;
+    cameraDistance?: number;
 };
+
+// Dynamic camera controller
+function CameraController({ cameraY, cameraDistance }: { cameraY: number; cameraDistance: number }) {
+    const { camera } = useThree();
+
+    useFrame(() => {
+        const xz = cameraDistance * 0.7;
+        camera.position.set(xz, cameraY, xz);
+        camera.lookAt(0, 0.2, 0);
+    });
+
+    return null;
+}
 
 function RotatingScene({
     seed,
+    growth,
     potSource,
     potType,
     plantStyle,
@@ -29,6 +45,7 @@ function RotatingScene({
     lsystemConfig,
 }: {
     seed: number;
+    growth?: number;
     potSource?: any;
     potType?: PotType;
     plantStyle: PlantStyle;
@@ -55,7 +72,7 @@ function RotatingScene({
             />
             <group position={[0, -0.02, 0]}>
                 {mode === "lsystem" ? (
-                    <LSystemPlant3D seed={seed} config={lsystemConfig} />
+                    <LSystemPlant3D seed={seed} growth={growth} config={lsystemConfig} />
                 ) : (
                     <ProceduralPlant seed={seed} style={plantStyle} config={plantConfig} />
                 )}
@@ -66,25 +83,43 @@ function RotatingScene({
 
 export default function PlantPotPreview({
     seed,
+    growth,
     potSource,
     potType,
     plantStyle = "rosette",
     plantConfig,
     mode = "procedural",
     lsystemConfig,
+    cameraY = 0.65,
+    cameraDistance = 1.5,
 }: Props) {
     return (
         <View style={{ flex: 1 }}>
             <Canvas
                 dpr={[1, 2]}
-                camera={{ position: [0.65, 0.65, 1.05], fov: 45, near: 0.01, far: 50 }}
+                camera={{ position: [1, 0.65, 1], fov: 45, near: 0.01, far: 50 }}
             >
-                <ambientLight intensity={0.65} />
-                <directionalLight position={[3, 5, 2]} intensity={1.15} />
+                {/* Dynamic camera controller */}
+                <CameraController cameraY={cameraY} cameraDistance={cameraDistance} />
+
+                {/* Ambient light for overall illumination */}
+                <ambientLight intensity={0.5} />
+
+                {/* Hemisphere light for sky/ground effect */}
+                <hemisphereLight
+                    args={['#87CEEB', '#556B2F', 0.6]}
+                />
+
+                {/* Main directional light (sun) */}
+                <directionalLight position={[3, 5, 2]} intensity={1.2} color="#FFF8DC" />
+
+                {/* Fill light from opposite side */}
+                <directionalLight position={[-2, 3, -1]} intensity={0.4} color="#B0C4DE" />
 
                 <Suspense fallback={null}>
                     <RotatingScene
                         seed={seed}
+                        growth={growth}
                         potSource={potSource}
                         potType={potType}
                         plantStyle={plantStyle}
@@ -92,7 +127,6 @@ export default function PlantPotPreview({
                         mode={mode}
                         lsystemConfig={lsystemConfig}
                     />
-                    <Environment preset="studio" />
                 </Suspense>
             </Canvas>
         </View>

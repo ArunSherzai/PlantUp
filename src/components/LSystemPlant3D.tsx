@@ -35,39 +35,6 @@ export const PRESETS: Record<string, Partial<LSystemConfig>> = {
         hue: 0.08,
         leafChance: 0.35,
         bloomChance: 0.08,
-    },
-    fern: {
-        axiom: "X",
-        rules: {
-            X: "F-[[X]+X]+F[+FX]-X",
-            F: "FF",
-        },
-        angle: 22,
-        hue: 0.35,
-        leafChance: 0.22,
-        bloomChance: 0.03,
-    },
-    tree: {
-        axiom: "X",
-        rules: {
-            X: "F[+X][-X]FX",
-            F: "FF",
-        },
-        angle: 20,
-        hue: 0.07,
-        leafChance: 0.30,
-        bloomChance: 0.05,
-    },
-    bush: {
-        axiom: "X",
-        rules: {
-            X: "F[+X]F[-X]+X",
-            F: "FF",
-        },
-        angle: 22,
-        hue: 0.15,
-        leafChance: 0.4,
-        bloomChance: 0.2,
     }
 };
 
@@ -94,6 +61,7 @@ export const DEFAULT_LSYSTEM_CONFIG: LSystemConfig = {
 
 type Props = {
     seed: number;
+    growth?: number; // 0-100 scale
     config?: Partial<LSystemConfig>;
 };
 
@@ -111,27 +79,36 @@ function usePlantGLBParts() {
         PlantAssets.FlowerPetalB,
     ];
 
-    const uris = assets.map(a => Asset.fromModule(a).uri);
-    // This is a bit of a hack to load them all via useGLTF
-    // In a real app we might load them individually or use a loader manager
-    const gltfs = useGLTF(uris);
+    // Get URIs, filtering out any that might be invalid
+    const uris = assets
+        .map(a => {
+            try {
+                const asset = Asset.fromModule(a);
+                return asset?.uri || null;
+            } catch (e) {
+                console.warn('[usePlantGLBParts] Failed to load asset:', e);
+                return null;
+            }
+        })
+        .filter((uri): uri is string => uri !== null && uri !== undefined);
+
+    // Only call useGLTF if we have valid URIs
+    const gltfs = uris.length > 0 ? useGLTF(uris) : [];
 
     // Helper to extract geometry
     const getGeo = (gltf: any) => {
-        if (!gltf) return null;
+        if (!gltf || !gltf.nodes) return null;
         const key = Object.keys(gltf.nodes).find((k) => gltf.nodes[k]?.geometry);
         return key ? gltf.nodes[key].geometry : null;
     };
 
+    // Map back to expected structure (first is leaf, rest are flowers)
+    const leafGeo = gltfs.length > 0 ? getGeo(gltfs[0]) : null;
+    const flowerGeos = gltfs.slice(1).map(g => getGeo(g)).filter(Boolean) as THREE.BufferGeometry[];
+
     return {
-        leafGeo: getGeo(gltfs[0]),
-        flowerGeos: [
-            getGeo(gltfs[1]),
-            getGeo(gltfs[2]),
-            getGeo(gltfs[3]),
-            getGeo(gltfs[4]),
-            getGeo(gltfs[5]),
-        ].filter(Boolean) as THREE.BufferGeometry[],
+        leafGeo,
+        flowerGeos,
     };
 }
 
@@ -211,14 +188,41 @@ function GenericInstancedMesh({
     );
 }
 
-export default function LSystemPlant3D({ seed, config }: Props) {
+export default function LSystemPlant3D({ seed, growth = 50, config }: Props) {
     const { leafGeo, flowerGeos } = usePlantGLBParts();
 
     const rng = useMemo(() => mulberry32(seed), [seed]);
-    const cfg = useMemo(() => ({ ...DEFAULT_LSYSTEM_CONFIG, ...config }), [config]);
+
+    // --- Growth System ---
+    // Map growth (0-100) to plant parameters
+    const growthConfig = useMemo(() => {
+        const g = Math.max(0, Math.min(100, growth)); // Clamp 0-100
+        const t = g / 100; // Normalized 0-1
+
+        return {
+            iterations: 1 + Math.floor(t * 4),
+            // Smaller plant overall
+            length: 0.008 + t * 0.08,
+            thickness: 0.002 + t * 0.015,
+            leafSize: 0.004 + t * 0.035,
+            leafChance: t > 0.2 ? (t - 0.2) * 0.6 : 0,
+            bloomChance: t > 0.6 ? (t - 0.6) * 0.4 : 0,
+            bloomSize: 0.005 + t * 0.045,
+        };
+    }, [growth]);
+
+    const cfg = useMemo(() => ({
+        ...DEFAULT_LSYSTEM_CONFIG,
+        ...growthConfig,
+        ...config // Allow manual overrides
+    }), [growthConfig, config]);
 
     // Normalize Geometries on mount/change
-    const leafGeoN = useMemo(() => leafGeo ? normalizeGeometry(leafGeo, 1, false) : new THREE.PlaneGeometry(1, 1), [leafGeo]);
+    const leafGeoN = useMemo(() => {
+        // Poly Bush: Icosahedron with detail 0 (low poly)
+        // Radius 0.5 => Size ~1.0
+        return new THREE.IcosahedronGeometry(2, 0);
+    }, []);
 
     // Normalize ALL flower geos
     const flowerGeosN = useMemo(() => {
@@ -228,7 +232,7 @@ export default function LSystemPlant3D({ seed, config }: Props) {
     // Procedural Branch Geometry (Cylinder)
     // Shifted so pivot is at the bottom (0, 0, 0) and it grows up +Y
     const branchGeoN = useMemo(() => {
-        const geo = new THREE.CylinderGeometry(0.5, 0.8, 1, 6);
+        const geo = new THREE.CylinderGeometry(1, 1, 1, 5);
         geo.translate(0, 0.5, 0); // Move base to origin
         return geo;
     }, []);
@@ -263,7 +267,25 @@ export default function LSystemPlant3D({ seed, config }: Props) {
         // Vary bloom color slightly
         const bloomBaseColor = new THREE.Color().setHSL(cfg.bloomHue, 0.8, 0.6);
 
-        for (const char of str) {
+
+
+        // Helper to check if we are at the tip of a branch
+        // Re-triggering build check (Syntax seems correct)
+        // We look ahead ignoring turns (+, -)
+        // If we hit ']', or end of string, it's a tip.
+        // If we hit 'F' or '[', it's not.
+        const isTip = (str: string, startIdx: number) => {
+            for (let j = startIdx + 1; j < str.length; j++) {
+                const c = str[j];
+                if (c === ']' || c === undefined) return true;
+                if (c === 'F' || c === '[' || c === 'L' || c === 'B') return false;
+                // Otherwise (turns), keep looking
+            }
+            return true;
+        };
+
+        for (let i = 0; i < str.length; i++) {
+            const char = str[i];
             const turnJitter = (rng() - 0.5) * chaosAng;
 
             switch (char) {
@@ -289,40 +311,59 @@ export default function LSystemPlant3D({ seed, config }: Props) {
 
                     state.pos = end;
 
-                    // --- LEAF CHANCE ---
-                    if (rng() < cfg.leafChance) {
-                        tmpPos.copy(end).lerp(start, 0.2);
+                    // --- LEAF/BUSH AT TIP ONLY ---
+                    // "Make it so bushes only spawn at the end of Branches"
+                    if (isTip(str, i)) {
+                        tmpPos.copy(end);
 
+                        // Orient bush somewhat randomly or aligned with branch
                         tmpQ.setFromUnitVectors(yAxis, state.dir);
                         const roll = rng() * Math.PI * 2;
                         tmpQ.multiply(new THREE.Quaternion().setFromAxisAngle(yAxis, roll));
-                        tmpQ.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI * 0.35));
 
-                        const s = cfg.leafSize;
+                        // Scale bush
+                        const s = cfg.leafSize * 0.8; // Bump size slightly for tips
                         tmpScale.set(s, s, s);
 
                         tmpM.compose(tmpPos, tmpQ, tmpScale);
                         leaves.push({ matrix: tmpM.clone(), color: leafBaseColor });
-                    }
 
-                    // --- BLOOM CHANCE ---
-                    if (rng() < cfg.bloomChance * 0.5) {
-                        tmpPos.copy(end);
-                        tmpQ.setFromUnitVectors(yAxis, new THREE.Vector3(0, 1, 0).lerp(state.dir, 0.5));
-                        tmpQ.multiply(new THREE.Quaternion().setFromAxisAngle(yAxis, rng() * Math.PI));
+                        // --- BLOOM ON BUSH ---
+                        // "Blooms spawn on the bushes... take the bloom chance"
+                        if (rng() < cfg.bloomChance) {
+                            // Calculate bush radius (Geometry radius 2 * scale used for bush)
+                            const bushScale = cfg.leafSize * 0.8;
+                            const bushRadius = 2 * bushScale;
 
-                        const s = cfg.bloomSize;
-                        tmpScale.set(s, s, s);
+                            // Random direction for the bloom to poke out
+                            const bloomDir = new THREE.Vector3(rng() - 0.5, rng() - 0.5, rng() - 0.5).normalize();
 
-                        // Randomly pick a flower geo index
-                        const geoIdx = Math.floor(rng() * (flowerGeos.length || 1));
+                            // Position on the surface (slightly embedded maybe? multiply by 0.9 or 1.0)
+                            const offset = bloomDir.clone().multiplyScalar(bushRadius);
+                            tmpPos.copy(end).add(offset);
 
-                        tmpM.compose(tmpPos, tmpQ, tmpScale);
-                        blooms.push({
-                            matrix: tmpM.clone(),
-                            color: bloomBaseColor,
-                            geoIndex: geoIdx
-                        });
+                            // Orient flower to face out from center
+                            tmpQ.setFromUnitVectors(yAxis, bloomDir);
+                            // Add a little random rotation around its own axis
+                            tmpQ.multiply(new THREE.Quaternion().setFromAxisAngle(yAxis, rng() * Math.PI * 2));
+
+                            const bs = cfg.bloomSize;
+                            tmpScale.set(bs, bs, bs);
+
+                            // Randomly pick a flower geo index for EACH bloom
+                            const geoIdx = Math.floor(rng() * (flowerGeos.length || 1));
+
+                            // Give each bloom a random color (varying hue)
+                            const randomHue = rng(); // 0.0 to 1.0
+                            const bloomColor = new THREE.Color().setHSL(randomHue, 0.75, 0.55);
+
+                            tmpM.compose(tmpPos, tmpQ, tmpScale);
+                            blooms.push({
+                                matrix: tmpM.clone(),
+                                color: bloomColor,
+                                geoIndex: geoIdx
+                            });
+                        }
                     }
 
                     break;
