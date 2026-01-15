@@ -1,8 +1,9 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { View, Text, Image, TouchableOpacity, Dimensions, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useUnistyles, StyleSheet } from 'react-native-unistyles';
 import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { useUserStore } from '../stores/UserStore';
 import { useUserProfile } from '../features/social/hooks/useUserProfile';
@@ -15,9 +16,9 @@ import DraggableBottomSheet from './DraggableBottomSheet';
 import { GestureHandlerRootView, ScrollView } from 'react-native-gesture-handler';
 import GradientIcon from './GradientIcon';
 import GradientText from './GradientText';
-import RankCard from './RankCard';
+import PlantPotPreview from './PlantPotPreview';
 import RewardItem from './RewardItem';
-import { REWARDS, getRankName } from '../utils/leveling';
+import { REWARDS, getRankName, getLevelProgress, getXPForNextLevel, getTotalXPForLevel } from '../utils/leveling';
 import SpriteComponent from './SpriteComponent';
 import { useNavigation } from '@react-navigation/native';
 
@@ -117,7 +118,68 @@ export default function UserProfile({ userId, isOwner }: Props) {
                             </TouchableOpacity>
                         )}
 
-                        <RankCard level={currentLevel} xp={currentXP} rankName={currentRank} />
+                        {/* 3D Plant with Level Info */}
+                        {(() => {
+                            const RANK_GRADIENTS: Record<string, [string, string]> = {
+                                Evergreen: ['#29d071', '#23b060'],
+                                Roseheart: ['#f68580', '#e57373'],
+                                Sapling: ['#68cf67', '#5cb85c'],
+                                Seedling: ['#4fab4b', '#439a40'],
+                                Sprout: ['#42973b', '#388e3c'],
+                                Sunflower: ['#f1aa21', '#ffa000'],
+                            };
+                            const gradientColors = RANK_GRADIENTS[currentRank] || ['#4CAF50', '#388E3C'];
+                            const progress = getLevelProgress(currentXP, currentLevel);
+                            const currentLevelXP = getTotalXPForLevel(currentLevel);
+                            const xpForNext = getXPForNextLevel(currentLevel);
+                            const xpInLevel = currentXP - currentLevelXP;
+                            const xpNeededInLevel = xpForNext - currentLevelXP;
+                            const plantSeed = userId ? userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : 12345;
+
+                            // Calculate L-System config based on growth (0-100)
+                            const lsystemConfig = useMemo(() => {
+                                const t = Math.max(0, Math.min(100, currentLevel)) / 100;
+                                return {
+                                    iterations: 2 + Math.floor(t * 2), // Scale from 2 to 4
+                                    length: 0.01 + t * 0.12,
+                                    thickness: 0.003 + t * 0.02,
+                                    lengthScale: 0.6 + t * 0.35,
+                                    leafSize: 0.01 + t * 0.05,
+                                    bloomSize: 0.02 + t * 0.06,
+                                    leafChance: t * 0.5,
+                                    bloomChance: t > 0.25 ? (t - 0.25) * 1.07 : 0,
+                                };
+                            }, [currentLevel]);
+
+                            return (
+                                <LinearGradient
+                                    colors={gradientColors}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                    style={styles.plantCard}
+                                >
+                                    {/* 3D Plant Container */}
+                                    <View style={styles.plantViewContainer}>
+                                        <PlantPotPreview
+                                            seed={plantSeed}
+                                            growth={currentLevel}
+                                            mode="lsystem"
+                                            lsystemConfig={lsystemConfig}
+                                            potType="PotStandard"
+                                        />
+                                    </View>
+
+                                    {/* Level Info */}
+                                    <Text style={styles.plantLevelText}>Level {currentLevel}</Text>
+                                    <Text style={styles.plantXpText}>{xpInLevel} / {xpNeededInLevel} XP</Text>
+
+                                    {/* Progress Bar */}
+                                    <View style={styles.plantProgressBg}>
+                                        <View style={[styles.plantProgressFill, { width: `${progress * 100}%` }]} />
+                                    </View>
+                                </LinearGradient>
+                            );
+                        })()}
 
                         <Text style={styles.sectionTitle}>Rewards</Text>
                         <ScrollView
@@ -460,5 +522,53 @@ const styles = StyleSheet.create((theme) => ({
         fontSize: 16,
         color: theme.colors.typography,
         fontStyle: 'italic',
+    },
+    // Plant card styles
+    plantCard: {
+        borderRadius: 20,
+        padding: 20,
+        alignItems: 'center',
+        marginVertical: 15,
+        width: '100%',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 10,
+        elevation: 8,
+    },
+    plantViewContainer: {
+        width: '100%',
+        aspectRatio: 1,
+        borderRadius: 12,
+        overflow: 'hidden',
+        backgroundColor: 'rgba(0,0,0,0.15)',
+        marginBottom: 15,
+    },
+    plantLevelText: {
+        fontSize: 32,
+        fontWeight: '900',
+        color: '#FFFFFF',
+        textShadowColor: 'rgba(0, 0, 0, 0.2)',
+        textShadowOffset: { width: 0, height: 2 },
+        textShadowRadius: 4,
+    },
+    plantXpText: {
+        fontSize: 14,
+        color: 'rgba(255, 255, 255, 0.9)',
+        marginTop: 4,
+        marginBottom: 15,
+        fontWeight: '600',
+    },
+    plantProgressBg: {
+        width: '100%',
+        height: 12,
+        backgroundColor: 'rgba(255, 255, 255, 0.25)',
+        borderRadius: 6,
+        overflow: 'hidden',
+    },
+    plantProgressFill: {
+        height: '100%',
+        borderRadius: 6,
+        backgroundColor: '#FFFFFF',
     },
 }));

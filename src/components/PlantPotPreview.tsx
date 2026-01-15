@@ -1,7 +1,8 @@
-import React, { Suspense, useRef } from "react";
+import React, { Suspense, useRef, useEffect } from "react";
 import { View } from "react-native";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
+import { OrbitControls } from "@react-three/drei/native";
 import PotModel, { PotType } from "./PotModel";
 import ProceduralPlant, { PlantStyle, PlantConfig } from "./ProceduralPlant";
 import LSystemPlant3D, { LSystemConfig } from "./LSystemPlant3D";
@@ -21,15 +22,19 @@ type Props = {
     cameraDistance?: number;
 };
 
-// Dynamic camera controller
-function CameraController({ cameraY, cameraDistance }: { cameraY: number; cameraDistance: number }) {
+// Component to set initial camera position
+function InitialCamera({ cameraY, cameraDistance }: { cameraY: number; cameraDistance: number }) {
     const { camera } = useThree();
+    const initialized = useRef(false);
 
-    useFrame(() => {
-        const xz = cameraDistance * 0.7;
-        camera.position.set(xz, cameraY, xz);
-        camera.lookAt(0, 0.2, 0);
-    });
+    useEffect(() => {
+        if (!initialized.current) {
+            const xz = cameraDistance * 0.7;
+            camera.position.set(xz, cameraY, xz);
+            camera.lookAt(0, 0.4, 0);
+            initialized.current = true;
+        }
+    }, [cameraY, cameraDistance, camera]);
 
     return null;
 }
@@ -90,17 +95,29 @@ export default function PlantPotPreview({
     plantConfig,
     mode = "procedural",
     lsystemConfig,
-    cameraY = 0.65,
+    cameraY = 0.85,
     cameraDistance = 1.5,
 }: Props) {
     return (
         <View style={{ flex: 1 }}>
             <Canvas
                 dpr={[1, 2]}
-                camera={{ position: [1, 0.65, 1], fov: 45, near: 0.01, far: 50 }}
+                camera={{ position: [1, 0.85, 1], fov: 45, near: 0.01, far: 50 }}
             >
-                {/* Dynamic camera controller */}
-                <CameraController cameraY={cameraY} cameraDistance={cameraDistance} />
+                {/* Initial Camera Position Setup */}
+                <InitialCamera cameraY={cameraY} cameraDistance={cameraDistance} />
+
+                {/* Orbit Controls for Zoom/Pan */}
+                <OrbitControls
+                    makeDefault
+                    target={[0, 0.4, 0]}
+                    enableZoom={true}
+                    enablePan={false}
+                    minPolarAngle={0}
+                    maxPolarAngle={Math.PI / 1.5} // Don't let user go under the pot
+                    minDistance={0.5}
+                    maxDistance={4}
+                />
 
                 {/* Ambient light for overall illumination */}
                 <ambientLight intensity={0.5} />

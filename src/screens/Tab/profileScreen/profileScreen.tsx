@@ -11,12 +11,15 @@ import { useUserStore } from '../../../stores/UserStore';
 import DraggableBottomSheet from '../../../components/DraggableBottomSheet';
 import GradientIcon from '../../../components/GradientIcon';
 import GradientText from '../../../components/GradientText';
-import RankCard from '../../../components/RankCard';
+// import RankCard from '../../../components/RankCard'; // Not used if inline
 import RewardItem from '../../../components/RewardItem';
-import { REWARDS, getRankName, Reward } from '../../../utils/leveling';
+import { REWARDS, getRankName, Reward, getLevelProgress, getXPForNextLevel, getTotalXPForLevel } from '../../../utils/leveling';
 import PostListTab from './components/PostListTab';
 import { FontAwesome5 } from '@expo/vector-icons';
 import RewardDetailsModal from '../../../components/RewardDetailsModal';
+import PlantPotPreview, { PlantMode } from '../../../components/PlantPotPreview';
+import { useMemo } from 'react';
+
 
 export default function ProfileScreen() {
   const { theme } = useUnistyles();
@@ -93,13 +96,101 @@ export default function ProfileScreen() {
               <GradientIcon name="chevron-right" size={14} />
             </TouchableOpacity>
 
-            {/* Rank Card */}
-            <RankCard
-              level={currentLevel}
-              xp={currentXP}
-              rankName={currentRank}
-              seed={user?.id ? user.id.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0) : 12345}
-            />
+            {/* 3D Plant with Level Info */}
+            {(() => {
+              const RANK_GRADIENTS: Record<string, [string, string]> = {
+                Evergreen: ['#29d071', '#23b060'],
+                Roseheart: ['#f68580', '#e57373'],
+                Sapling: ['#68cf67', '#5cb85c'],
+                Seedling: ['#4fab4b', '#439a40'],
+                Sprout: ['#42973b', '#388e3c'],
+                Sunflower: ['#f1aa21', '#ffa000'],
+              };
+              const gradientColors = RANK_GRADIENTS[currentRank] || ['#4CAF50', '#388E3C'];
+              const progress = getLevelProgress(currentXP, currentLevel);
+              const currentLevelXP = getTotalXPForLevel(currentLevel);
+              const xpForNext = getXPForNextLevel(currentLevel);
+              const xpInLevel = currentXP - currentLevelXP;
+              const xpNeededInLevel = xpForNext - currentLevelXP;
+              const plantSeed = user?.id ? user.id.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0) : 12345;
+
+              // Calculate L-System config based on growth (0-100)
+              const lsystemConfig = useMemo(() => {
+                const t = Math.max(0, Math.min(100, currentLevel)) / 100;
+                return {
+                  iterations: 2 + Math.floor(t * 2), // Scale from 2 to 4
+                  length: 0.01 + t * 0.12,
+                  thickness: 0.003 + t * 0.02,
+                  lengthScale: 0.6 + t * 0.35,
+                  leafSize: 0.01 + t * 0.05,
+                  bloomSize: 0.02 + t * 0.06,
+                  leafChance: t * 0.5,
+                  bloomChance: t > 0.25 ? (t - 0.25) * 1.07 : 0,
+                };
+              }, [currentLevel]);
+
+              return (
+                <LinearGradient
+                  colors={gradientColors}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[styles.profileCard, { alignItems: 'center', width: '100%', padding: 20 }]} // Reusing profileCard style as base
+                >
+                  {/* 3D Plant Container */}
+                  <View style={{
+                    width: '100%',
+                    aspectRatio: 1,
+                    borderRadius: 12,
+                    overflow: 'hidden',
+                    backgroundColor: 'rgba(0,0,0,0.15)',
+                    marginBottom: 15,
+                  }}>
+                    <PlantPotPreview
+                      seed={plantSeed}
+                      growth={currentLevel}
+                      mode="lsystem"
+                      lsystemConfig={lsystemConfig}
+                      potType="PotStandard"
+                    />
+                  </View>
+
+                  {/* Level Info */}
+                  <Text style={{
+                    fontSize: 32,
+                    fontWeight: '900',
+                    color: '#FFFFFF',
+                    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+                    textShadowOffset: { width: 0, height: 2 },
+                    textShadowRadius: 4,
+                  }}>Level {currentLevel}</Text>
+                  <Text style={{
+                    fontSize: 14,
+                    color: 'rgba(255, 255, 255, 0.9)',
+                    marginTop: 4,
+                    marginBottom: 15,
+                    fontWeight: '600',
+                  }}>{xpInLevel} / {xpNeededInLevel} XP</Text>
+
+                  {/* Progress Bar */}
+                  <View style={{
+                    width: '100%',
+                    height: 12,
+                    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+                    borderRadius: 6,
+                    overflow: 'hidden',
+                  }}>
+                    <View style={{
+                      height: '100%',
+                      borderRadius: 6,
+                      backgroundColor: '#FFFFFF',
+                      width: `${progress * 100}%`
+                    }} />
+                  </View>
+                </LinearGradient>
+              );
+            })()}
+
+
 
             {/* Rewards Section */}
             <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Rewards</Text>
