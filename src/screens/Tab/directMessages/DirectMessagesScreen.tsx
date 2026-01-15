@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, FlatList, Image, TouchableOpacity, SafeAreaView, StatusBar, ImageBackground, Modal, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, FlatList, Image, TouchableOpacity, SafeAreaView, StatusBar, ImageBackground, Modal, ActivityIndicator, Alert, Dimensions } from 'react-native';
 import { useUnistyles } from 'react-native-unistyles';
 import { StackScreenProps } from '@react-navigation/stack';
 import { RootStackParamList } from '../../../navigation/Root';
@@ -10,11 +10,12 @@ import { useDMStore, Conversation } from '../../../stores/DMStore'; // Import DM
 import { useUserStore } from '../../../stores/UserStore';
 import { db } from '../../../utils/supabase';
 
-type Props = StackScreenProps<RootStackParamList, 'DirectMessages'>;
-
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { getLatestTip, StoredTip } from '../../../utils/tipHistory';
+
+type Props = StackScreenProps<RootStackParamList, 'DirectMessages'>;
 
 // Simple user interface for search
 interface SearchUser {
@@ -26,6 +27,7 @@ interface SearchUser {
 export default function DirectMessagesScreen() {
     const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
     const { theme } = useUnistyles();
+    const insets = useSafeAreaInsets();
     const [searchQuery, setSearchQuery] = useState('');
     const [sprigTip, setSprigTip] = useState<StoredTip | null>(null);
     const [showDevMenu, setShowDevMenu] = useState(false); // State for dev menu
@@ -230,15 +232,15 @@ export default function DirectMessagesScreen() {
             style={styles.container}
             resizeMode="cover"
         >
-            <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+
 
             {/* Header Section */}
             <View style={styles.header}>
-                <View style={styles.headerContent}>
-                    <Text style={[styles.headerLargeTitle, { paddingVertical: 70 }]}>Connect with{'\n'}Others!</Text>
+                <View style={[styles.headerContent, { paddingTop: insets.top + vh * 10 }]}>
+                    <Text style={styles.headerLargeTitle}>Connect with{'\n'}Others!</Text>
                 </View>
                 {/* Bug Icon for Dev Menu */}
-                <TouchableOpacity onPress={() => setShowDevMenu(true)} style={styles.bugButton}>
+                <TouchableOpacity onPress={() => setShowDevMenu(true)} style={[styles.bugButton, { top: insets.top + vh * 10 }]}>
                     <FontAwesome6 name="bug" size={24} color="#FFF" />
                 </TouchableOpacity>
             </View>
@@ -344,87 +346,93 @@ export default function DirectMessagesScreen() {
     );
 }
 
+// ... imports
+const { width, height } = Dimensions.get('window');
+const vw = width / 100;
+const vh = height / 100;
+
 const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
     header: {
-        height: '35%',
+        height: '30%', // Keeps the background image ratio
         position: 'relative',
     },
 
     headerContent: {
-        paddingHorizontal: 20,
-        paddingTop: 60, // Adjust for status bar
+        paddingHorizontal: vw * 5,
+        // paddingTop handled inline with insets
     },
     bugButton: {
         position: 'absolute',
-        top: 60,
-        right: 20,
-        padding: 10,
+        // top handled inline with insets
+        right: vw * 5,
+        padding: vw * 2,
         zIndex: 10,
     },
     headerTitle: {
         color: '#FFF',
-        fontSize: 18,
+        fontSize: vw * 4.5,
         fontWeight: '600',
-        marginBottom: 20,
+        marginBottom: vh * 2,
     },
     headerLargeTitle: {
         color: '#FFF',
-        fontSize: 42,
-        fontWeight: 'bold',
-        lineHeight: 48,
+        fontSize: vw * 10, // Matching other screens
+        fontWeight: '900',
+        lineHeight: vw * 11,
     },
     contentContainer: {
         flex: 1,
-        borderTopLeftRadius: 30,
-        borderTopRightRadius: 30,
-        paddingTop: 30,
-        paddingHorizontal: 20,
+        borderTopLeftRadius: vw * 8,
+        borderTopRightRadius: vw * 8,
+        paddingTop: vh * 3,
+        paddingHorizontal: vw * 5,
+        // Ensure it fills the bottom naturally
     },
     contentHeader: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: 20,
-        paddingRight: 10
+        marginBottom: vh * 2,
+        paddingRight: vw * 2
     },
     sectionTitle: {
-        fontSize: 24,
+        fontSize: vw * 6,
         fontWeight: 'bold',
     },
     subtitle: {
         fontSize: 14,
     },
     searchContainer: {
-        marginBottom: 20,
+        marginBottom: vh * 2,
     },
     searchInput: {
-        height: 50,
-        borderRadius: 25,
-        paddingHorizontal: 20,
-        fontSize: 16,
+        height: vh * 6,
+        borderRadius: vw * 6,
+        paddingHorizontal: vw * 5,
+        fontSize: vw * 4,
     },
     listContent: {
-        paddingBottom: 20,
+        paddingBottom: vh * 5,
     },
     messageItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 20,
+        marginBottom: vh * 2.5,
     },
     avatarContainer: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
+        width: vw * 13,
+        height: vw * 13,
+        borderRadius: (vw * 13) / 2,
         backgroundColor: '#E0E0E0',
-        marginRight: 15,
+        marginRight: vw * 4,
     },
     avatar: {
         width: '100%',
         height: '100%',
-        borderRadius: 25,
+        borderRadius: (vw * 13) / 2,
     },
     messageContent: {
         flex: 1,
@@ -432,22 +440,22 @@ const styles = StyleSheet.create({
     messageHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        marginBottom: 4,
+        marginBottom: vh * 0.5,
     },
     name: {
-        fontSize: 16,
+        fontSize: vw * 4,
         fontWeight: '600',
     },
     time: {
-        fontSize: 12,
+        fontSize: vw * 3,
     },
     lastMessage: {
-        fontSize: 14,
+        fontSize: vw * 3.5,
     },
     newChatButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: vw * 10,
+        height: vw * 10,
+        borderRadius: (vw * 10) / 2,
         justifyContent: 'center',
         alignItems: 'center',
         shadowColor: '#000',
@@ -458,43 +466,43 @@ const styles = StyleSheet.create({
     },
     modalContainer: {
         flex: 1,
-        padding: 20
+        padding: vw * 5
     },
     modalHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 20,
-        marginTop: 10
+        marginBottom: vh * 2,
+        marginTop: vh * 1
     },
     modalTitle: {
-        fontSize: 22,
+        fontSize: vw * 5.5,
         fontWeight: 'bold'
     },
     modalCloseText: {
-        fontSize: 16,
+        fontSize: vw * 4,
         fontWeight: '600'
     },
     modalSearchContainer: {
-        marginBottom: 10
+        marginBottom: vh * 2
     },
     userResultItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 15,
+        paddingVertical: vh * 2,
         borderBottomWidth: 1,
         borderBottomColor: '#EEE'
     },
     avatarContainerSmall: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: vw * 10,
+        height: vw * 10,
+        borderRadius: (vw * 10) / 2,
         backgroundColor: '#E0E0E0',
         overflow: 'hidden',
-        marginRight: 12,
+        marginRight: vw * 3,
     },
     userResultName: {
-        fontSize: 16,
+        fontSize: vw * 4,
         fontWeight: '500'
     },
     unreadBadge: {
@@ -503,17 +511,17 @@ const styles = StyleSheet.create({
         right: -4,
         backgroundColor: '#FF3B30',
         borderRadius: 10,
-        minWidth: 20,
-        height: 20,
+        minWidth: vw * 5,
+        height: vw * 5,
         justifyContent: 'center',
         alignItems: 'center',
-        paddingHorizontal: 5,
+        paddingHorizontal: 4,
         borderWidth: 2,
         borderColor: '#FFF',
     },
     unreadBadgeText: {
         color: '#FFF',
-        fontSize: 11,
+        fontSize: vw * 2.8,
         fontWeight: 'bold',
     },
 });

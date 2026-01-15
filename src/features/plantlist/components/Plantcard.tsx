@@ -47,7 +47,10 @@ export const PlantCard = React.memo(
     // Fetch plant types
     useEffect(() => {
       const fetchTypes = async () => {
-        const { data, error } = await db.social.from('Plant_data').select('id, common_name');
+        const { data, error } = await db.social
+          .from('Plant_data')
+          .select('id, common_name')
+          .order('common_name', { ascending: true });
 
         if (error) {
           console.log('Error fetching plant types:', error);
@@ -200,7 +203,7 @@ export const PlantCard = React.memo(
                   <View style={styles.field}>
                     <Text style={styles.label}>Plant Type</Text>
 
-                    <View style={{ width: '100%' }}>
+                    <View style={{ width: '100%', zIndex: 20 }}>
                       {/* DROPDOWN BUTTON */}
                       <TouchableOpacity
                         style={[
@@ -212,32 +215,38 @@ export const PlantCard = React.memo(
                           },
                         ]}
                         onPress={() => setTypeDropdownOpen((prev) => !prev)}>
-                        <Text style={{ color: 'white', flexShrink: 1 }} numberOfLines={1}>
-                          {plantTypes.find((t) => t.id === editedType)?.name || 'Select plant type'}
+                        <Text style={{ color: styles.input.color, flexShrink: 1 }} numberOfLines={1}>
+                          {plantTypes.find((t) => t.id === editedType)?.name || 'Select type'}
                         </Text>
 
-                        <FontAwesome6 name="chevron-down" size={12} color="white" />
+                        <FontAwesome6 name="chevron-down" size={10} color={styles.label.color} />
                       </TouchableOpacity>
 
                       {/* DROPDOWN LIST */}
                       {typeDropdownOpen && (
                         <View
                           style={{
-                            backgroundColor: 'rgba(0,0,0,0.3)',
-                            borderRadius: 12,
-                            marginTop: 6,
-                            maxHeight: 75,
+                            position: 'absolute',
+                            top: '100%',
+                            left: 0,
+                            right: 0,
+                            backgroundColor: 'rgba(0,0,0,0.8)',
+                            borderRadius: 8,
+                            marginTop: 4,
+                            maxHeight: vh * 20, // Increased height
+                            zIndex: 100,
+                            padding: 4
                           }}>
-                          <ScrollView showsVerticalScrollIndicator={false}>
+                          <ScrollView showsVerticalScrollIndicator={true}>
                             {plantTypes.map((type) => (
                               <TouchableOpacity
                                 key={type.id}
-                                style={{ paddingVertical: 10, paddingHorizontal: 12 }}
+                                style={{ paddingVertical: 8, paddingHorizontal: 10 }}
                                 onPress={() => {
                                   setEditedType(type.id);
                                   setTypeDropdownOpen(false);
                                 }}>
-                                <Text style={{ color: 'white' }} numberOfLines={1}>
+                                <Text style={{ color: 'white', fontSize: 12 }} numberOfLines={1}>
                                   {type.name}
                                 </Text>
                               </TouchableOpacity>
@@ -247,16 +256,15 @@ export const PlantCard = React.memo(
                       )}
                     </View>
                   </View>
-
                   <Text style={styles.label}></Text>
 
                   <View style={styles.buttonRow}>
-                    <TouchableOpacity style={styles.input} onPress={handleSave}>
-                      <Text style={styles.saveText}>Save</Text>
+                    <TouchableOpacity style={styles.cancelButton} onPress={onActionPress}>
+                      <Text style={styles.cancelButtonText}>Cancel</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.input} onPress={onActionPress}>
-                      <Text style={styles.saveText}>Cancel</Text>
+                    <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+                      <Text style={styles.buttonText}>Save</Text>
                     </TouchableOpacity>
                   </View>
                 </View>

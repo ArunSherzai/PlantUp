@@ -3,17 +3,22 @@ import { View, Text, Switch, TouchableOpacity, Image } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUserStore } from '../../../stores/UserStore';
+
+import { StatusBar } from 'expo-status-bar';
 
 export default function NotificationsScreen() {
     const { theme } = useUnistyles();
     const navigation = useNavigation();
+    const insets = useSafeAreaInsets();
     const { sprigNotificationsEnabled, toggleSprigNotifications } = useUserStore();
 
     return (
         <View style={styles.container}>
+            <StatusBar style="light" translucent backgroundColor="transparent" />
             {/* Header Background */}
-            <View style={styles.headerBg}>
+            <View style={[styles.headerBg, { height: 140 + insets.top }]}>
                 <Image
                     source={require('../../../../assets/images/profileScreenBackground.png')}
                     style={styles.headerGradient}
@@ -22,7 +27,7 @@ export default function NotificationsScreen() {
                 <View style={styles.headerOverlay} />
             </View>
 
-            <View style={styles.headerContent}>
+            <View style={[styles.headerContent, { paddingTop: insets.top + 10 }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                     <FontAwesome6 name="chevron-left" size={24} color="#fff" />
                 </TouchableOpacity>
@@ -66,7 +71,6 @@ const styles = StyleSheet.create((theme: any) => ({
         backgroundColor: theme.colors.background,
     },
     headerBg: {
-        height: 200,
         width: '100%',
         position: 'absolute',
         top: 0,
@@ -81,12 +85,11 @@ const styles = StyleSheet.create((theme: any) => ({
         backgroundColor: 'rgba(0,0,0,0.1)',
     },
     headerContent: {
-        paddingTop: 60,
         paddingHorizontal: 20,
         flexDirection: 'row',
         alignItems: 'center',
         zIndex: 1,
-        height: 120,
+        paddingBottom: 20,
     },
     backButton: {
         marginRight: 15,

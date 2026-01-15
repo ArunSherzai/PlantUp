@@ -10,14 +10,21 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { db } from '../../../utils/supabase';
 import { useUserStore } from '../../../stores/UserStore';
 
+import { StatusBar } from 'expo-status-bar';
+
 export default function AccountScreen() {
     const { theme } = useUnistyles();
     const navigation = useNavigation();
     const { user, profile, fetchProfile } = useUserStore();
 
+    // Check if user has Google connected
+    const isGoogleUser = user?.app_metadata?.providers?.includes('google');
+
     const [newUsername, setNewUsername] = useState(profile?.username ?? '');
     const [newBio, setNewBio] = useState(profile?.bio ?? '');
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
 
     const [loading, setLoading] = useState(false);
 
@@ -95,8 +102,27 @@ export default function AccountScreen() {
 
             if (updateError) throw updateError;
 
-            // 3. Refresh Profile
+            // 3. Update Password (if provided and user works via Email/Password)
+            // We hide this if they have Google linked to avoid confusion
+            if (newPassword && !isGoogleUser) {
+                if (newPassword.length < 6) {
+                    throw new Error("Password must be at least 6 characters long.");
+                }
+                if (newPassword !== confirmPassword) {
+                    throw new Error("Passwords do not match.");
+                }
+
+                const { error: passError } = await db.public.auth.updateUser({ password: newPassword });
+                if (passError) throw passError;
+            }
+
+            // 4. Refresh Profile
             await fetchProfile();
+            
+            // Clear passwords on success
+            setNewPassword('');
+            setConfirmPassword('');
+            
             Alert.alert("Success", "Profile updated!");
             navigation.goBack();
 
@@ -119,6 +145,7 @@ export default function AccountScreen() {
 
     return (
         <View style={styles.container}>
+            <StatusBar style="light" translucent backgroundColor="transparent" />
             {/* Header Background */}
             <View style={[styles.headerBg, { height: 200 + insets.top }]}>
                 <Image
@@ -180,6 +207,30 @@ export default function AccountScreen() {
                         />
                         <Text style={styles.charCount}>{newBio.length}/150</Text>
                     </View>
+
+                    {/* PASSWORD SECTION (Hidden if Google is linked) */}
+                    {!isGoogleUser && (
+                        <View style={styles.section}>
+                            <Text style={styles.inputLabel}>Change Password</Text>
+                            <TextInput
+                                style={styles.input}
+                                value={newPassword}
+                                onChangeText={setNewPassword}
+                                placeholder="New Password"
+                                placeholderTextColor={theme.colors.typography}
+                                secureTextEntry
+                            />
+                            <View style={{ height: 10 }} />
+                            <TextInput
+                                style={styles.input}
+                                value={confirmPassword}
+                                onChangeText={setConfirmPassword}
+                                placeholder="Confirm New Password"
+                                placeholderTextColor={theme.colors.typography}
+                                secureTextEntry
+                            />
+                        </View>
+                    )}
 
                     {/* SAVE BUTTON */}
                     <TouchableOpacity

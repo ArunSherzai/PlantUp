@@ -2,6 +2,7 @@ import React, { useCallback, useMemo } from 'react';
 import { View, Text, Image, TouchableOpacity, Dimensions, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useUnistyles, StyleSheet } from 'react-native-unistyles';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
@@ -21,6 +22,7 @@ import RewardItem from './RewardItem';
 import { REWARDS, getRankName, getLevelProgress, getXPForNextLevel, getTotalXPForLevel } from '../utils/leveling';
 import SpriteComponent from './SpriteComponent';
 import { useNavigation } from '@react-navigation/native';
+import { Image as ExpoImage } from 'expo-image';
 
 const { width } = Dimensions.get('window');
 
@@ -31,6 +33,7 @@ type Props = {
 
 export default function UserProfile({ userId, isOwner }: Props) {
     const { theme } = useUnistyles();
+    const insets = useSafeAreaInsets();
     const navigation = useNavigation<any>();
     const { user: currentUser } = useUserStore(); // Current logged in user (viewer)
 
@@ -240,11 +243,16 @@ export default function UserProfile({ userId, isOwner }: Props) {
                     style={styles.headerGradient}
                     resizeMode="cover"
                 />
-                <View style={styles.headerContent}>
+                <View style={[styles.headerContent, { paddingTop: insets.top }]}>
                     <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                         <FontAwesome6 name="chevron-left" size={20} color={theme.colors.textDark} />
                     </TouchableOpacity>
-                    <Text style={styles.headerTitle}>
+                    <Text 
+                        style={styles.headerTitle}
+                        adjustsFontSizeToFit
+                        numberOfLines={3}
+                        minimumFontScale={0.5}
+                    >
                         {isCurrentUser ? "Your\nGrowing\nProfile!" : `${profile?.username || 'User'}'s\nProfile`}
                     </Text>
                 </View>
@@ -266,6 +274,24 @@ export default function UserProfile({ userId, isOwner }: Props) {
                                 }
                                 style={styles.avatar}
                             />
+                            {/* 🟢 ADDED: Responsive Border Fix */}
+                            {profile?.equipped_border?.media_url && (
+                                <ExpoImage
+                                    key={profile.equipped_border.media_url} // Force re-mount on change!
+                                    source={{ uri: profile.equipped_border.media_url }}
+                                    style={{
+                                        // 🟢 RESPONSIVE SIZING RELATIVE TO AVATAR (80px)
+                                        position: 'absolute',
+                                        width: profile.equipped_border.media_url.includes('.gif') ? '262%' : '168%',
+                                        height: profile.equipped_border.media_url.includes('.gif') ? '262%' : '168%',
+                                        top: profile.equipped_border.media_url.includes('.gif') ? '-81%' : '-34%',
+                                        left: profile.equipped_border.media_url.includes('.gif') ? '-81%' : '-34%',
+                                        zIndex: 1,
+                                    }}
+                                    pointerEvents="none"
+                                    contentFit="contain"
+                                />
+                            )}
                         </View>
                         <View style={styles.userInfo}>
                             <View style={styles.nameRow}>
@@ -360,7 +386,7 @@ const styles = StyleSheet.create((theme) => ({
     },
     headerContent: {
         position: 'absolute',
-        top: 50,
+        top: 0,
         left: 20,
     },
     backButton: {

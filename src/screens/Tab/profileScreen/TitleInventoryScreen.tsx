@@ -1,16 +1,17 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, RefreshControl } from 'react-native';
-import { useUnistyles } from 'react-native-unistyles';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { useUnistyles } from 'react-native-unistyles';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { useUserStore } from '../../../stores/UserStore';
-import GradientIcon from '../../../components/GradientIcon';
 
 export default function TitleInventoryScreen() {
   const { theme } = useUnistyles();
   const navigation = useNavigation();
   const { ownedTitles, fetchTitles, equipTitle } = useUserStore();
   const [refreshing, setRefreshing] = React.useState(false);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     fetchTitles();
@@ -29,7 +30,7 @@ export default function TitleInventoryScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <FontAwesome6 name="chevron-left" size={24} color={theme.colors.text} />
         </TouchableOpacity>
@@ -134,7 +135,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 60,
     paddingBottom: 20,
   },
   backButton: {

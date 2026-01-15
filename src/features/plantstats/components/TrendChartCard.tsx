@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
 import { BarChart } from 'react-native-gifted-charts';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { vw, vh } from '~/features/plantlist/styles/plantStyles';
 
 // IMPORT SHARED OPTIONS
 import { trendOptions } from '../api/options';
@@ -22,8 +23,8 @@ export default function TrendChartCard({
   const unit = current?.unit ?? '';
   const iconColor = current?.color ?? barColor;
 
-  const BAR_WIDTH = 22;
-  const SPACING = 14;
+  const BAR_WIDTH = vw * 7;
+  const SPACING = vw * 3.5;
 
   return (
     <View style={[styles.card, { backgroundColor: theme.colors.background }]}>
@@ -55,7 +56,7 @@ export default function TrendChartCard({
             }}>
             <Feather
               name={o.icon as any}
-              size={20}
+              size={vw * 5}
               color={selectedOptionLabel === o.label ? o.color : theme.colors.greyedOut}
             />
           </TouchableOpacity>
@@ -68,17 +69,17 @@ export default function TrendChartCard({
           ...b,
           frontColor: barColor,
         }))}
-        height={200}
+        height={vh * 25}
         spacing={SPACING}
-        initialSpacing={10}
+        initialSpacing={vw * 2}
         maxValue={maxY + 2}
-        barBorderRadius={8}
-        barWidth={30}
+        barBorderRadius={vw * 2}
+        barWidth={BAR_WIDTH}
         hideRules
         xAxisThickness={0}
         yAxisThickness={0}
-        xAxisLabelTextStyle={{ color: theme.colors.text }}
-        yAxisTextStyle={{ color: theme.colors.text }}
+        xAxisLabelTextStyle={{ color: theme.colors.text, fontSize: vw * 3 }}
+        yAxisTextStyle={{ color: theme.colors.text, fontSize: vw * 3 }}
         noOfSections={5}
       />
     </View>
@@ -87,22 +88,22 @@ export default function TrendChartCard({
 
 const styles = StyleSheet.create((theme) => ({
   card: {
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 12,
+    borderRadius: vw * 5,
+    padding: vw * 4,
+    marginBottom: vh * 1.5,
     elevation: 4,
     width: '100%',
     overflow: 'hidden',
   },
   headerRow: {
-    marginBottom: 4,
+    marginBottom: vh * 0.5,
   },
   title: {
-    fontSize: 18,
+    fontSize: vw * 4.5,
     fontFamily: theme.fonts.header,
   },
   subtitle: {
-    fontSize: 12,
+    fontSize: vw * 3,
     fontFamily: theme.fonts.regular,
     marginTop: -2,
   },
@@ -110,15 +111,15 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginVertical: 10,
+    marginVertical: vh * 1.5,
     width: '100%',
   },
   iconButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 10,
+    paddingHorizontal: vw * 2,
+    paddingVertical: vh * 0.5,
+    borderRadius: vw * 2.5,
     borderWidth: 1,
     width: '16%',
     justifyContent: 'center',

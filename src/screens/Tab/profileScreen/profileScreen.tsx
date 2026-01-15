@@ -3,9 +3,15 @@ import { View, Text, Image, ScrollView, TouchableOpacity, Alert, ActivityIndicat
 import { Image as ExpoImage } from 'expo-image';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useUnistyles } from 'react-native-unistyles';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { StatusBar } from 'expo-status-bar';
+import { Dimensions } from 'react-native';
+
+const { width } = Dimensions.get('window');
+const vw = width / 100;
 
 import { useUserStore } from '../../../stores/UserStore';
 import DraggableBottomSheet from '../../../components/DraggableBottomSheet';
@@ -23,6 +29,7 @@ import { useMemo } from 'react';
 
 export default function ProfileScreen() {
   const { theme } = useUnistyles();
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { user, profile, fetchProfile, fetchUnclaimedRewards, unclaimedRewards, claimReward } = useUserStore();
   const [activeTab, setActiveTab] = useState('leveling');
@@ -240,6 +247,7 @@ export default function ProfileScreen() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
+
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         {/* Header Background */}
         <View style={styles.headerBg}>
@@ -249,7 +257,7 @@ export default function ProfileScreen() {
             resizeMode="cover"
           />
 
-          <View style={styles.headerContent}>
+          <View style={[styles.headerContent, { paddingTop: insets.top }]}>
             {/* Header Top Row: Settings Only */}
             <View style={styles.headerTopRow}>
               {/* Settings Button */}
@@ -261,14 +269,19 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             </View>
 
-            <Text style={[styles.headerTitle, { color: theme.colors.textDark }]}>
+            <Text 
+                style={[styles.headerTitle, { color: theme.colors.textDark }]}
+                adjustsFontSizeToFit
+                numberOfLines={3}
+                minimumFontScale={0.5}
+            >
               Your{'\n'}Growing{'\n'}Profile!
             </Text>
           </View>
         </View>
 
         {/* Draggable Bottom Sheet */}
-        <DraggableBottomSheet initialHeight={0.65} maxHeight={0.9}>
+        <DraggableBottomSheet initialHeight={0.70} maxHeight={0.9}>
           <ScrollView
             contentContainerStyle={[styles.sheetContent, { paddingBottom: 100 }]}
             showsVerticalScrollIndicator={false}>
@@ -290,27 +303,17 @@ export default function ProfileScreen() {
                     <ExpoImage
                       key={profile.equipped_border.media_url} // Force re-mount on change!
                       source={{ uri: profile.equipped_border.media_url }}
-                      style={
-                        profile.equipped_border.media_url.includes('.gif')
-                          ? {
-                            // Large size for GIFs with padding
-                            position: 'absolute',
-                            width: 210,
-                            height: 210,
-                            top: -65,
-                            left: -65,
-                            zIndex: 1,
-                          }
-                          : {
-                            // Standard size for PNGs
-                            position: 'absolute',
-                            width: 134,
-                            height: 134,
-                            top: -27,
-                            left: -27,
-                            zIndex: 1,
-                          }
-                      }
+                      style={{
+                          // 🟢 RESPONSIVE SIZING RELATIVE TO AVATAR (80px)
+                          // GIFs are approx 2.6x avatar size, PNGs 1.68x
+                          position: 'absolute',
+                          width: profile.equipped_border.media_url.includes('.gif') ? '262%' : '168%',
+                          height: profile.equipped_border.media_url.includes('.gif') ? '262%' : '168%',
+                          // Center using negative percentage margins (half of extra width)
+                          top: profile.equipped_border.media_url.includes('.gif') ? '-81%' : '-34%',
+                          left: profile.equipped_border.media_url.includes('.gif') ? '-81%' : '-34%',
+                          zIndex: 1,
+                      }}
                       pointerEvents="none"
                       contentFit="contain"
                     />
@@ -484,7 +487,7 @@ const styles = StyleSheet.create({
   },
   headerContent: {
     position: 'absolute',
-    top: 50,
+    top: 0,
     left: 20,
     right: 20,
   },
@@ -498,9 +501,9 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   headerTitle: {
-    fontSize: 42,
+    fontSize: vw * 10,
     fontWeight: '900',
-    lineHeight: 46,
+    lineHeight: vw * 11,
   },
   sheetContent: {
     paddingHorizontal: 20,

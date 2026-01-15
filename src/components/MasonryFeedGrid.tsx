@@ -4,7 +4,8 @@ import FeedCard from './FeedCard';
 import { getDisplayMedia } from '../utils/media';
 import { Post } from '../hooks/usePosts';
 
-const GAP = 15;
+const { width } = Dimensions.get('window');
+const GAP = width * 0.04; // ~15px on mobile, scales up
 
 interface MasonryFeedGridProps {
     posts: Post[];

@@ -21,8 +21,6 @@ const styles = StyleSheet.create(() => ({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    marginTop: 40,
     zIndex: 30,
   },
   arrowIcon: {

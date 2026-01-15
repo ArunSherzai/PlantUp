@@ -1,7 +1,11 @@
 import React from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, Image, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { useUnistyles } from 'react-native-unistyles';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
+
+const { width, height } = Dimensions.get('window');
+const vw = width / 100;
+const vh = height / 100;
 
 interface FeedCardProps {
     imageUri?: any;
@@ -36,12 +40,12 @@ const FeedCard = React.memo(({ imageUri, caption, hashtags, isVideo, style, onPr
                         <Image source={imageUri} style={styles.image} resizeMode="cover" />
                         {isVideo && (
                             <View style={styles.playIconContainer}>
-                                <FontAwesome6 name="play" size={12} color="white" />
+                                <FontAwesome6 name="play" size={vw * 3} color="white" />
                             </View>
                         )}
                         {/* Menu button overlaying image for media posts */}
                         <TouchableOpacity style={[styles.menuButton, { bottom: 8, right: 8 }]}>
-                            <FontAwesome6 name="ellipsis" size={16} color="white" />
+                            <FontAwesome6 name="ellipsis" size={vw * 4} color="white" />
                         </TouchableOpacity>
                     </View>
 
@@ -57,12 +61,12 @@ const FeedCard = React.memo(({ imageUri, caption, hashtags, isVideo, style, onPr
                     ]}>
 
                         {/* Badge at top */}
-                        <View style={[styles.badge, { backgroundColor: theme.colors.background, marginTop: 12, marginLeft: 12 }]}>
+                        <View style={[styles.badge, { backgroundColor: theme.colors.background }]}>
                             <Text style={[styles.badgeText, { color: theme.colors.primary }]}>Thought</Text>
                         </View>
 
                         {/* Main Content (Centered in Box) */}
-                        <View style={{ paddingHorizontal: 12, flex: 1, justifyContent: 'center' }}>
+                        <View style={{ paddingHorizontal: vw * 3, flex: 1, justifyContent: 'center' }}>
                             <Text style={[styles.textBody, { color: theme.colors.text, marginBottom: 0 }]} numberOfLines={aspectRatio && aspectRatio < 1 ? 8 : 4}>
                                 {caption ? caption.replace(/#\w+/g, '').trim() : "No content"}
                             </Text>
@@ -70,7 +74,7 @@ const FeedCard = React.memo(({ imageUri, caption, hashtags, isVideo, style, onPr
 
                         {/* Menu button (Ellipsis) - Same position as media posts */}
                         <TouchableOpacity style={[styles.menuButton, { bottom: 8, right: 8 }]}>
-                            <FontAwesome6 name="ellipsis" size={16} color="white" />
+                            <FontAwesome6 name="ellipsis" size={vw * 4} color="white" />
                         </TouchableOpacity>
                     </View>
 
@@ -85,23 +89,23 @@ export default FeedCard;
 
 const styles = StyleSheet.create({
     container: {
-        borderRadius: 16,
+        borderRadius: vw * 4,
         // overflow: 'hidden', // Remove overflow hidden if we want shadow on card, but usually needed for image clipping
         // For "all corners of image rounded", we can just round the image container.
-        marginBottom: 16,
+        marginBottom: vh * 2,
         flex: 1,
         position: 'relative',
         // backgroundColor handled by props
     },
     textCardContainer: {
         borderLeftWidth: 4,
-        padding: 12,
-        minHeight: 140,
+        padding: vw * 3,
+        minHeight: vh * 18,
     },
     imageContainer: {
         width: '100%',
         aspectRatio: 0.8,
-        borderRadius: 16, // Round all corners of the image
+        borderRadius: vw * 4, // Round all corners of the image
         overflow: 'hidden', // Clip the image to radius
         position: 'relative', // For absolute positioned children inside
     },
@@ -113,13 +117,13 @@ const styles = StyleSheet.create({
         position: 'absolute',
         top: '50%',
         left: '50%',
-        marginLeft: -16,
-        marginTop: -16,
+        marginLeft: - (vw * 8) / 2,
+        marginTop: - (vw * 8) / 2,
         backgroundColor: 'rgba(0,0,0,0.4)',
-        borderRadius: 32,
+        borderRadius: vw * 8,
         padding: 0,
-        width: 32,
-        height: 32,
+        width: vw * 8,
+        height: vw * 8,
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 1,
@@ -133,19 +137,19 @@ const styles = StyleSheet.create({
         // Add shadow text if white on image?
     },
     content: {
-        padding: 10,
-        paddingRight: 10,
+        padding: vw * 2.5,
+        paddingRight: vw * 2.5,
     },
     caption: {
-        fontSize: 12,
+        fontSize: vw * 3,
         fontWeight: '500',
-        marginBottom: 4,
+        marginBottom: vh * 0.5,
         // color: '#000', // Handled by theme
     },
     hashtags: {
-        fontSize: 11,
+        fontSize: vw * 2.8,
         fontWeight: '600',
-        marginTop: 4,
+        marginTop: vh * 0.5,
     },
     // Text Card Styles
     textWaitWrapper: {
@@ -158,39 +162,41 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     avatarPlaceholder: {
-        width: 20,
-        height: 20,
-        borderRadius: 10,
+        width: vw * 5,
+        height: vw * 5,
+        borderRadius: vw * 2.5,
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 6,
     },
     username: {
-        fontSize: 12,
+        fontSize: vw * 3,
         fontWeight: '600',
     },
     badge: {
         alignSelf: 'flex-start',
-        paddingHorizontal: 8,
-        paddingVertical: 2,
+        paddingHorizontal: vw * 2,
+        paddingVertical: vh * 0.25,
         borderRadius: 4,
-        marginBottom: 8,
+        marginBottom: vh * 1,
+        marginTop: vh * 1.5,
+        marginLeft: vw * 3,
     },
     badgeText: {
-        fontSize: 10,
+        fontSize: vw * 2.5,
         fontWeight: '700',
     },
     textBody: {
-        fontSize: 14,
+        fontSize: vw * 3.5,
         fontWeight: '500',
-        lineHeight: 20,
-        marginBottom: 12,
+        lineHeight: vw * 5,
+        marginBottom: vh * 1.5,
     },
     textFooter: {
         flexDirection: 'row',
         marginTop: 'auto',
-        paddingBottom: 20,
-        paddingRight: 20,
-        paddingLeft: 20,
+        paddingBottom: vh * 2.5,
+        paddingRight: vw * 5,
+        paddingLeft: vw * 5,
     }
 });

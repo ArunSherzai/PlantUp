@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { View, Text, Image, TouchableOpacity } from 'react-native';
 import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import { useUnistyles, StyleSheet } from 'react-native-unistyles';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { db } from '../../../utils/supabase';
@@ -16,6 +17,7 @@ import OverviewCard from '~/features/plantstats/components/OverviewCard';
 import HistoryCard from '~/features/plantstats/components/HistoryCard';
 import MiniTrendCard from '~/features/plantstats/components/MiniTrend';
 import SnapshotBoxes from '~/features/plantstats/components/SnapShotBoxes';
+import { vw, vh } from '~/features/plantlist/styles/plantStyles'; // Import existing responsive utils
 
 // --- API HELPERS ---
 import { calculateAverages, lastXdays } from '~/features/plantstats/api/history';
@@ -80,14 +82,14 @@ async function fetchLatestController(plantId: string): Promise<PlantController |
 const TimeRangePicker = ({ selectedRange, setSelectedRange }: any) => {
   const { theme } = useUnistyles();
   return (
-    <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginVertical: 10 }}>
+    <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginVertical: vh * 1.5 }}>
       {Object.keys(TIME_RANGES).map((key) => (
         <TouchableOpacity
           key={key}
           onPress={() => setSelectedRange(key as TimeRangeKey)}
           style={{
-            padding: 8,
-            borderRadius: 5,
+            padding: vw * 2, // Responsive padding
+            borderRadius: vw * 1.5,
             backgroundColor: selectedRange === key ? theme.colors.primary : theme.colors.background,
             borderWidth: selectedRange === key ? 1 : 0,
             borderColor: selectedRange === key ? theme.colors.primary : 'transparent',
@@ -95,7 +97,7 @@ const TimeRangePicker = ({ selectedRange, setSelectedRange }: any) => {
           <Text
             style={{
               color: selectedRange === key ? theme.colors.text : theme.colors.secondary,
-              fontSize: 12,
+              fontSize: vw * 3, // Responsive font
             }}>
             {key.split('(')[0].trim()}
           </Text>
@@ -109,6 +111,7 @@ export default function ShowPlantStats() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { theme } = useUnistyles();
+  const insets = useSafeAreaInsets();
 
   const { plantId: initialPlantId } = route.params ?? {};
 
@@ -376,7 +379,7 @@ export default function ShowPlantStats() {
             style={styles.headerImage}
             resizeMode="cover"
           />
-          <View style={styles.headerContent}>
+          <View style={[styles.headerContent, { paddingTop: insets.top + vh * 2 }]}>
             <Header navigation={navigation} />
             <View style={styles.titleContainer}>
               <Text style={[styles.headerTitle, { color: 'white' }]}>How's</Text>
@@ -389,14 +392,14 @@ export default function ShowPlantStats() {
         <DraggableBottomSheet initialHeight={0.65} maxHeight={0.9}>
           <ScrollView
             overScrollMode="never"
-            contentContainerStyle={{ paddingBottom: 100, paddingHorizontal: 20, paddingTop: 10 }}
+            contentContainerStyle={{ paddingBottom: vh * 15, paddingHorizontal: vw * 5, paddingTop: vh * 1.5 }}
             showsVerticalScrollIndicator={false}
             style={[styles.sheet, { backgroundColor: "transparent" }]}>
             <OverviewCard latest={latest} health={health} />
             <SnapshotBoxes latest={latest} />
 
             {/* Status Indicators */}
-            <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 10, marginTop: 10 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'center', gap: vw * 2.5, marginTop: vh * 1.5 }}>
               <Text
                 style={[
                   styles.statusText,
@@ -475,29 +478,29 @@ const styles = StyleSheet.create((theme) => ({
     top: 0,
     left: 0,
     right: 0,
-    padding: 20,
+    padding: vw * 5, // Responsive padding
   },
   titleContainer: {
-    marginTop: 10,
+    marginTop: vh * 1.5, // Responsive margin
   },
   headerTitle: {
-    fontSize: 48,
+    fontSize: vw * 12,
     fontFamily: theme.fonts.header,
     fontWeight: 'bold',
   },
   sheet: {
-    borderTopLeftRadius: 25,
-    borderTopRightRadius: 25,
-    marginTop: 20,
+    borderTopLeftRadius: vw * 7, // Responsive radius
+    borderTopRightRadius: vw * 7,
+    marginTop: vh * 2.5,
   },
   statusText: {
-    fontSize: 12,
+    fontSize: vw * 3.2,
     textAlign: 'center',
     fontFamily: theme.fonts.regular,
   },
   lastUpdated: {
-    marginTop: 8,
-    fontSize: 11,
+    marginTop: vh * 1,
+    fontSize: vw * 3,
     textAlign: 'center',
     fontFamily: theme.fonts.regular,
   },
