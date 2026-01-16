@@ -30,24 +30,23 @@ export type SoundType =
     | 'lootbox_reward'
     | 'sprig_noti';
 
-// Sound file mappings
+// Sound file mappings - using simple filenames without special characters
 const SOUND_FILES: Record<SoundType, any> = {
     click: require('../../assets/sounds/click.wav'),
     confirm: require('../../assets/sounds/confirm.wav'),
     reload: require('../../assets/sounds/reload.wav'),
     send: require('../../assets/sounds/send.wav'),
     receive: require('../../assets/sounds/rec.wav'),
-    // Gamification sounds - now using correct files
-    xp_boost: require('../../assets/sounds/Smooth_XP_boost_acti_#3-1767787641194.mp3'),
-    xp_multiplier: require('../../assets/sounds/XP_multiplier_activa_#1-1767788452517.wav'),
-    xp_fill: require('../../assets/sounds/XP_fill-up_sound_for_#3-1767788716444.wav'),
-    xp_lost: require('../../assets/sounds/Low-pitched_XP_fill__#4-1767788879699.wav'),
-    streak_activate: require('../../assets/sounds/Streak_activation_so_#1-1767788037689.wav'),
-    freeze_activate: require('../../assets/sounds/Instant_freeze_activ_#4-1767787155210.wav'),
-    freeze_used: require('../../assets/sounds/Instant_freeze_activ_#4-1767787331633.wav'),
-    lootbox_open: require('../../assets/sounds/Suspenseful_build-up_#4-1767786625807.wav'),
-    lootbox_reward: require('../../assets/sounds/Long-form_UI_reward__#4-1767786467081.wav'),
-    sprig_noti: require('../../assets/sounds/SprigNoti.wav'),
+    xp_boost: require('../../assets/sounds/xp_boost.mp3'),
+    xp_multiplier: require('../../assets/sounds/xp_multiplier.wav'),
+    xp_fill: require('../../assets/sounds/xp_fill.wav'),
+    xp_lost: require('../../assets/sounds/xp_lost.wav'),
+    streak_activate: require('../../assets/sounds/streak_activate.wav'),
+    freeze_activate: require('../../assets/sounds/freeze_activate.wav'),
+    freeze_used: require('../../assets/sounds/freeze_used.wav'),
+    lootbox_open: require('../../assets/sounds/lootbox_open.wav'),
+    lootbox_reward: require('../../assets/sounds/lootbox_reward.wav'),
+    sprig_noti: require('../../assets/sounds/sprig_noti.wav'),
 };
 
 // Sounds to preload at startup (most frequently used)
