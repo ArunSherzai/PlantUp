@@ -94,17 +94,25 @@ export default function DeveloperMenu({ visible, onClose }: DeveloperMenuProps) 
                                 <Text style={styles.menuText}>Test Message Banner</Text>
                             </TouchableOpacity>
 
+                            <TouchableOpacity style={styles.menuItem} onPress={() => {
+                                onClose();
+                                navigation.navigate('Plant3DTest');
+                            }}>
+                                <FontAwesome6 name="leaf" size={20} color="#4CAF50" style={styles.icon} />
+                                <Text style={styles.menuText}>Test 3D Plant</Text>
+                            </TouchableOpacity>
+
                             <TouchableOpacity style={styles.menuItem} onPress={async () => {
                                 try {
                                     const { data: { user } } = await db.public.auth.getUser();
                                     if (!user) return;
-                                    
+
                                     const { error } = await db.gamification
                                         .from('User_quests')
                                         .update({ status: 'completed' })
                                         .eq('user_id', user.id);
-                                        // Removed .eq('status', 'active') to allow resetting CLAIMED quests back to COMPLETED
-                                    
+                                    // Removed .eq('status', 'active') to allow resetting CLAIMED quests back to COMPLETED
+
                                     if (error) throw error;
                                     Alert.alert("Success", "ALL quests (active & claimed) marked as completed.");
                                     onClose();

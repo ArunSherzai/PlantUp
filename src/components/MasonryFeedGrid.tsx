@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import FeedCard from './FeedCard';
@@ -51,6 +52,8 @@ const MasonryFeedGrid = React.memo(({ posts, onPostPress }: MasonryFeedGridProps
                                     caption={p1.caption || ''}
                                     hashtags={getHashtags(p1.caption)}
                                     isVideo={p1.type === 'video' || p1.type === 'reel'}
+                                    postType={p1.type ?? undefined}
+                                    sensorData={p1.caption ?? undefined}
                                     onPress={() => onPostPress(p1)}
                                     username={p1.Users?.username}
                                     userAvatar={p1.Users?.profile_image ? { uri: p1.Users.profile_image } : null}
@@ -65,6 +68,8 @@ const MasonryFeedGrid = React.memo(({ posts, onPostPress }: MasonryFeedGridProps
                                     caption={p2.caption || ''}
                                     hashtags={getHashtags(p2.caption)}
                                     isVideo={p2.type === 'video' || p2.type === 'reel'}
+                                    postType={p2.type ?? undefined}
+                                    sensorData={p2.caption ?? undefined}
                                     onPress={() => onPostPress(p2)}
                                     username={p2.Users?.username}
                                     userAvatar={p2.Users?.profile_image ? { uri: p2.Users.profile_image } : null}
@@ -87,6 +92,8 @@ const MasonryFeedGrid = React.memo(({ posts, onPostPress }: MasonryFeedGridProps
                                     caption={p1.caption || ''}
                                     hashtags={getHashtags(p1.caption)}
                                     isVideo={p1.type === 'video' || p1.type === 'reel'}
+                                    postType={p1.type ?? undefined}
+                                    sensorData={p1.caption ?? undefined}
                                     onPress={() => onPostPress(p1)}
                                     username={p1.Users?.username}
                                     userAvatar={p1.Users?.profile_image ? { uri: p1.Users.profile_image } : null}
@@ -100,6 +107,8 @@ const MasonryFeedGrid = React.memo(({ posts, onPostPress }: MasonryFeedGridProps
                                     caption={p2.caption || ''}
                                     hashtags={getHashtags(p2.caption)}
                                     isVideo={p2.type === 'video' || p2.type === 'reel'}
+                                    postType={p2.type ?? undefined}
+                                    sensorData={p2.caption ?? undefined}
                                     onPress={() => onPostPress(p2)}
                                     username={p2.Users?.username}
                                     userAvatar={p2.Users?.profile_image ? { uri: p2.Users.profile_image } : null}
@@ -118,6 +127,8 @@ const MasonryFeedGrid = React.memo(({ posts, onPostPress }: MasonryFeedGridProps
                                     caption={p3.caption || ''}
                                     hashtags={getHashtags(p3.caption)}
                                     isVideo={p3.type === 'video' || p3.type === 'reel'}
+                                    postType={p3.type ?? undefined}
+                                    sensorData={p3.caption ?? undefined}
                                     onPress={() => onPostPress(p3)}
                                     username={p3.Users?.username}
                                     userAvatar={p3.Users?.profile_image ? { uri: p3.Users.profile_image } : null}
@@ -132,6 +143,8 @@ const MasonryFeedGrid = React.memo(({ posts, onPostPress }: MasonryFeedGridProps
                                     caption={p4.caption || ''}
                                     hashtags={getHashtags(p4.caption)}
                                     isVideo={p4.type === 'video' || p4.type === 'reel'}
+                                    postType={p4.type ?? undefined}
+                                    sensorData={p4.caption ?? undefined}
                                     onPress={() => onPostPress(p4)}
                                     username={p4.Users?.username}
                                     userAvatar={p4.Users?.profile_image ? { uri: p4.Users.profile_image } : null}

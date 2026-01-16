@@ -72,6 +72,13 @@ type State = {
   toggleSprigNotifications: (enabled: boolean) => Promise<void>;
   buyShopItem: (itemId: string, price: number) => Promise<{ success: boolean; message: string }>;
   buyLootbox: (price: number) => Promise<{ success: boolean; message: string; rewardType?: string; rewardValue?: string }>;
+  
+  // Blocking
+  blockedUserIds: Set<string>;
+  fetchBlockedUsers: () => Promise<void>;
+  blockUser: (userId: string) => Promise<void>;
+  unblockUser: (userId: string) => Promise<void>;
+  isBlocked: (userId: string) => boolean;
 };
 
 export const useUserStore = create<State>((set, get) => ({
@@ -108,6 +115,7 @@ export const useUserStore = create<State>((set, get) => ({
     if (user) {
       get().fetchProfile();
       get().fetchInventory();
+      get().fetchBlockedUsers();
       get().loadSettings();
 
       // Subscribe to DM inbox globally (for notifications anywhere in the app)
@@ -744,5 +752,53 @@ export const useUserStore = create<State>((set, get) => ({
           console.error('Lootbox error:', e);
           return { success: false, message: e.message || 'Transaction failed' };
       }
+  // --- Blocking Logic ---
+  blockedUserIds: new Set<string>(),
+
+  fetchBlockedUsers: async () => {
+    try {
+      // Dynamically require to avoid circular dependency issues if any, 
+      // though typically fine here.
+      const { BlockService } = require('../features/blocking/BlockService');
+      const blockedIds = await BlockService.getBlockedUsers();
+      set({ blockedUserIds: new Set(blockedIds) });
+    } catch (e) {
+      console.error('Failed to fetch blocked users', e);
+    }
+  },
+
+  blockUser: async (userId: string) => {
+    try {
+      const { BlockService } = require('../features/blocking/BlockService');
+      await BlockService.blockUser(userId);
+      
+      const newSet = new Set(get().blockedUserIds);
+      newSet.add(userId);
+      set({ blockedUserIds: newSet });
+      
+    } catch (e: any) {
+      console.error('Failed to block user', e);
+      throw e;
+    }
+  },
+
+  unblockUser: async (userId: string) => {
+    try {
+      const { BlockService } = require('../features/blocking/BlockService');
+      await BlockService.unblockUser(userId);
+      
+      const newSet = new Set(get().blockedUserIds);
+      newSet.delete(userId);
+      set({ blockedUserIds: newSet });
+
+    } catch (e: any) {
+      console.error('Failed to unblock user', e);
+      throw e;
+    }
+  },
+
+  isBlocked: (userId: string) => {
+    return get().blockedUserIds.has(userId);
   }
 }));
+

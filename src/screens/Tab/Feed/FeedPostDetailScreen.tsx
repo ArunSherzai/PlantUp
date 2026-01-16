@@ -1,5 +1,6 @@
-import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, SafeAreaView, Dimensions, TextInput, Platform, Keyboard, BackHandler, Modal, TouchableWithoutFeedback, Alert } from 'react-native';
+import * as React from 'react';
+import { useRef, useState, useEffect, useMemo, useCallback } from 'react';
+import { View, Text, StyleSheet, Image, TouchableOpacity, SafeAreaView, Dimensions, TextInput, Platform, Keyboard, BackHandler, Modal, TouchableWithoutFeedback, Alert, ActivityIndicator } from 'react-native';
 import { useUnistyles } from 'react-native-unistyles';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
@@ -14,11 +15,39 @@ import { formatNumber } from '../../../utils/formatNumber';
 import { TapGestureHandler, LongPressGestureHandler, State, GestureHandlerRootView } from 'react-native-gesture-handler';
 import BottomSheet, { BottomSheetView, BottomSheetTextInput, BottomSheetScrollView, BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming, runOnJS } from 'react-native-reanimated';
+import SensorDisplayCard from '../../../components/SensorDisplayCard';
+import { ScrollView } from 'react-native-gesture-handler';
 
 // We need the RouteProp to access params
 type FeedPostDetailRouteProp = RouteProp<RootStackParamList, 'FeedPostDetail'>;
 
 const { height, width } = Dimensions.get('window');
+
+const SENSOR_MARKER = '|||SENSOR_DATA|||';
+
+// Helper to extract sensor JSON from caption
+const extractSensorData = (caption: string | null | undefined): any | null => {
+    if (!caption) return null;
+    const idx = caption.indexOf(SENSOR_MARKER);
+    if (idx === -1) return null;
+    try {
+        return JSON.parse(caption.slice(idx + SENSOR_MARKER.length));
+    } catch {
+        return null;
+    }
+};
+
+// Helper to get display caption (without sensor data)
+const getDisplayCaption = (caption: string | null | undefined): string => {
+    if (!caption) return '';
+    const idx = caption.indexOf(SENSOR_MARKER);
+    return idx === -1 ? caption : caption.slice(0, idx).trim();
+};
+
+const SensorDataWrapper = ({ data }: { data: any }) => {
+    if (!data) return <Text style={{ color: 'red', textAlign: 'center', padding: 20 }}>No sensor data</Text>;
+    return <SensorDisplayCard data={data} />;
+};
 
 type SheetMode = 'related' | 'comments';
 
@@ -68,8 +97,18 @@ export default function FeedPostDetailScreen() {
     const snapPoints = useMemo(() => ['15%', '90%'], []);
 
     // Logic to fix URL extension if needed (User logic preservation)
+    // For sensorData: ALWAYS use post.media_url directly (it contains JSON)
+    // For other types: use getDisplayMedia for proper URL resolution
     const rawMediaUrl = getDisplayMedia(post);
-    const mediaUrl = rawMediaUrl?.replace("png", "mp4");
+
+    // DEBUG: Log what we're getting
+    if (post?.type === 'sensorData') {
+        console.log('[FeedPostDetailScreen] post.type:', post?.type);
+        console.log('[FeedPostDetailScreen] post.media_url:', post?.media_url);
+        console.log('[FeedPostDetailScreen] typeof post.media_url:', typeof post?.media_url);
+    }
+
+    const mediaUrl = post?.type === 'sensorData' ? post.media_url : rawMediaUrl?.replace("png", "mp4");
 
     // Check if it is a video based on extension (simple check)
     const isVideo = post?.type === 'video';
@@ -302,7 +341,7 @@ export default function FeedPostDetailScreen() {
 
     const handleReport = async (reason: string) => {
         if (!user?.id || !post?.id) return;
-        
+
         try {
             const { error } = await db.social.from('Reported_posts').insert({
                 post_id: post.id,
@@ -310,7 +349,7 @@ export default function FeedPostDetailScreen() {
             });
 
             if (error) throw error;
-            
+
             setMenuStage('none');
             setIsBlocked(true); // Auto-block locally after report
             Alert.alert("Report Submitted", "Thank you for reporting this post. We will review it shortly.");
@@ -474,7 +513,28 @@ export default function FeedPostDetailScreen() {
                                         <FontAwesome6 name="leaf" size={120} color="#4CA771" style={styles.leafIcon} />
                                     </View>
                                 </View>
-                            ) : mediaUrl ? (
+                            ) : post?.type === 'sensorData' ? (() => {
+                                const sensorData = extractSensorData(post?.caption);
+                                if (!sensorData) return <View style={[styles.backgroundImage, { backgroundColor: '#F0F5F1', justifyContent: 'center', alignItems: 'center' }]}><Text>No sensor data found</Text></View>;
+                                return (
+                                    <View style={[styles.backgroundImage, { backgroundColor: '#F0F5F1', justifyContent: 'center', padding: 20 }]}>
+                                        <View style={{ backgroundColor: 'white', borderRadius: 20, padding: 20, maxHeight: '80%' }}>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
+                                                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#E0F7FA', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+                                                    <FontAwesome6 name="leaf" size={20} color="#00BCD4" />
+                                                </View>
+                                                <View>
+                                                    <Text style={{ fontSize: 18, fontWeight: 'bold', color: theme.colors.text }}>Plant Check-in</Text>
+                                                    <Text style={{ fontSize: 14, color: '#888' }}>Happy & Healthy!</Text>
+                                                </View>
+                                            </View>
+                                            <ScrollView showsVerticalScrollIndicator={false}>
+                                                <SensorDataWrapper data={sensorData} />
+                                            </ScrollView>
+                                        </View>
+                                    </View>
+                                );
+                            })() : mediaUrl ? (
                                 isVideo ? (
                                     <View style={{ width: '100%', height: '100%' }}>
                                         <Video
@@ -551,7 +611,7 @@ export default function FeedPostDetailScreen() {
                 {/* Right Side Actions (Flex aligned to bottom-right) */}
                 <Animated.View style={[
                     styles.rightActionsContainer,
-                    { backgroundColor: isTextPost ? 'rgba(0,0,0,0.1)' : 'transparent', borderRadius: 30, paddingTop: 10, paddingBottom: 10 },
+                    { backgroundColor: (isTextPost || post?.type === 'sensorData') ? 'rgba(0,0,0,0.1)' : 'transparent', borderRadius: 30, paddingTop: 10, paddingBottom: 10 },
                     // animatedActionStyle // Assuming animatedActionStyle is defined and used for this component
                 ]}>
                     <TouchableOpacity style={styles.rightActionItem} onPress={handleLike}>
@@ -597,7 +657,7 @@ export default function FeedPostDetailScreen() {
                 enablePanDownToClose={false}
                 backgroundStyle={{ backgroundColor: theme.colors.surface }}
                 handleIndicatorStyle={{ backgroundColor: theme.colors.greyedOut }}
-                onChange={(index) => {
+                onChange={(index: number) => {
                     // Slight logic to ensure mode feels correct, mostly handled by explicit state
                 }}
             >
@@ -698,31 +758,31 @@ export default function FeedPostDetailScreen() {
             {/* Report/Block Menu Overlay */}
             {menuStage !== 'none' && (
                 <View style={[styles.modalOverlay, { zIndex: 9999, elevation: 100 }]}>
-                    <TouchableOpacity 
-                        style={StyleSheet.absoluteFill} 
-                        activeOpacity={1} 
+                    <TouchableOpacity
+                        style={StyleSheet.absoluteFill}
+                        activeOpacity={1}
                         onPress={() => setMenuStage('none')}
                     />
                     <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
                         {menuStage === 'initial' ? (
                             <>
                                 <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Options</Text>
-                                <TouchableOpacity 
-                                    style={styles.reportOption} 
+                                <TouchableOpacity
+                                    style={styles.reportOption}
                                     onPress={() => setMenuStage('report')}
                                 >
-                                    <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                                         <FontAwesome6 name="flag" size={16} color={theme.colors.text} />
                                         <Text style={[styles.reportOptionText, { color: theme.colors.text }]}>Report Post</Text>
                                     </View>
                                     <FontAwesome6 name="chevron-right" size={14} color={theme.colors.greyedOut} />
                                 </TouchableOpacity>
-                                
-                                <TouchableOpacity 
-                                    style={styles.reportOption} 
+
+                                <TouchableOpacity
+                                    style={styles.reportOption}
                                     onPress={handleBlock}
                                 >
-                                    <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                                         <FontAwesome6 name="ban" size={16} color={theme.colors.text} />
                                         <Text style={[styles.reportOptionText, { color: theme.colors.text }]}>Block Post</Text>
                                     </View>
@@ -730,17 +790,17 @@ export default function FeedPostDetailScreen() {
                             </>
                         ) : (
                             <>
-                                <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 15, width: '100%'}}>
-                                    <TouchableOpacity onPress={() => setMenuStage('initial')} style={{padding: 5}}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15, width: '100%' }}>
+                                    <TouchableOpacity onPress={() => setMenuStage('initial')} style={{ padding: 5 }}>
                                         <FontAwesome6 name="arrow-left" size={18} color={theme.colors.text} />
                                     </TouchableOpacity>
                                     <Text style={[styles.modalTitle, { color: theme.colors.text, marginBottom: 0, marginLeft: 10 }]}>Report Reason</Text>
                                 </View>
-                                
+
                                 {reportReasons.map((reason, index) => (
-                                    <TouchableOpacity 
-                                        key={index} 
-                                        style={styles.reportOption} 
+                                    <TouchableOpacity
+                                        key={index}
+                                        style={styles.reportOption}
                                         onPress={() => handleReport(reason)}
                                     >
                                         <Text style={[styles.reportOptionText, { color: theme.colors.text }]}>{reason}</Text>
@@ -750,8 +810,8 @@ export default function FeedPostDetailScreen() {
                             </>
                         )}
 
-                        <TouchableOpacity 
-                            style={styles.cancelButton} 
+                        <TouchableOpacity
+                            style={styles.cancelButton}
                             onPress={() => setMenuStage('none')}
                         >
                             <Text style={styles.cancelButtonText}>Cancel</Text>

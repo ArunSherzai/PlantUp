@@ -30,6 +30,7 @@ export type RootStackParamList = {
   TitleInventory: undefined;
   PlantStats: { plantId: string; onlyShowSelected?: boolean };
   Shop: { initialTab?: 'shop' | 'inventory' };
+  Plant3DTest: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -74,6 +75,7 @@ import AppearanceScreen from '~/screens/Tab/SettingsScreen/AppearanceScreen';
 import NotificationsScreen from '~/screens/Tab/SettingsScreen/NotificationsScreen';
 import AccountScreen from '~/screens/Tab/SettingsScreen/AccountScreen';
 import ShopScreen from '~/screens/Tab/shop/ShopScreen';
+import Plant3DTestScreen from '~/screens/Tab/Plant3DTestScreen/Plant3DTestScreen';
 
 import { StatusBar } from 'expo-status-bar';
 
@@ -95,7 +97,7 @@ export default function RootStack() {
             },
             headerTintColor: theme.colors.accent,
           }}>
-          
+
           {/* STANDARD NAVIGATION FLOW */}
           <Stack.Group>
             <Stack.Screen name="Auth" component={AuthStack} options={{ headerShown: false }} />
@@ -201,6 +203,11 @@ export default function RootStack() {
             <Stack.Screen
               name="TitleInventory"
               component={TitleInventoryScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="Plant3DTest"
+              component={Plant3DTestScreen}
               options={{ headerShown: false }}
             />
           </Stack.Group>

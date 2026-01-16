@@ -1,7 +1,29 @@
-import React from 'react';
+
+import * as React from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { useUnistyles } from 'react-native-unistyles';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
+
+const SENSOR_MARKER = '|||SENSOR_DATA|||';
+
+// Helper to extract sensor JSON from caption
+const extractSensorData = (caption: string | undefined): any | null => {
+    if (!caption) return null;
+    const idx = caption.indexOf(SENSOR_MARKER);
+    if (idx === -1) return null;
+    try {
+        return JSON.parse(caption.slice(idx + SENSOR_MARKER.length));
+    } catch {
+        return null;
+    }
+};
+
+// Helper to get display caption (without sensor data)
+const getDisplayCaption = (caption: string | undefined): string => {
+    if (!caption) return '';
+    const idx = caption.indexOf(SENSOR_MARKER);
+    return idx === -1 ? caption : caption.slice(0, idx).trim();
+};
 
 const { width, height } = Dimensions.get('window');
 const vw = width / 100;
@@ -18,23 +40,75 @@ interface FeedCardProps {
     userAvatar?: any;
     aspectRatio?: number;
     hideCaption?: boolean;
+    postType?: string;
+    sensorData?: string;
 }
 
-const FeedCard = React.memo(({ imageUri, caption, hashtags, isVideo, style, onPress, username, userAvatar, aspectRatio, hideCaption }: FeedCardProps) => {
+const FeedCard = React.memo(({ imageUri, caption, hashtags, isVideo, style, onPress, username, userAvatar, aspectRatio, hideCaption, postType, sensorData }: FeedCardProps) => {
     const { theme } = useUnistyles();
-    const hasMedia = imageUri?.uri || (typeof imageUri === 'number');
+    const hasMedia = (imageUri?.uri || (typeof imageUri === 'number')) && postType !== 'sensorData';
+
+    // Extract sensor data from sensorData prop (which is now caption)
+    const parsedSensorData = postType === 'sensorData' ? extractSensorData(sensorData) : null;
 
     return (
         <TouchableOpacity
             style={[
                 styles.container,
-                { backgroundColor: theme.colors.surface }, // Revert to surface always
+                { backgroundColor: theme.colors.surface },
                 style
             ]}
             onPress={onPress}
             activeOpacity={0.9}
         >
-            {hasMedia ? (
+            {postType === 'sensorData' && parsedSensorData ? (
+                // Sensor Data Card Layout
+                <View style={[
+                    styles.imageContainer,
+                    { backgroundColor: 'white', padding: 10, justifyContent: 'center' },
+                    aspectRatio ? { aspectRatio } : undefined
+                ]}>
+                    {/* Tiny header since space is limited */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
+                        <FontAwesome6 name="leaf" size={12} color="#4CA771" style={{ marginRight: 5 }} />
+                        <Text style={{ fontSize: 10, color: '#888', fontWeight: 'bold' }}>STATUS</Text>
+                    </View>
+
+                    <View style={{ flex: 1, overflow: 'hidden' }}>
+                        {(() => {
+                            const moisture = parsedSensorData?.soil_moisture || 0;
+                            const temp = parsedSensorData?.temperature || 0;
+
+                            let statusText = 'Healthy';
+                            let statusColor = '#4CA771';
+
+                            if (moisture < 30) { statusText = 'Thirsty'; statusColor = '#F5A623'; }
+                            else if (moisture > 80) { statusText = 'Wet'; statusColor = '#4A90E2'; }
+
+                            return (
+                                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 5 }}>
+                                    <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: statusColor + '20', alignItems: 'center', justifyContent: 'center' }}>
+                                        <FontAwesome6 name="leaf" size={24} color={statusColor} />
+                                    </View>
+                                    <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#333', textAlign: 'center' }}>{parsedSensorData.nickname || 'My Plant'}</Text>
+                                    <Text style={{ fontSize: 12, color: statusColor, fontWeight: '600' }}>{statusText}</Text>
+
+                                    <View style={{ flexDirection: 'row', gap: 10, marginTop: 5 }}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                            <FontAwesome6 name="droplet" size={10} color="#4A90E2" />
+                                            <Text style={{ fontSize: 10, color: '#666' }}>{moisture}%</Text>
+                                        </View>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                            <FontAwesome6 name="temperature-half" size={10} color="#E05B5B" />
+                                            <Text style={{ fontSize: 10, color: '#666' }}>{temp}°C</Text>
+                                        </View>
+                                    </View>
+                                </View>
+                            );
+                        })()}
+                    </View>
+                </View>
+            ) : hasMedia ? (
                 <>
                     <View style={[styles.imageContainer, aspectRatio ? { aspectRatio } : undefined]}>
                         <Image source={imageUri} style={styles.image} resizeMode="cover" />
