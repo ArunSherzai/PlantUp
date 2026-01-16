@@ -53,13 +53,10 @@ export default function DirectMessagesScreen() {
             // Fetch real conversations
             if (user) {
                 fetchConversations();
-                subscribeToInbox();
             }
 
-            return () => {
-                const { unsubscribeFromInbox } = useDMStore.getState();
-                unsubscribeFromInbox();
-            };
+            // Note: Subscription is handled globally in UserStore on login
+            // so we don't need to subscribe/unsubscribe here.
         }, [user])
     );
 

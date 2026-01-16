@@ -31,7 +31,8 @@
         }
       ],
       "expo-video",
-      "react-native-compressor"
+      "react-native-compressor",
+      "expo-asset"
     ],
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
