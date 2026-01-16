@@ -5,6 +5,7 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../../../navigation/Root';
 import { db } from '~/utils/supabase';
+import { playSound } from '~/utils/SoundManager';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -26,6 +27,9 @@ export default function LootboxScreen() {
         setRewardItem(null);
         setIsDuplicate(false);
 
+        // Play lootbox opening sound
+        playSound('lootbox_open');
+
         const fetchDataAndWait = async () => {
             // 1. Min wait time for animation
             const timerPromise = new Promise(resolve => setTimeout(resolve, 3000));
@@ -41,6 +45,8 @@ export default function LootboxScreen() {
                 }
                 setRewardItem(fetchedBorder);
             }
+            // Play reward reveal sound
+            playSound('lootbox_reward');
             setShowReward(true);
         };
 
@@ -48,6 +54,7 @@ export default function LootboxScreen() {
     }, []);
 
     const handleClose = () => {
+        playSound('confirm');
         navigation.goBack();
     };
 

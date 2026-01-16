@@ -28,6 +28,7 @@ import XPOverlay from '../../../components/XPOverlay';
 import StreakSavedOverlay from '../../../components/StreakSavedOverlay';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RewardDetailsModal from '../../../components/RewardDetailsModal';
+import { playSound } from '~/utils/SoundManager';
 
 
 const { height, width } = Dimensions.get('window');
@@ -116,14 +117,14 @@ export default function ShowMissionsScreen() {
 
   useEffect(() => {
     const initData = async () => {
-        setLoading(true);
-        try {
-            await fetchQuests();
-            await fetchProfile(); // This triggers checkStreakRescue() internally
-            await fetchInventory(); // Now fetch inventory AFTER potential item consumption
-        } finally {
-            setLoading(false);
-        }
+      setLoading(true);
+      try {
+        await fetchQuests();
+        await fetchProfile(); // This triggers checkStreakRescue() internally
+        await fetchInventory(); // Now fetch inventory AFTER potential item consumption
+      } finally {
+        setLoading(false);
+      }
     };
     initData();
   }, [fetchQuests]);
@@ -135,35 +136,35 @@ export default function ShowMissionsScreen() {
   // Check for Rescued Streak & Animation History
   useEffect(() => {
     const checkRescueAnimation = async () => {
-        if (profile?.streak_rescued_date) {
-            const today = new Date().toISOString().split('T')[0];
-            
-            // IF rescued TODAY
-            if (profile.streak_rescued_date === today) {
-                const storageKey = `streak_rescued_animation_shown_${today}`;
-                
-                const hasShown = await AsyncStorage.getItem(storageKey);
+      if (profile?.streak_rescued_date) {
+        const today = new Date().toISOString().split('T')[0];
 
-                if (!hasShown) {
-                    setShowRescueOverlay(true);
-                } else {
-                    // Already shown, ensure thaw doesn't re-trigger or maybe it should act melted? 
-                    // For now, if already shown, we assume "melted" state or standard view.
-                }
-            }
+        // IF rescued TODAY
+        if (profile.streak_rescued_date === today) {
+          const storageKey = `streak_rescued_animation_shown_${today}`;
+
+          const hasShown = await AsyncStorage.getItem(storageKey);
+
+          if (!hasShown) {
+            setShowRescueOverlay(true);
+          } else {
+            // Already shown, ensure thaw doesn't re-trigger or maybe it should act melted? 
+            // For now, if already shown, we assume "melted" state or standard view.
+          }
         }
+      }
     };
     checkRescueAnimation();
   }, [profile?.streak_rescued_date]);
 
   const handleDismissRescueOverlay = async () => {
-      setShowRescueOverlay(false);
-      setTriggerThaw(true);
+    setShowRescueOverlay(false);
+    setTriggerThaw(true);
 
-      // Save that we showed it
-      const today = new Date().toISOString().split('T')[0];
-      const storageKey = `streak_rescued_animation_shown_${today}`;
-      await AsyncStorage.setItem(storageKey, 'true');
+    // Save that we showed it
+    const today = new Date().toISOString().split('T')[0];
+    const storageKey = `streak_rescued_animation_shown_${today}`;
+    await AsyncStorage.setItem(storageKey, 'true');
   };
 
   // --- CLAIM LOGIC ---
@@ -192,7 +193,7 @@ export default function ShowMissionsScreen() {
       const gainedXP = result.xp_gained;
       const newStreak = result.new_streak;
       const multiplier = result.multiplier;
-      
+
       const endXP = startXP + gainedXP;
 
       // 1. Trigger XP Toast (Visual feedback first)
@@ -212,8 +213,8 @@ export default function ShowMissionsScreen() {
       setQuests((currentQuests) => {
         const questToClaim = currentQuests.find(q => q.id === userQuestId);
         if (questToClaim) {
-             // We use the updated status 'claimed' for the modal
-             setRecentlyClaimedQuest({ ...questToClaim, status: 'claimed' });
+          // We use the updated status 'claimed' for the modal
+          setRecentlyClaimedQuest({ ...questToClaim, status: 'claimed' });
         }
         return currentQuests.map((q) => {
           if (q.id === userQuestId) {
@@ -255,7 +256,7 @@ export default function ShowMissionsScreen() {
   // --- MULTIPLIER CALCULATION ---
   const currentStreak = profile?.streak_length || 0;
   const streakMultiplier = getStreakMultiplier(currentStreak);
-  
+
   const boostEndTime = profile?.active_boost_end_time;
   const isBoostActive = boostEndTime && new Date(boostEndTime) > new Date();
   const boostMultiplier = isBoostActive ? 0.5 : 0;
@@ -278,10 +279,10 @@ export default function ShowMissionsScreen() {
         <View style={styles.headerWrapper}>
           {/* Spacer to replace 'PlantUp' text and keep layout consistent */}
           <View style={{ height: 32, marginBottom: 10 }} />
-          
+
           {/* Top Right Booster Widget */}
           <View style={{ position: 'absolute', top: 5, right: 20, zIndex: 100 }}>
-             <BoosterWidget />
+            <BoosterWidget />
           </View>
 
           <MaskedView
@@ -302,7 +303,7 @@ export default function ShowMissionsScreen() {
 
         {/* STREAK RESCUE OVERLAY */}
         {showRescueOverlay && (
-            <StreakSavedOverlay onDismiss={handleDismissRescueOverlay} />
+          <StreakSavedOverlay onDismiss={handleDismissRescueOverlay} />
         )}
 
         {/* DRAGGABLE BOTTOM SHEET */}
@@ -364,6 +365,7 @@ export default function ShowMissionsScreen() {
                   <RefreshControl
                     refreshing={refreshing}
                     onRefresh={() => {
+                      playSound('reload');
                       setRefreshing(true);
                       fetchQuests();
                       fetchProfile();
@@ -379,7 +381,7 @@ export default function ShowMissionsScreen() {
 
 
       </View>
-      
+
       {xpToast?.visible && (
         <XPOverlay
           isVisible={true} // Always true if rendered
@@ -394,10 +396,10 @@ export default function ShowMissionsScreen() {
       <RewardDetailsModal
         visible={!!selectedQuestForModal}
         reward={selectedQuestForModal ? {
-            level: 1, // Dummy
-            title: selectedQuestForModal.Quests.title,
-            description: selectedQuestForModal.Quests.description,
-            // Use fallback icon
+          level: 1, // Dummy
+          title: selectedQuestForModal.Quests.title,
+          description: selectedQuestForModal.Quests.description,
+          // Use fallback icon
         } : null}
         isClaimed={true} // Always claimed when viewing history? Or check status
         isLocked={false}
@@ -508,7 +510,7 @@ function QuestCard({
             colors={['#329D9C', '#8bdcbd']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
-            style={[styles.progressBarFill, { width: `${percentage}%`}]}
+            style={[styles.progressBarFill, { width: `${percentage}%` }]}
           />
         </View>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
@@ -522,11 +524,11 @@ function QuestCard({
   );
 
   if (onPress) {
-      return (
-          <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
-              {content}
-          </TouchableOpacity>
-      );
+    return (
+      <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
+        {content}
+      </TouchableOpacity>
+    );
   }
 
   return content;
@@ -539,13 +541,13 @@ const MultiplierBanner = ({ multiplier, isBoosterActive }: { multiplier: number,
   let title = "XP Bonus Active! 🔥";
   let subtitle = `You're earning ${multiplier}x XP on all quests!`;
 
-  if (isBoosterActive && multiplier > 1.5) { 
-      // Both active (e.g. 1.25 streak + 0.5 boost = 1.75)
-      title = "Mega XP Boost! 🚀";
-      subtitle = `Booster & Streak combined: ${multiplier}x XP!`;
+  if (isBoosterActive && multiplier > 1.5) {
+    // Both active (e.g. 1.25 streak + 0.5 boost = 1.75)
+    title = "Mega XP Boost! 🚀";
+    subtitle = `Booster & Streak combined: ${multiplier}x XP!`;
   } else if (isBoosterActive) {
-      title = "Fertilizer Boost Active! 🌱";
-      subtitle = `Your values are boosted by +0.5x!`;
+    title = "Fertilizer Boost Active! 🌱";
+    subtitle = `Your values are boosted by +0.5x!`;
   }
 
   return (
@@ -591,10 +593,10 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: 'flex-start', // Left align
   },
   brandText: { color: 'rgba(255,255,255,0.9)', fontWeight: '600', fontSize: 18 },
-  headerTitle: { 
-    fontSize: vw * 10, 
-    fontWeight: '900', 
-    color: 'white', 
+  headerTitle: {
+    fontSize: vw * 10,
+    fontWeight: '900',
+    color: 'white',
     lineHeight: vw * 11,
     textAlign: 'left' // Left align
   },

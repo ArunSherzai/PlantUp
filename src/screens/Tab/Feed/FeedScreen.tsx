@@ -13,6 +13,7 @@ import MasonryFeedGrid from '../../../components/MasonryFeedGrid';
 import { useUserSearch } from '../../../features/social/hooks/useUserSearch';
 import { useConnections } from '../../../features/social/hooks/useConnections';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { playSound } from '~/utils/SoundManager';
 
 const { width, height } = Dimensions.get('window');
 const vh = height / 100;
@@ -32,7 +33,7 @@ export default function FeedScreen() {
     const insets = useSafeAreaInsets();
     const { posts: allPosts, loading: postsLoading, refreshPosts: refreshFeed } = usePosts();
     const [refreshing, setRefreshing] = useState(false);
-    
+
     // Filter out blocked posts
     const posts = allPosts.filter(p => !p.is_blocked);
 
@@ -51,6 +52,7 @@ export default function FeedScreen() {
 
     // Pull to refresh handler
     const onRefresh = useCallback(async () => {
+        playSound('reload');
         setRefreshing(true);
         await refreshFeed();
         setRefreshing(false);
