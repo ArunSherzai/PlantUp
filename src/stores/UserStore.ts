@@ -72,7 +72,7 @@ type State = {
   toggleSprigNotifications: (enabled: boolean) => Promise<void>;
   buyShopItem: (itemId: string, price: number) => Promise<{ success: boolean; message: string }>;
   buyLootbox: (price: number) => Promise<{ success: boolean; message: string; rewardType?: string; rewardValue?: string }>;
-  
+
   // Blocking
   blockedUserIds: Set<string>;
   fetchBlockedUsers: () => Promise<void>;
@@ -180,11 +180,11 @@ export const useUserStore = create<State>((set, get) => ({
       if (data) {
         console.log('[UserStore] Inventory Loaded (RPC):', data);
         // Data format: [{ item_id: 'streak_freeze_24h', quantity: X }]
-        
+
         // DB Item Names now match Client IDs exactly.
         const inventory = data.map((item: any) => ({
-            item_id: (item.item_id || 'unknown').trim(),
-            quantity: item.quantity
+          item_id: (item.item_id || 'unknown').trim(),
+          quantity: item.quantity
         }));
 
         set({ inventory: inventory });
@@ -703,62 +703,62 @@ export const useUserStore = create<State>((set, get) => ({
     // No mapping needed.
 
     try {
-        const { data, error } = await db.gamification.rpc('buy_shop_item', {
-            p_item_name: itemId,
-            p_cost: price
-        });
+      const { data, error } = await db.gamification.rpc('buy_shop_item', {
+        p_item_name: itemId,
+        p_cost: price
+      });
 
-        if (error) throw error;
-        const result = data as any;
-        
-        if (result.success) {
-            // refresh balance and inventory
-            fetchProfile();
-            fetchInventory();
-        }
-        return { success: result.success, message: result.message };
+      if (error) throw error;
+      const result = data as any;
+
+      if (result.success) {
+        // refresh balance and inventory
+        fetchProfile();
+        fetchInventory();
+      }
+      return { success: result.success, message: result.message };
 
     } catch (e: any) {
-        console.error('Purchase error:', e);
-        return { success: false, message: e.message || 'Purchase failed' };
+      console.error('Purchase error:', e);
+      return { success: false, message: e.message || 'Purchase failed' };
     }
   },
 
   buyLootbox: async (price: number) => {
-      const { user, fetchInventory, fetchProfile } = get();
-      if (!user) return { success: false, message: 'Not logged in' };
-  
-      try {
-          const { data, error } = await db.gamification.rpc('buy_lootbox', {
-              p_cost: price
-          });
-  
-          if (error) throw error;
-          const result = data as any;
-  
-          if (result.success) {
-              fetchProfile();
-              fetchInventory();
-              return { 
-                  success: true, 
-                  message: result.message, 
-                  rewardType: result.reward_type, 
-                  rewardValue: result.reward_value 
-              };
-          }
-          return { success: false, message: result.message };
-  
-      } catch (e: any) {
-          console.error('Lootbox error:', e);
-          return { success: false, message: e.message || 'Transaction failed' };
+    const { user, fetchInventory, fetchProfile } = get();
+    if (!user) return { success: false, message: 'Not logged in' };
+
+    try {
+      const { data, error } = await db.gamification.rpc('buy_lootbox', {
+        p_cost: price
+      });
+
+      if (error) throw error;
+      const result = data as any;
+
+      if (result.success) {
+        fetchProfile();
+        fetchInventory();
+        return {
+          success: true,
+          message: result.message,
+          rewardType: result.reward_type,
+          rewardValue: result.reward_value
+        };
       }
+      return { success: false, message: result.message };
+
+    } catch (e: any) {
+      console.error('Lootbox error:', e);
+      return { success: false, message: e.message || 'Transaction failed' };
+    }
+  },
+
   // --- Blocking Logic ---
   blockedUserIds: new Set<string>(),
 
   fetchBlockedUsers: async () => {
     try {
-      // Dynamically require to avoid circular dependency issues if any, 
-      // though typically fine here.
       const { BlockService } = require('../features/blocking/BlockService');
       const blockedIds = await BlockService.getBlockedUsers();
       set({ blockedUserIds: new Set(blockedIds) });
@@ -771,11 +771,11 @@ export const useUserStore = create<State>((set, get) => ({
     try {
       const { BlockService } = require('../features/blocking/BlockService');
       await BlockService.blockUser(userId);
-      
+
       const newSet = new Set(get().blockedUserIds);
       newSet.add(userId);
       set({ blockedUserIds: newSet });
-      
+
     } catch (e: any) {
       console.error('Failed to block user', e);
       throw e;
@@ -786,7 +786,7 @@ export const useUserStore = create<State>((set, get) => ({
     try {
       const { BlockService } = require('../features/blocking/BlockService');
       await BlockService.unblockUser(userId);
-      
+
       const newSet = new Set(get().blockedUserIds);
       newSet.delete(userId);
       set({ blockedUserIds: newSet });
