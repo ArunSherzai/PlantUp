@@ -20,7 +20,6 @@ import GradientText from './GradientText';
 import PlantPotPreview from './PlantPotPreview';
 import RewardItem from './RewardItem';
 import { REWARDS, getRankName, getLevelProgress, getXPForNextLevel, getTotalXPForLevel } from '../utils/leveling';
-import SpriteComponent from './SpriteComponent';
 import { useNavigation } from '@react-navigation/native';
 import { Image as ExpoImage } from 'expo-image';
 
@@ -67,6 +66,23 @@ export default function UserProfile({ userId, isOwner }: Props) {
     const currentLevel = profile?.level || 1;
     const currentXP = profile?.xp || 0;
     const currentRank = getRankName(currentLevel);
+
+    const plantSeed = userId ? userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : 12345;
+
+    // Calculate L-System config based on growth (0-100)
+    const lsystemConfig = useMemo(() => {
+        const t = Math.max(0, Math.min(100, currentLevel)) / 100;
+        return {
+            iterations: 2 + Math.floor(t * 2), // Scale from 2 to 4
+            length: 0.01 + t * 0.12,
+            thickness: 0.003 + t * 0.02,
+            lengthScale: 0.6 + t * 0.35,
+            leafSize: 0.01 + t * 0.05,
+            bloomSize: 0.02 + t * 0.06,
+            leafChance: t * 0.5,
+            bloomChance: t > 0.25 ? (t - 0.25) * 1.07 : 0,
+        };
+    }, [currentLevel]);
 
     const isFollowing = following.some(u => u.id === userId);
 
@@ -137,22 +153,6 @@ export default function UserProfile({ userId, isOwner }: Props) {
                             const xpForNext = getXPForNextLevel(currentLevel);
                             const xpInLevel = currentXP - currentLevelXP;
                             const xpNeededInLevel = xpForNext - currentLevelXP;
-                            const plantSeed = userId ? userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : 12345;
-
-                            // Calculate L-System config based on growth (0-100)
-                            const lsystemConfig = useMemo(() => {
-                                const t = Math.max(0, Math.min(100, currentLevel)) / 100;
-                                return {
-                                    iterations: 2 + Math.floor(t * 2), // Scale from 2 to 4
-                                    length: 0.01 + t * 0.12,
-                                    thickness: 0.003 + t * 0.02,
-                                    lengthScale: 0.6 + t * 0.35,
-                                    leafSize: 0.01 + t * 0.05,
-                                    bloomSize: 0.02 + t * 0.06,
-                                    leafChance: t * 0.5,
-                                    bloomChance: t > 0.25 ? (t - 0.25) * 1.07 : 0,
-                                };
-                            }, [currentLevel]);
 
                             return (
                                 <LinearGradient
@@ -365,7 +365,7 @@ export default function UserProfile({ userId, isOwner }: Props) {
                 </ScrollView>
             </DraggableBottomSheet>
 
-            {isCurrentUser && <SpriteComponent />}
+            {/* Removed duplicate SpriteComponent */}
         </View>
     );
 }
