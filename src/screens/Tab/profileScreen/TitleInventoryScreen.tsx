@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useUnistyles } from 'react-native-unistyles';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { useUserStore } from '../../../stores/UserStore';
+import { playSound } from '~/utils/SoundManager';
 
 export default function TitleInventoryScreen() {
   const { theme } = useUnistyles();
@@ -21,6 +22,7 @@ export default function TitleInventoryScreen() {
     setRefreshing(true);
     await fetchTitles();
     setRefreshing(false);
+    playSound('reload');
   }, [fetchTitles]);
 
   const handleEquip = async (titleId: string | null) => {
@@ -54,36 +56,36 @@ export default function TitleInventoryScreen() {
           </View>
         ) : (
           <View style={styles.list}>
-             {/* No Title Option */}
-             <View
-                style={[
-                  styles.card,
-                  { backgroundColor: theme.colors.surface },
-                  !ownedTitles.some(t => t.is_equipped) && { borderColor: theme.colors.accent, borderWidth: 2 }
-                ]}
-              >
-                <View style={styles.previewContainer}>
-                   <Text style={[styles.titlePreview, { color: theme.colors.text, fontStyle: 'italic' }]}>No Title</Text>
-                </View>
-
-                <TouchableOpacity
-                  style={[
-                    styles.equipButton,
-                    { backgroundColor: !ownedTitles.some(t => t.is_equipped) ? theme.colors.accent : theme.colors.primary }
-                  ]}
-                  disabled={!ownedTitles.some(t => t.is_equipped)}
-                  onPress={() => handleEquip(null)}
-                >
-                    {!ownedTitles.some(t => t.is_equipped) ? (
-                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 5}}>
-                            <FontAwesome6 name="check" size={12} color="#fff" />
-                            <Text style={styles.equipButtonText}>Equipped</Text>
-                        </View>
-                    ) : (
-                        <Text style={styles.equipButtonText}>Equip</Text>
-                    )}
-                </TouchableOpacity>
+            {/* No Title Option */}
+            <View
+              style={[
+                styles.card,
+                { backgroundColor: theme.colors.surface },
+                !ownedTitles.some(t => t.is_equipped) && { borderColor: theme.colors.accent, borderWidth: 2 }
+              ]}
+            >
+              <View style={styles.previewContainer}>
+                <Text style={[styles.titlePreview, { color: theme.colors.text, fontStyle: 'italic' }]}>No Title</Text>
               </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.equipButton,
+                  { backgroundColor: !ownedTitles.some(t => t.is_equipped) ? theme.colors.accent : theme.colors.primary }
+                ]}
+                disabled={!ownedTitles.some(t => t.is_equipped)}
+                onPress={() => handleEquip(null)}
+              >
+                {!ownedTitles.some(t => t.is_equipped) ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                    <FontAwesome6 name="check" size={12} color="#fff" />
+                    <Text style={styles.equipButtonText}>Equipped</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.equipButtonText}>Equip</Text>
+                )}
+              </TouchableOpacity>
+            </View>
 
             {ownedTitles.map((title) => (
               <View
@@ -108,14 +110,14 @@ export default function TitleInventoryScreen() {
                   disabled={title.is_equipped}
                   onPress={() => handleEquip(title.id)}
                 >
-                    {title.is_equipped ? (
-                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 5}}>
-                            <FontAwesome6 name="check" size={12} color="#fff" />
-                            <Text style={styles.equipButtonText}>Equipped</Text>
-                        </View>
-                    ) : (
-                        <Text style={styles.equipButtonText}>Equip</Text>
-                    )}
+                  {title.is_equipped ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                      <FontAwesome6 name="check" size={12} color="#fff" />
+                      <Text style={styles.equipButtonText}>Equipped</Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.equipButtonText}>Equip</Text>
+                  )}
                 </TouchableOpacity>
               </View>
             ))}

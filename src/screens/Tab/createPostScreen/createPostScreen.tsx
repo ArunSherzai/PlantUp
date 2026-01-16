@@ -31,6 +31,7 @@ import SensorDisplayCard from '~/components/SensorDisplayCard';
 
 import { db } from '../../../utils/supabase';
 import { useUserStore } from '../../../stores/UserStore';
+import { playSound } from '~/utils/SoundManager';
 
 const { height } = Dimensions.get('window');
 
@@ -409,6 +410,7 @@ export default function CreatePostScreen() {
 
       if (error) throw error;
 
+      playSound('confirm');
       Alert.alert('Success', 'Post created!');
 
       // >>> RESET HERE <<<

@@ -9,6 +9,7 @@ import DeveloperMenu from '../../../components/DeveloperMenu'; // Import Develop
 import { useDMStore, Conversation } from '../../../stores/DMStore'; // Import DMStore
 import { useUserStore } from '../../../stores/UserStore';
 import { db } from '../../../utils/supabase';
+import { playSound } from '~/utils/SoundManager';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -279,7 +280,10 @@ export default function DirectMessagesScreen() {
                     keyExtractor={(item) => item.id}
                     contentContainerStyle={styles.listContent}
                     refreshing={loading}
-                    onRefresh={fetchConversations}
+                    onRefresh={async () => {
+                        await fetchConversations();
+                        playSound('reload');
+                    }}
                     ListEmptyComponent={
                         <View style={{ alignItems: 'center', marginTop: 50 }}>
                             <Text style={{ color: theme.colors.greyedOut }}>No messages yet.</Text>
