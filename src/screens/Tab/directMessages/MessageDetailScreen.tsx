@@ -9,6 +9,7 @@ import { useDMStore, ChatMessage } from '../../../stores/DMStore';
 import { useUserStore } from '../../../stores/UserStore';
 import { initializeSounds, unloadSounds } from '../../../utils/soundEffects';
 import { useTypingIndicator } from '../../../hooks/useTypingIndicator';
+import { playSound } from '~/utils/SoundManager';
 import { TypingIndicator } from '../../../components/TypingIndicator';
 
 type Props = StackScreenProps<RootStackParamList, 'MessageDetail'>;
@@ -153,12 +154,15 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
                 timestamp: Date.now(),
             };
             setUiMessages((prev) => [newMessage, ...prev]);
+            playSound('send');
         } else {
             // Real Send: Store handles optimistic update via subscription usually, 
             // but we can rely on immediate append in store if we wanted.
             // For now, sendMessage just inserts, and subscription event adds to list.
             const success = await sendMessage(id, textToSend);
-            if (!success) {
+            if (success) {
+                playSound('send');
+            } else {
                 alert('Failed to send message');
                 setInputText(textToSend);
             }
