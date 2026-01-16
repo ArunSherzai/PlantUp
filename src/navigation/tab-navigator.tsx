@@ -58,7 +58,6 @@ export default function TabLayout({ navigation }: Props) {
         }}
       />
 
-      {/* --- HIER GEÄNDERT: Create Post statt Add a Plant --- */}
       {/* --- HIER GEÄNDERT: Feed Screen --- */}
       <Tab.Screen
         name="Feed"
@@ -70,8 +69,7 @@ export default function TabLayout({ navigation }: Props) {
         }}
       />
       {/* --------------------------------------------------- */}
-      {/* --------------------------------------------------- */}
-
+      
       <Tab.Screen
         name="Show Plants"
         component={PlantListScreen}
