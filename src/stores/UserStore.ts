@@ -70,15 +70,6 @@ type State = {
   sprigNotificationsEnabled: boolean;
   loadSettings: () => Promise<void>;
   toggleSprigNotifications: (enabled: boolean) => Promise<void>;
-  buyShopItem: (itemId: string, price: number) => Promise<{ success: boolean; message: string }>;
-  buyLootbox: (price: number) => Promise<{ success: boolean; message: string; rewardType?: string; rewardValue?: string }>;
-
-  // Blocking
-  blockedUserIds: Set<string>;
-  fetchBlockedUsers: () => Promise<void>;
-  blockUser: (userId: string) => Promise<void>;
-  unblockUser: (userId: string) => Promise<void>;
-  isBlocked: (userId: string) => boolean;
 };
 
 export const useUserStore = create<State>((set, get) => ({
@@ -115,7 +106,6 @@ export const useUserStore = create<State>((set, get) => ({
     if (user) {
       get().fetchProfile();
       get().fetchInventory();
-      get().fetchBlockedUsers();
       get().loadSettings();
 
       // Subscribe to DM inbox globally (for notifications anywhere in the app)
@@ -179,14 +169,12 @@ export const useUserStore = create<State>((set, get) => ({
 
       if (data) {
         console.log('[UserStore] Inventory Loaded (RPC):', data);
-        // Data format: [{ item_id: 'streak_freeze_24h', quantity: X }]
-
-        // DB Item Names now match Client IDs exactly.
+        // Data format: [{ item_id: 'name', quantity: X }]
+        // Just cast it directly if structure matches
         const inventory = data.map((item: any) => ({
           item_id: (item.item_id || 'unknown').trim(),
           quantity: item.quantity
         }));
-
         set({ inventory: inventory });
       } else {
         set({ inventory: [] });
@@ -693,112 +681,5 @@ export const useUserStore = create<State>((set, get) => ({
       console.error('[UserStore] Exception claiming reward:', e);
       return false;
     }
-  },
-
-  buyShopItem: async (itemId: string, price: number) => {
-    const { user, fetchInventory, fetchProfile } = get();
-    if (!user) return { success: false, message: 'Not logged in' };
-
-    // DB Item Name matches Client ID now (streak_freeze_24h, xp_boost_24h)
-    // No mapping needed.
-
-    try {
-      const { data, error } = await db.gamification.rpc('buy_shop_item', {
-        p_item_name: itemId,
-        p_cost: price
-      });
-
-      if (error) throw error;
-      const result = data as any;
-
-      if (result.success) {
-        // refresh balance and inventory
-        fetchProfile();
-        fetchInventory();
-      }
-      return { success: result.success, message: result.message };
-
-    } catch (e: any) {
-      console.error('Purchase error:', e);
-      return { success: false, message: e.message || 'Purchase failed' };
-    }
-  },
-
-  buyLootbox: async (price: number) => {
-    const { user, fetchInventory, fetchProfile } = get();
-    if (!user) return { success: false, message: 'Not logged in' };
-
-    try {
-      const { data, error } = await db.gamification.rpc('buy_lootbox', {
-        p_cost: price
-      });
-
-      if (error) throw error;
-      const result = data as any;
-
-      if (result.success) {
-        fetchProfile();
-        fetchInventory();
-        return {
-          success: true,
-          message: result.message,
-          rewardType: result.reward_type,
-          rewardValue: result.reward_value
-        };
-      }
-      return { success: false, message: result.message };
-
-    } catch (e: any) {
-      console.error('Lootbox error:', e);
-      return { success: false, message: e.message || 'Transaction failed' };
-    }
-  },
-
-  // --- Blocking Logic ---
-  blockedUserIds: new Set<string>(),
-
-  fetchBlockedUsers: async () => {
-    try {
-      const { BlockService } = require('../features/blocking/BlockService');
-      const blockedIds = await BlockService.getBlockedUsers();
-      set({ blockedUserIds: new Set(blockedIds) });
-    } catch (e) {
-      console.error('Failed to fetch blocked users', e);
-    }
-  },
-
-  blockUser: async (userId: string) => {
-    try {
-      const { BlockService } = require('../features/blocking/BlockService');
-      await BlockService.blockUser(userId);
-
-      const newSet = new Set(get().blockedUserIds);
-      newSet.add(userId);
-      set({ blockedUserIds: newSet });
-
-    } catch (e: any) {
-      console.error('Failed to block user', e);
-      throw e;
-    }
-  },
-
-  unblockUser: async (userId: string) => {
-    try {
-      const { BlockService } = require('../features/blocking/BlockService');
-      await BlockService.unblockUser(userId);
-
-      const newSet = new Set(get().blockedUserIds);
-      newSet.delete(userId);
-      set({ blockedUserIds: newSet });
-
-    } catch (e: any) {
-      console.error('Failed to unblock user', e);
-      throw e;
-    }
-  },
-
-  isBlocked: (userId: string) => {
-    return get().blockedUserIds.has(userId);
   }
 }));
-
