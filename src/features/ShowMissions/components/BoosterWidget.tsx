@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, Alert, Image, Dimensions } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { StyleSheet as UnistylesSheet, useUnistyles } from 'react-native-unistyles';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,21 +10,14 @@ import { playSound } from '~/utils/SoundManager';
 const { width } = Dimensions.get('window');
 const vw = width / 100;
 
-const BOOSTER_ITEM_ID = 'xp_boost_24h';
-
 export default function BoosterWidget() {
   const { theme } = useUnistyles();
-  const { profile, inventory, activateBooster, fetchProfile } = useUserStore();
+  const { profile, fetchProfile } = useUserStore();
   const [timeLeft, setTimeLeft] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
 
   // Check Active Boost
   const boostEndTime = profile?.active_boost_end_time;
   const isBoostActive = boostEndTime && new Date(boostEndTime) > new Date();
-
-  // Check Inventory
-  const boosterItem = inventory.find(i => i.item_id === BOOSTER_ITEM_ID);
-  const ownedQuantity = boosterItem?.quantity || 0;
 
   useEffect(() => {
     if (!isBoostActive || !boostEndTime) {
@@ -118,13 +112,17 @@ const styles = UnistylesSheet.create((theme) => ({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  image: {
-    width: vw * 15,
-    height: vw * 15,
-    resizeMode: 'contain',
+  icon: {
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  activeImage: {
-    opacity: 1,
+  activeIcon: {
+    shadowColor: '#FFF',
+    shadowOpacity: 0.5,
+    shadowRadius: 5,
+    elevation: 5,
   },
   activeGlow: {
     position: 'absolute',

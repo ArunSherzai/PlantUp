@@ -89,7 +89,10 @@ export default function DirectMessagesScreen() {
                 if (error) throw error;
 
                 if (data) {
-                    setSearchResults(data);
+                    // Filter out blocked users
+                    const { isBlocked } = useUserStore.getState();
+                    const filtered = data.filter(u => !isBlocked(u.id));
+                    setSearchResults(filtered);
                 }
             } catch (e) {
                 console.error(e);
