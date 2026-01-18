@@ -10,10 +10,16 @@ import { playSound } from '~/utils/SoundManager';
 const { width } = Dimensions.get('window');
 const vw = width / 100;
 
+const BOOSTER_ITEM_ID = 'xp_boost_24h';
+
 export default function BoosterWidget() {
   const { theme } = useUnistyles();
-  const { profile, fetchProfile } = useUserStore();
+  const { profile, fetchProfile, inventory, activateBooster } = useUserStore();
   const [timeLeft, setTimeLeft] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  // Calculate owned quantity from inventory
+  const ownedQuantity = inventory.find(item => item.item_id === BOOSTER_ITEM_ID)?.quantity ?? 0;
 
   // Check Active Boost
   const boostEndTime = profile?.active_boost_end_time;
@@ -123,6 +129,16 @@ const styles = UnistylesSheet.create((theme) => ({
     shadowOpacity: 0.5,
     shadowRadius: 5,
     elevation: 5,
+  },
+  image: {
+    width: vw * 16,
+    height: vw * 16,
+    resizeMode: 'contain',
+  },
+  activeImage: {
+    shadowColor: '#2ecc71',
+    shadowOpacity: 0.8,
+    shadowRadius: 8,
   },
   activeGlow: {
     position: 'absolute',
