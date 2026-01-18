@@ -389,10 +389,10 @@ export default function ShowPlantStats() {
         </View>
 
         {/* Draggable Bottom Sheet */}
-        <DraggableBottomSheet initialHeight={0.65} maxHeight={0.9}>
+        <DraggableBottomSheet initialHeight={0.70} maxHeight={0.9}>
           <ScrollView
             overScrollMode="never"
-            contentContainerStyle={{ paddingBottom: vh * 15, paddingHorizontal: vw * 5, paddingTop: vh * 1.5 }}
+            contentContainerStyle={{ paddingBottom: vh * 25, paddingHorizontal: vw * 5, paddingTop: vh * 1.5 }}
             showsVerticalScrollIndicator={false}
             style={[styles.sheet, { backgroundColor: "transparent" }]}>
             <OverviewCard latest={latest} health={health} />
@@ -481,12 +481,15 @@ const styles = StyleSheet.create((theme) => ({
     padding: vw * 5, // Responsive padding
   },
   titleContainer: {
-    marginTop: vh * 1.5, // Responsive margin
+    marginTop: vh * 4, // Increased top margin
+    marginBottom: vh * 2, // Added bottom spacing
+    paddingHorizontal: vw * 2,
   },
   headerTitle: {
     fontSize: vw * 12,
     fontFamily: theme.fonts.header,
     fontWeight: 'bold',
+    lineHeight: vw * 12,
   },
   sheet: {
     borderTopLeftRadius: vw * 7, // Responsive radius
