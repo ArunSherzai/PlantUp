@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   TouchableOpacity,
 } from 'react-native';
+import { Audio } from 'expo-av'; // Import Audio
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PlantCoinBox } from '~/components/PlantCoinBox';
 import { useNavigation } from '@react-navigation/native';
@@ -38,11 +39,45 @@ export default function PlantListScreen() {
   const [fontsLoaded] = useFonts({ Nunito_400Regular });
   const [isLoading] = useState(false);
 
+  // Sound ref
+  const [sound, setSound] = useState<Audio.Sound>();
+
   useFocusEffect(
     useCallback(() => {
       refreshPlants();
     }, [])
   );
+
+  // Unload sound on unmount
+  useEffect(() => {
+    return () => {
+      if (sound) {
+        sound.unloadAsync();
+      }
+    };
+  }, [sound]);
+
+  // Play swipe sound when activeIndex changes
+  useEffect(() => {
+    // Avoid playing on initial mount (index 0) if desired, 
+    // but usually user lands on 0. If data loads, it might trigger.
+    // We can check if plants exist.
+    if (plants.length > 0) {
+        playSound();
+    }
+  }, [activeIndex]); 
+
+  async function playSound() {
+    try {
+        const { sound: newSound } = await Audio.Sound.createAsync( 
+            require('../../../../assets/sounds/swipe.wav')
+        );
+        setSound(newSound);
+        await newSound.playAsync();
+    } catch (error) {
+        // console.log('Error playing swipe sound', error);
+    }
+  }
 
   const handleViewStats = (plantId: string) => {
     navigation.navigate('PlantStats', {
@@ -96,12 +131,16 @@ export default function PlantListScreen() {
         <View style={styles.sheetContent}>
           <View style={styles.carouselContainer}>
             <FlatList
-              onMomentumScrollEnd={(event) => {
+              onScroll={(event) => {
                 const index = Math.round(
                   event.nativeEvent.contentOffset.x / event.nativeEvent.layoutMeasurement.width
                 );
-                setActiveIndex(index);
+                // Only update if changed to avoid duplicate sounds if user scrolls a tiny bit and snap back
+                if (index !== activeIndex) {
+                    setActiveIndex(index);
+                }
               }}
+              scrollEventThrottle={16} // Ensure frequent updates for responsiveness
               data={plants}
               keyExtractor={(item) => item.id}
               horizontal

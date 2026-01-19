@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, Dimensions, Image as RNImage, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { useUnistyles } from 'react-native-unistyles';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../../../navigation/Root';
 import { db } from '~/utils/supabase';
-import { playSound } from '~/utils/SoundManager';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -13,6 +12,7 @@ type LootboxScreenRouteProp = RouteProp<RootStackParamList, 'Lootbox'>;
 
 export default function LootboxScreen() {
     const { theme } = useUnistyles();
+    const styles = getStyles(theme);
     const navigation = useNavigation();
     const route = useRoute<LootboxScreenRouteProp>();
     // Default to 'Rare Plant' if param is missing (though typings say optional in plan, let's be safe)
@@ -22,19 +22,43 @@ export default function LootboxScreen() {
     const [rewardItem, setRewardItem] = useState<any>(null);
     const [isDuplicate, setIsDuplicate] = useState(false);
 
+    const rewardId = route.params?.rewardId;
+    const rewardType = route.params?.rewardType;
+
+    const [coinAmount, setCoinAmount] = useState(500);
+    const [genericRewardName, setGenericRewardName] = useState<string | null>(null);
+
     useEffect(() => {
         setShowReward(false);
         setRewardItem(null);
         setIsDuplicate(false);
-
-        // Play lootbox opening sound
-        playSound('lootbox_open');
+        setGenericRewardName(null);
 
         const fetchDataAndWait = async () => {
             // 1. Min wait time for animation
             const timerPromise = new Promise(resolve => setTimeout(resolve, 3000));
             // 2. Fetch data
-            const fetchPromise = pullBorder();
+            let fetchPromise;
+            
+            const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rewardId || '');
+
+            if (rewardType?.toLowerCase() === 'coins' && rewardId) {
+                // It's a coin reward
+                setCoinAmount(Number(rewardId) || 500);
+                setIsDuplicate(true);
+                fetchPromise = Promise.resolve(null);
+            } else if (rewardId && isUUID) {
+                // It looks like a Border UUID
+                fetchPromise = fetchSpecificBorder(rewardId);
+            } else if (rewardId) {
+                // valid ID but not a UUID -> Generic Item (xp boost, streak freeze, etc)
+                // We'll just display the name/ID directly or map it if needed
+                setGenericRewardName(rewardId); 
+                fetchPromise = Promise.resolve(null);
+            } else {
+                // Legacy dev menu behavior
+                fetchPromise = pullBorder();
+            }
 
             // 3. Wait for both
             const [_, fetchedBorder] = await Promise.all([timerPromise, fetchPromise]);
@@ -45,19 +69,49 @@ export default function LootboxScreen() {
                 }
                 setRewardItem(fetchedBorder);
             }
-            // Play reward reveal sound
-            playSound('lootbox_reward');
             setShowReward(true);
         };
 
         fetchDataAndWait();
-    }, []);
+    }, [rewardId, rewardType]);
 
     const handleClose = () => {
-        playSound('confirm');
         navigation.goBack();
     };
 
+    const fetchSpecificBorder = async (id: string) => {
+        try {
+             // 1. Fetch details
+             const { data: border, error } = await db.gamification
+                .from('Cosmetic_avatar_borders')
+                .select('*')
+                .eq('id', id)
+                .single();
+            
+            if (error) throw error;
+            if (!border) throw new Error("Border not found");
+
+            // Fix media_url using Supabase Storage
+            if (border && border.media_url) {
+                let mediaPath = border.media_url;
+                if (mediaPath.includes('seasonal_summer') || mediaPath.includes('seasonal_winter')) {
+                    mediaPath = mediaPath.replace('seasonal_summer', 'seasonal').replace('seasonal_winter', 'seasonal');
+                }
+
+                const { data: publicUrlData } = db.public.storage
+                    .from('border-skins')
+                    .getPublicUrl(mediaPath);
+
+                border.media_url = publicUrlData.publicUrl;
+            }
+            
+            return border;
+
+        } catch (err) {
+            console.error('Error fetching specific border:', err);
+            return null;
+        }
+    };
 
     const pullBorder = async () => {
         try {
@@ -141,10 +195,10 @@ export default function LootboxScreen() {
                     {!showReward ? (
                         // State 1: Opening
                         <View style={styles.stateContainer}>
-                            <Image
+                            <RNImage
                                 source={require('../../../../assets/animations/opening lootbox.gif')}
                                 style={styles.gifStyle}
-                                contentFit="contain"
+                                resizeMode="contain"
                             />
                             <Text style={styles.stateText}>Opening...</Text>
                         </View>
@@ -158,6 +212,13 @@ export default function LootboxScreen() {
                                         source={require('../../../../assets/images/plantupcoin.png')}
                                         style={styles.rewardImageOverlay}
                                         contentFit="contain"
+                                    />
+                                ) : genericRewardName ? (
+                                    <RNImage
+                                        // Use a generic placeholder, since we don't have a chest icon
+                                        source={require('../../../../assets/images/XPBoostItem.png')} 
+                                        style={styles.rewardImageOverlay}
+                                        resizeMode="contain"
                                     />
                                 ) : (
                                     rewardItem?.media_url && (
@@ -173,7 +234,13 @@ export default function LootboxScreen() {
                             {isDuplicate ? (
                                 <>
                                     <Text style={styles.stateText}>Duplicate!</Text>
-                                    <Text style={styles.coinText}>+500 Plant Coins</Text>
+                                    <Text style={styles.coinText}>+{coinAmount} Plant Coins</Text>
+                                </>
+                            ) : genericRewardName ? (
+                                <>
+                                    <Text style={styles.stateText}>Reward:</Text>
+                                    <Text style={styles.itemNameText}>{genericRewardName}</Text>
+                                    <Text style={[styles.stateText, {fontSize: 14, marginTop: 5}]}>Added to Inventory</Text>
                                 </>
                             ) : (
                                 <>
@@ -196,7 +263,7 @@ export default function LootboxScreen() {
     );
 }
 
-const styles = StyleSheet.create((theme) => ({
+const getStyles = (theme: any) => StyleSheet.create({
     container: {
         flex: 1,
         // Using a semi-transparent background to simulate the modal look over the previous screen
@@ -280,4 +347,4 @@ const styles = StyleSheet.create((theme) => ({
         fontSize: 18,
         fontWeight: 'bold',
     },
-}));
+});
