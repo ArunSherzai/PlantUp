@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TextInput, Platform } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, {
-    useSharedValue,
-    useAnimatedStyle,
-    withTiming,
-    SlideInDown,
+import Animated, { 
+    useSharedValue, 
+    useAnimatedStyle, 
+    withTiming, 
+    SlideInDown, 
     Easing,
     useAnimatedProps,
     runOnJS,
@@ -19,7 +19,6 @@ import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getLevelProgress, getTotalXPForLevel, getXPForNextLevel } from '../utils/leveling';
 import { useTipStore } from '../stores/TipStore';
-import { playSound } from '~/utils/SoundManager';
 
 Animated.addWhitelistedNativeProps({ text: true });
 const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
@@ -29,23 +28,23 @@ import { Image as ExpoImage } from 'expo-image';
 function xpToNextLevelWorklet(level: number) {
     'worklet';
     if (level >= 100) return 0;
-
+  
     let xp = 0;
     if (level >= 1 && level <= 10) {
-        xp = 99.9141 * Math.pow(level, 1.2);
+      xp = 99.9141 * Math.pow(level, 1.2);
     } else if (level >= 11 && level <= 50) {
-        xp = 1151.6746 + 5.765454 * Math.pow(level, 1.8);
+      xp = 1151.6746 + 5.765454 * Math.pow(level, 1.8);
     } else if (level >= 51 && level < 100) {
-        xp = 4500 + 5.017007 * (level - 51);
+      xp = 4500 + 5.017007 * (level - 51);
     }
-
+  
     return Math.round(xp);
 }
 
 function getTotalXPForLevelWorklet(level: number) {
     'worklet';
     if (level <= 1) return 0;
-
+  
     let total = 0;
     for (let i = 1; i < level; i++) {
         total += xpToNextLevelWorklet(i);
@@ -77,13 +76,13 @@ export default function XPOverlay({ startXP, endXP, level, isVisible, onComplete
     const startLevelBase = getTotalXPForLevel(level);
     const startLevelNext = getXPForNextLevel(level);
     const startLevelNeeded = startLevelNext - startLevelBase;
-
+    
     // -- Animated Values --
     const xpValue = useSharedValue(startXP);
     const currentLevelVal = useSharedValue(level);
     const translateY = useSharedValue(0);
-    const opacity = useSharedValue(1);
-    const scale = useSharedValue(1);
+    const opacity = useSharedValue(1); 
+    const scale = useSharedValue(1); 
 
     const [showLevelUpText, setShowLevelUpText] = useState(false);
     const isLevelUp = endXP >= startLevelNext;
@@ -93,7 +92,7 @@ export default function XPOverlay({ startXP, endXP, level, isVisible, onComplete
     const timerRef = React.useRef<NodeJS.Timeout | null>(null);
     // 🟢 Fix: Use SharedValue for isMounted validation in worklets
     const isMounted = useSharedValue(0); // 0 = false, 1 = true
-
+    
     // Pause Control
     useEffect(() => {
         if (isVisible) {
@@ -113,7 +112,7 @@ export default function XPOverlay({ startXP, endXP, level, isVisible, onComplete
             isMounted.value = 1; // Set mounted
             // Reset Init Values
             xpValue.value = startXP;
-            translateY.value = 0;
+            translateY.value = 0; 
             opacity.value = 1;
             currentLevelVal.value = level;
             scale.value = 1;
@@ -128,7 +127,7 @@ export default function XPOverlay({ startXP, endXP, level, isVisible, onComplete
             while (endXP >= tempXPNext) {
                 milestones.push(tempXPNext);
                 tempLevel++;
-                tempXPBase = tempXPNext;
+                tempXPBase = tempXPNext; 
                 tempXPNext = getXPForNextLevel(tempLevel);
             }
             milestones.push(endXP);
@@ -144,16 +143,16 @@ export default function XPOverlay({ startXP, endXP, level, isVisible, onComplete
                         if (isMounted.value === 0) return;
                         // Manual Fade Out for Auto-Dismiss
                         opacity.value = withTiming(0, { duration: 500 }, (finished) => {
-                            // Check SharedValue on UI Thread
-                            if (finished && isMounted.value === 1) runOnJS(handleComplete)();
+                             // Check SharedValue on UI Thread
+                             if (finished && isMounted.value === 1) runOnJS(handleComplete)();
                         });
-                    }, 8000);
+                    }, 8000); 
                     return;
                 }
 
                 const targetXP = milestones[index];
                 const isFinalStep = index === milestones.length - 1;
-
+                
                 const duration = isFinalStep ? 1500 : 1000;
 
                 xpValue.value = withTiming(targetXP, {
@@ -162,7 +161,7 @@ export default function XPOverlay({ startXP, endXP, level, isVisible, onComplete
                 }, (finished) => {
                     if (finished) {
                         // 🟢 Safe check on UI thread
-                        if (isMounted.value === 0) return;
+                        if (isMounted.value === 0) return; 
 
                         if (!isFinalStep) {
                             runOnJS(setShowLevelUpText)(true);
@@ -173,7 +172,7 @@ export default function XPOverlay({ startXP, endXP, level, isVisible, onComplete
                             );
                             runOnJS(animateStep)(index + 1);
                         } else {
-                            runOnJS(animateStep)(index + 1);
+                             runOnJS(animateStep)(index + 1); 
                         }
                     }
                 });
@@ -181,7 +180,6 @@ export default function XPOverlay({ startXP, endXP, level, isVisible, onComplete
 
             // Start the chain
             timerRef.current = setTimeout(() => {
-                playSound('xp_fill');
                 animateStep(0);
             }, 400);
 
@@ -229,10 +227,10 @@ export default function XPOverlay({ startXP, endXP, level, isVisible, onComplete
         const base = getTotalXPForLevelWorklet(lvl);
         const next = getXPForNextLevelWorklet(lvl);
         const needed = next - base;
-
+        
         const currentInLevel = xpValue.value - base;
         const pct = Math.min(Math.max(currentInLevel / needed, 0), 1);
-
+        
         return {
             width: `${pct * 100}%`,
         };
@@ -251,9 +249,9 @@ export default function XPOverlay({ startXP, endXP, level, isVisible, onComplete
         const base = getTotalXPForLevelWorklet(lvl);
         const next = getXPForNextLevelWorklet(lvl);
         const needed = next - base;
-
+        
         const currentInLevel = Math.floor(xpValue.value - base);
-        const display = Math.max(0, currentInLevel);
+        const display = Math.max(0, currentInLevel); 
         return { text: `${display} / ${needed} XP` } as any;
     });
 
@@ -264,9 +262,9 @@ export default function XPOverlay({ startXP, endXP, level, isVisible, onComplete
     return (
         <GestureDetector gesture={pan}>
             <Animated.View
-                entering={SlideInDown.springify().damping(20).stiffness(150)}
+                entering={SlideInDown.springify().damping(20).stiffness(150)} 
                 // No Exiting Prop - Handled Manually
-                style={[styles.container, { top: topPosition }, animatedCardStyle]}
+                style={[styles.container, { top: topPosition }, animatedCardStyle]} 
             >
                 {/* Happy Sprig Decoration */}
                 <View style={{
@@ -278,34 +276,34 @@ export default function XPOverlay({ startXP, endXP, level, isVisible, onComplete
                     zIndex: 20,
                     elevation: 50,
                 }}>
-                    <ExpoImage
+                     <ExpoImage 
                         source={require('../../assets/animations/happy_sprig.gif')}
                         style={{ width: '100%', height: '100%' }}
                         contentFit="contain"
-                    />
+                     />
                 </View>
 
                 <View style={[styles.card, isLevelUp && showLevelUpText && styles.cardLevelUp]}>
                     {/* Header Row */}
                     <View style={styles.row}>
                         <View style={styles.iconBadge}>
-                            <FontAwesome6 name="star" size={12} color="#fff" solid />
+                             <FontAwesome6 name="star" size={12} color="#fff" solid />
                         </View>
-
+                        
                         {/* Dynamic Title */}
                         <View style={{ flex: 1 }}>
                             {showLevelUpText ? (
-                                <Animated.Text
+                                <Animated.Text 
                                     entering={SlideInDown.duration(300)}
                                     style={styles.levelUpTitle}
                                 >
                                     LEVEL UP! 🎉
                                 </Animated.Text>
                             ) : (
-                                <Text style={styles.title}>Level {level + (isLevelUp && currentLevelVal.value > level ? 1 : 0)}</Text>
+                                <Text style={styles.title}>Level {level + (isLevelUp && currentLevelVal.value > level ? 1 : 0)}</Text> 
                             )}
                         </View>
-
+                        
                         <Text style={styles.gainedText}>+{gained} XP</Text>
                     </View>
 
@@ -342,11 +340,11 @@ const styles = StyleSheet.create({
         right: 0,
         alignItems: 'center',
         zIndex: 999999, // Extreme Z-Index to beat DraggableSheet
-        paddingHorizontal: 20,
+        paddingHorizontal: 20, 
     },
     card: {
         width: '100%',
-        maxWidth: 500,
+        maxWidth: 500, 
         backgroundColor: 'rgba(20, 20, 30, 0.95)',
         borderRadius: 16,
         padding: 16,
@@ -393,11 +391,11 @@ const styles = StyleSheet.create({
         fontSize: 14,
     },
     track: {
-        height: 16,
+        height: 16, 
         backgroundColor: 'rgba(255,255,255,0.1)',
-        borderRadius: 8,
+        borderRadius: 8, 
         overflow: 'hidden',
-        marginBottom: 8,
+        marginBottom: 8, 
     },
     fill: {
         height: '100%',
@@ -408,6 +406,6 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: '600',
         textAlign: 'right',
-        padding: 0,
+        padding: 0, 
     }
 });

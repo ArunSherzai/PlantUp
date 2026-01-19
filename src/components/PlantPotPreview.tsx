@@ -1,6 +1,5 @@
 import React, { Suspense, useRef, useEffect } from "react";
-import { View, ActivityIndicator, Text } from "react-native";
-import { ErrorBoundary } from "./ErrorBoundary";
+import { View, ActivityIndicator } from "react-native";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { OrbitControls, useProgress } from "@react-three/drei/native";
@@ -140,58 +139,52 @@ export default function PlantPotPreview({
 }: Props) {
     return (
         <View style={{ flex: 1 }}>
-            <ErrorBoundary fallback={
-                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                     <Text style={{ color: 'white', textAlign: 'center' }}>3D View Unavailable {'\n'} (Disable Debug Remote JS)</Text>
-                </View>
-            }>
-                <Canvas
-                    dpr={[1, 2]}
-                    camera={{ position: [1, 0.85, 1], fov: 45, near: 0.01, far: 50 }}
-                >
-                    {/* Initial Camera Position Setup */}
-                    <InitialCamera cameraY={cameraY} cameraDistance={cameraDistance} />
+            <Canvas
+                dpr={[1, 2]}
+                camera={{ position: [1, 0.85, 1], fov: 45, near: 0.01, far: 50 }}
+            >
+                {/* Initial Camera Position Setup */}
+                <InitialCamera cameraY={cameraY} cameraDistance={cameraDistance} />
 
-                    {/* Orbit Controls for Zoom/Pan */}
-                    <OrbitControls
-                        makeDefault
-                        target={[0, 0.4, 0]}
-                        enableZoom={true}
-                        enablePan={false}
-                        minPolarAngle={0}
-                        maxPolarAngle={Math.PI / 1.5} // Don't let user go under the pot
-                        minDistance={0.1}
-                        maxDistance={4}
+                {/* Orbit Controls for Zoom/Pan */}
+                <OrbitControls
+                    makeDefault
+                    target={[0, 0.4, 0]}
+                    enableZoom={true}
+                    enablePan={false}
+                    minPolarAngle={0}
+                    maxPolarAngle={Math.PI / 1.5} // Don't let user go under the pot
+                    minDistance={0.1}
+                    maxDistance={4}
+                />
+
+                {/* Ambient light for overall illumination */}
+                <ambientLight intensity={0.5} />
+
+                {/* Hemisphere light for sky/ground effect */}
+                <hemisphereLight
+                    args={['#87CEEB', '#556B2F', 0.6]}
+                />
+
+                {/* Main directional light (sun) */}
+                <directionalLight position={[3, 5, 2]} intensity={1.2} color="#FFF8DC" />
+
+                {/* Fill light from opposite side */}
+                <directionalLight position={[-2, 3, -1]} intensity={0.4} color="#B0C4DE" />
+
+                <Suspense fallback={null}>
+                    <RotatingScene
+                        seed={seed}
+                        growth={growth}
+                        potSource={potSource}
+                        potType={potType}
+                        plantStyle={plantStyle}
+                        plantConfig={plantConfig}
+                        mode={mode}
+                        lsystemConfig={lsystemConfig}
                     />
-
-                    {/* Ambient light for overall illumination */}
-                    <ambientLight intensity={0.5} />
-
-                    {/* Hemisphere light for sky/ground effect */}
-                    <hemisphereLight
-                        args={['#87CEEB', '#556B2F', 0.6]}
-                    />
-
-                    {/* Main directional light (sun) */}
-                    <directionalLight position={[3, 5, 2]} intensity={1.2} color="#FFF8DC" />
-
-                    {/* Fill light from opposite side */}
-                    <directionalLight position={[-2, 3, -1]} intensity={0.4} color="#B0C4DE" />
-
-                    <Suspense fallback={null}>
-                        <RotatingScene
-                            seed={seed}
-                            growth={growth}
-                            potSource={potSource}
-                            potType={potType}
-                            plantStyle={plantStyle}
-                            plantConfig={plantConfig}
-                            mode={mode}
-                            lsystemConfig={lsystemConfig}
-                        />
-                    </Suspense>
-                </Canvas>
-            </ErrorBoundary>
+                </Suspense>
+            </Canvas>
             <Loader />
         </View>
     );

@@ -1,18 +1,17 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
-import Animated, {
-    useSharedValue,
-    useAnimatedStyle,
-    withSpring,
-    withDelay,
-    withSequence,
-    withTiming,
-    runOnJS
+import Animated, { 
+    useSharedValue, 
+    useAnimatedStyle, 
+    withSpring, 
+    withDelay, 
+    withSequence, 
+    withTiming, 
+    runOnJS 
 } from 'react-native-reanimated';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useUnistyles } from 'react-native-unistyles';
 import { BlurView } from 'expo-blur';
-import { playSound } from '~/utils/SoundManager';
 
 type Props = {
     onDismiss: () => void;
@@ -26,22 +25,19 @@ export default function StreakSavedOverlay({ onDismiss }: Props) {
     // Animations
     const scale = useSharedValue(0);
     const opacity = useSharedValue(0);
-
+    
     // Icon States
     const iconScale = useSharedValue(0);
     const textOpacity = useSharedValue(0);
 
     useEffect(() => {
-        // Play freeze activation sound
-        playSound('freeze_activate');
-
         // 1. Entrance
         scale.value = withSpring(1);
         opacity.value = withTiming(1, { duration: 300 });
 
         // 2. Icon Pop
         iconScale.value = withDelay(300, withSpring(1.2, { damping: 6 }));
-
+        
         // 3. Text Fade In
         textOpacity.value = withDelay(600, withTiming(1));
 
@@ -71,16 +67,16 @@ export default function StreakSavedOverlay({ onDismiss }: Props) {
     return (
         <View style={styles.overlay}>
             <BlurView intensity={20} style={StyleSheet.absoluteFill} tint="dark" />
-
+            
             <Animated.View style={[styles.card, { backgroundColor: theme.colors.background }, containerStyle]}>
                 <View style={styles.iconContainer}>
                     <Animated.View style={iconStyle}>
                         <FontAwesome6 name="snowflake" size={64} color="#A5F2F3" />
-                        <FontAwesome6
-                            name="shield-halved"
-                            size={32}
-                            color="#fff"
-                            style={{ position: 'absolute', bottom: -5, right: -5 }}
+                         <FontAwesome6 
+                            name="shield-halved" 
+                            size={32} 
+                            color="#fff" 
+                            style={{ position: 'absolute', bottom: -5, right: -5 }} 
                         />
                     </Animated.View>
                 </View>

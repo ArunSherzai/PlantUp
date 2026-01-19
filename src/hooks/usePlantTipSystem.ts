@@ -30,11 +30,6 @@ export function usePlantTipSystem() {
 
     // Helper to save tip history
     const setAndSaveTip = (tip: TipObject | null) => {
-        // Prevent re-triggering same tip
-        if (tip && activeTip?.message === tip.message) {
-            return;
-        }
-
         // If we are trying to set a NEW tip (not null) and we are PAUSED
         if (tip && isPaused) {
             console.log("Sprig is paused. Queuing tip:", tip.message);

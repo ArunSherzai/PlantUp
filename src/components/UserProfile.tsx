@@ -20,6 +20,7 @@ import GradientText from './GradientText';
 import PlantPotPreview from './PlantPotPreview';
 import RewardItem from './RewardItem';
 import { REWARDS, getRankName, getLevelProgress, getXPForNextLevel, getTotalXPForLevel } from '../utils/leveling';
+import SpriteComponent from './SpriteComponent';
 import { useNavigation } from '@react-navigation/native';
 import { Image as ExpoImage } from 'expo-image';
 
@@ -34,7 +35,7 @@ export default function UserProfile({ userId, isOwner }: Props) {
     const { theme } = useUnistyles();
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<any>();
-    const { user: currentUser } = useUserStore(); // Current logged in user (viewer)
+    const { user: currentUser, blockUser, unblockUser, isBlocked } = useUserStore(); // Current logged in user (viewer)
 
     // Explicitly derive owner status if not passed, but trusting prop is better for flexibility
     const isCurrentUser = isOwner ?? (currentUser?.id === userId);
@@ -66,23 +67,6 @@ export default function UserProfile({ userId, isOwner }: Props) {
     const currentLevel = profile?.level || 1;
     const currentXP = profile?.xp || 0;
     const currentRank = getRankName(currentLevel);
-
-    const plantSeed = userId ? userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : 12345;
-
-    // Calculate L-System config based on growth (0-100)
-    const lsystemConfig = useMemo(() => {
-        const t = Math.max(0, Math.min(100, currentLevel)) / 100;
-        return {
-            iterations: 2 + Math.floor(t * 2), // Scale from 2 to 4
-            length: 0.01 + t * 0.12,
-            thickness: 0.003 + t * 0.02,
-            lengthScale: 0.6 + t * 0.35,
-            leafSize: 0.01 + t * 0.05,
-            bloomSize: 0.02 + t * 0.06,
-            leafChance: t * 0.5,
-            bloomChance: t > 0.25 ? (t - 0.25) * 1.07 : 0,
-        };
-    }, [currentLevel]);
 
     const isFollowing = following.some(u => u.id === userId);
 
@@ -153,6 +137,22 @@ export default function UserProfile({ userId, isOwner }: Props) {
                             const xpForNext = getXPForNextLevel(currentLevel);
                             const xpInLevel = currentXP - currentLevelXP;
                             const xpNeededInLevel = xpForNext - currentLevelXP;
+                            const plantSeed = userId ? userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : 12345;
+
+                            // Calculate L-System config based on growth (0-100)
+                            const lsystemConfig = useMemo(() => {
+                                const t = Math.max(0, Math.min(100, currentLevel)) / 100;
+                                return {
+                                    iterations: 2 + Math.floor(t * 2), // Scale from 2 to 4
+                                    length: 0.01 + t * 0.12,
+                                    thickness: 0.003 + t * 0.02,
+                                    lengthScale: 0.6 + t * 0.35,
+                                    leafSize: 0.01 + t * 0.05,
+                                    bloomSize: 0.02 + t * 0.06,
+                                    leafChance: t * 0.5,
+                                    bloomChance: t > 0.25 ? (t - 0.25) * 1.07 : 0,
+                                };
+                            }, [currentLevel]);
 
                             return (
                                 <LinearGradient
@@ -302,17 +302,61 @@ export default function UserProfile({ userId, isOwner }: Props) {
                             <Text style={styles.userBio}>Bio placeholder...</Text>
 
                             {!isCurrentUser && (
-                                <TouchableOpacity
-                                    style={[
-                                        styles.followButton,
-                                        { backgroundColor: isFollowing ? '#8E44AD' : theme.colors.primary }
-                                    ]}
-                                    onPress={handleFollowAction}
-                                >
-                                    <Text style={styles.followButtonText}>
-                                        {isFollowing ? 'Following' : 'Follow'}
-                                    </Text>
-                                </TouchableOpacity>
+                                <View style={{ flexDirection: 'row', marginTop: 10, gap: 10 }}>
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.followButton,
+                                            { backgroundColor: isFollowing ? '#8E44AD' : theme.colors.primary, marginTop: 0 }
+                                        ]}
+                                        onPress={handleFollowAction}
+                                    >
+                                        <Text style={styles.followButtonText}>
+                                            {isFollowing ? 'Following' : 'Follow'}
+                                        </Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.followButton,
+                                            { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#ef4444', marginTop: 0 }
+                                        ]}
+                                        onPress={() => {
+                                            const isBlockedUser = isBlocked(userId);
+                                            
+                                            const performUpdate = async (action: () => Promise<void>) => {
+                                                await action();
+                                                setTimeout(() => {
+                                                    refreshUserPosts();
+                                                    refreshConnections();
+                                                    refreshStats();
+                                                }, 500); // Small delay to ensure DB propagation
+                                            };
+
+                                            if (isBlockedUser) {
+                                                Alert.alert('Unblock User', 'Are you sure you want to unblock this user?', [
+                                                    { text: 'Cancel', style: 'cancel' },
+                                                    { 
+                                                        text: 'Unblock', 
+                                                        onPress: () => performUpdate(() => unblockUser(userId))
+                                                    }
+                                                ]);
+                                            } else {
+                                                Alert.alert('Block User', 'Block this user? You won\'t see their posts in Recommended. You can unblock later.', [
+                                                    { text: 'Cancel', style: 'cancel' },
+                                                    { 
+                                                        text: 'Block', 
+                                                        style: 'destructive', 
+                                                        onPress: () => performUpdate(() => blockUser(userId))
+                                                    }
+                                                ]);
+                                            }
+                                        }}
+                                    >
+                                        <Text style={[styles.followButtonText, { color: '#ef4444' }]}>
+                                            {isBlocked(userId) ? 'Unblock' : 'Block'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
                             )}
                         </View>
                     </View>
@@ -365,7 +409,7 @@ export default function UserProfile({ userId, isOwner }: Props) {
                 </ScrollView>
             </DraggableBottomSheet>
 
-            {/* Removed duplicate SpriteComponent */}
+            {isCurrentUser && <SpriteComponent />}
         </View>
     );
 }

@@ -1,12 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Alert, Image, ScrollView, Switch } from 'react-native';
+import React from 'react';
+import { View, Text, TouchableOpacity, Alert, Image, ScrollView } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { db } from '../../../utils/supabase';
 import { useUserStore } from '../../../stores/UserStore';
-import { SoundManager, playSound } from '~/utils/SoundManager';
 
 import { StatusBar } from 'expo-status-bar';
 
@@ -14,11 +13,9 @@ export default function SettingsScreen() {
     const { theme } = useUnistyles();
     const navigation = useNavigation<any>();
     const insets = useSafeAreaInsets();
-
-    // Sound Effects State
-    const [soundEnabled, setSoundEnabled] = useState(SoundManager.isEnabled());
-
-    // Sign Out
+    // Removed direct store access since we moved it
+ 
+     // Sign Out
     const handleSignOut = () => {
         Alert.alert("Sign Out", "Are you sure you want to sign out?", [
             { text: "Cancel", style: "cancel" },
@@ -50,14 +47,6 @@ export default function SettingsScreen() {
         navigation.navigate(screen);
     };
 
-    const handleSoundToggle = async (enabled: boolean) => {
-        setSoundEnabled(enabled);
-        await SoundManager.setEnabled(enabled);
-        if (enabled) {
-            playSound('click'); // Play a sound to confirm it's on
-        }
-    };
-
     return (
         <View style={styles.container}>
 
@@ -84,22 +73,6 @@ export default function SettingsScreen() {
                     contentContainerStyle={styles.contentContainer}
                     style={{ flex: 1 }}
                 >
-                    {/* Sound Effects Toggle */}
-                    <View style={styles.menuItem}>
-                        <View style={styles.menuItemLeft}>
-                            <View style={[styles.iconContainer, { backgroundColor: theme.colors.surface }]}>
-                                <FontAwesome6 name="volume-high" size={18} color={theme.colors.text} />
-                            </View>
-                            <Text style={styles.menuItemText}>Sound Effects</Text>
-                        </View>
-                        <Switch
-                            value={soundEnabled}
-                            onValueChange={handleSoundToggle}
-                            trackColor={{ false: theme.colors.greyedOut, true: theme.colors.primary }}
-                            thumbColor="#fff"
-                        />
-                    </View>
-
                     {/* Appearance */}
                     <TouchableOpacity style={styles.menuItem} onPress={() => navigateTo('Appearance')}>
                         <View style={styles.menuItemLeft}>

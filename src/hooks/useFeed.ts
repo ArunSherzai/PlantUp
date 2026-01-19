@@ -28,24 +28,9 @@ export function useFeed() {
         try {
             setLoading(true);
 
-            // 0. Fetch Blocked Posts
-            let blockedPostIds: Set<string> = new Set();
-            if (user?.id) {
-                const { data: blockedData } = await db.social
-                    .from('Block_posts')
-                    .select('post_id')
-                    .eq('user_id', user.id);
-                
-                if (blockedData) {
-                    blockedData.forEach((b: any) => blockedPostIds.add(b.post_id));
-                }
-            }
-
-            // 1. Fetch Posts
+            // Fetch Recommended Feed via RPC (already handles blocking)
             const { data: postsData, error: postsError } = await db.social
-                .from('Posts')
-                .select('*')
-                .order('created_at', { ascending: false });
+                .rpc('get_recommended_feed', { p_limit: 20, p_offset: 0 });
 
             if (postsError) throw postsError;
 
@@ -54,27 +39,8 @@ export function useFeed() {
                 return;
             }
 
-            // 2. Extract User IDs
-            const userIds = [...new Set(postsData.map((p: any) => p.user_id))];
-
-            // 3. Fetch Users
-            // Note: Users table is in user_schema
-            const { data: usersData, error: usersError } = await db.user
-                .from('Users')
-                .select('id, username, avatar_path')
-                .in('id', userIds);
-
-            if (usersError) {
-                console.error('Error fetching users for feed:', usersError);
-                // Proceed with posts but no user info
-            }
-
-            // 4. Merge
-            const usersMap = new Map();
-            usersData?.forEach((u: any) => usersMap.set(u.id, u));
-
             const mergedPosts = postsData.map((post: any) => {
-                const user = usersMap.get(post.user_id);
+                const user = post.Users; // JSON object from RPC
                 let profileImageUrl = null;
 
                 if (user?.avatar_path) {
@@ -90,7 +56,7 @@ export function useFeed() {
 
                 return {
                     ...post,
-                    is_blocked: blockedPostIds.has(post.id),
+                    is_blocked: false, // RPC excludes blocked posts
                     Users: user ? {
                         username: user.username,
                         profile_image: profileImageUrl

@@ -59,23 +59,6 @@ export default function ProfileScreen() {
   const currentXP = profile?.xp || 0;
   const currentRank = getRankName(currentLevel);
 
-  const plantSeed = user?.id ? user.id.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0) : 12345;
-
-  // Calculate L-System config based on growth (0-100)
-  const lsystemConfig = useMemo(() => {
-    const t = Math.max(0, Math.min(100, currentLevel)) / 100;
-    return {
-      iterations: 2 + Math.floor(t * 2), // Scale from 2 to 4
-      length: 0.01 + t * 0.12,
-      thickness: 0.003 + t * 0.02,
-      lengthScale: 0.6 + t * 0.35,
-      leafSize: 0.01 + t * 0.05,
-      bloomSize: 0.02 + t * 0.06,
-      leafChance: t * 0.5,
-      bloomChance: t > 0.25 ? (t - 0.25) * 1.07 : 0,
-    };
-  }, [currentLevel]);
-
   // Placeholder data for stats
   const stats = [
     { label: 'Plants', value: profile?.plants_count || 0 },
@@ -136,7 +119,23 @@ export default function ProfileScreen() {
               const xpForNext = getXPForNextLevel(currentLevel);
               const xpInLevel = currentXP - currentLevelXP;
               const xpNeededInLevel = xpForNext - currentLevelXP;
-            
+              const plantSeed = user?.id ? user.id.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0) : 12345;
+
+              // Calculate L-System config based on growth (0-100)
+              const lsystemConfig = useMemo(() => {
+                const t = Math.max(0, Math.min(100, currentLevel)) / 100;
+                return {
+                  iterations: 2 + Math.floor(t * 2), // Scale from 2 to 4
+                  length: 0.01 + t * 0.12,
+                  thickness: 0.003 + t * 0.02,
+                  lengthScale: 0.6 + t * 0.35,
+                  leafSize: 0.01 + t * 0.05,
+                  bloomSize: 0.02 + t * 0.06,
+                  leafChance: t * 0.5,
+                  bloomChance: t > 0.25 ? (t - 0.25) * 1.07 : 0,
+                };
+              }, [currentLevel]);
+
               return (
                 <LinearGradient
                   colors={gradientColors}
