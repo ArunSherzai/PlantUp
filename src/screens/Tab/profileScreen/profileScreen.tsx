@@ -19,7 +19,7 @@ import GradientIcon from '../../../components/GradientIcon';
 import GradientText from '../../../components/GradientText';
 // import RankCard from '../../../components/RankCard'; // Not used if inline
 import RewardItem from '../../../components/RewardItem';
-import { REWARDS, getRankName, Reward, getLevelProgress, getXPForNextLevel, getTotalXPForLevel } from '../../../utils/leveling';
+import { getRankName, Reward, getLevelProgress, getXPForNextLevel, getTotalXPForLevel } from '../../../utils/leveling';
 import PostListTab from './components/PostListTab';
 import { FontAwesome5 } from '@expo/vector-icons';
 import RewardDetailsModal from '../../../components/RewardDetailsModal';
@@ -31,19 +31,21 @@ export default function ProfileScreen() {
   const { theme } = useUnistyles();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
-  const { user, profile, fetchProfile, fetchUnclaimedRewards, unclaimedRewards, claimReward } = useUserStore();
+  const { user, profile, fetchProfile, fetchUnclaimedRewards, unclaimedRewards, claimReward, rewardsMap, fetchRewardsMap } = useUserStore();
   const [activeTab, setActiveTab] = useState('leveling');
   const [isBioExpanded, setIsBioExpanded] = useState(false);
   const [isBioTruncated, setIsBioTruncated] = useState(false);
-  const [selectedReward, setSelectedReward] = useState<Reward | null>(null);
+  // Just use 'any' for now since Reward type in leveling.ts might not match perfectly with DB reward
+  const [selectedReward, setSelectedReward] = useState<any>(null);
 
   useFocusEffect(
     useCallback(() => {
       if (user) {
         fetchProfile();
         fetchUnclaimedRewards();
+        fetchRewardsMap();
       }
-    }, [user, fetchProfile, fetchUnclaimedRewards])
+    }, [user, fetchProfile, fetchUnclaimedRewards, fetchRewardsMap])
   );
 
   if (!user) {
@@ -77,10 +79,25 @@ export default function ProfileScreen() {
 
   const handleClaimReward = async (level: number, title: string) => {
     const success = await claimReward(level);
-    if (!success) {
+    if (success) {
+      setSelectedReward(null);
+    } else {
       Alert.alert('Error', 'Could not claim reward. Try again later.');
     }
-    // Success: modal will auto-update to "Collected" state, no alert needed
+  };
+
+  const getRewardImage = (reward: any) => {
+    // 1. Prioritize Media URL from DB (e.g. for Borders)
+    if (reward.media_url) {
+        return { uri: reward.media_url }; 
+    }
+
+    // 2. Specific Local Assts based on Type/ID
+    switch (reward.reward_type) {
+      case 'COINS': return require('../../../../assets/images/plantupcoin.png');
+      case 'XP_BOOST': return require('../../../../assets/images/XPBoostItem.png');
+      default: return undefined; 
+    }
   };
 
   const renderContent = () => {
@@ -199,27 +216,28 @@ export default function ProfileScreen() {
 
 
 
-            {/* Rewards Section */}
             <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Rewards</Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               style={styles.rewardsScroll}>
-              {REWARDS.map((reward) => {
-                const isClaimable = unclaimedRewards.some(r => r.level === reward.level);
-
-
-                const isUnlocked = currentLevel >= reward.level;
-                const isClaimed = isUnlocked && !isClaimable;
-
-                return (
+               {rewardsMap.map((reward) => {
+                  // Map DB status to UI props
+                  const isUnlocked = reward.status !== 'LOCKED';
+                  const isClaimed = reward.status === 'CLAIMED';
+                  
+                  // If image_url is in DB use it, else derive from type
+                  const rewardImageSource = getRewardImage(reward);
+                  
+                 return (
                   <RewardItem
                     key={reward.level}
                     title={reward.title}
                     description={reward.description}
+                    image={rewardImageSource} 
                     isUnlocked={isUnlocked}
                     isClaimed={isClaimed}
-                    onClaim={isClaimed ? undefined : () => setSelectedReward(reward)}
+                    onClaim={isClaimed ? undefined : () => setSelectedReward({ ...reward, image: rewardImageSource })}
                   />
                 )
               })}
@@ -455,8 +473,8 @@ export default function ProfileScreen() {
         <RewardDetailsModal
           visible={!!selectedReward}
           reward={selectedReward}
-          isLocked={selectedReward ? (profile?.level || 1) < selectedReward.level : false}
-          isClaimed={selectedReward ? !unclaimedRewards.some(r => r.level === selectedReward.level) && (profile?.level || 1) >= selectedReward.level : false}
+          isLocked={selectedReward ? !!(selectedReward.status === 'LOCKED') : false}
+          isClaimed={selectedReward ? !!(selectedReward.status === 'CLAIMED') : false}
           onClose={() => setSelectedReward(null)}
           onClaimAction={() => {
             if (selectedReward) {

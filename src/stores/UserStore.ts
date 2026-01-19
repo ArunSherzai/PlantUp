@@ -45,13 +45,25 @@ type Title = {
   is_equipped: boolean;
 };
 
+export type LevelReward = {
+  level: number;
+  reward_type: 'COINS' | 'ITEM' | 'TITLE' | 'BORDER' | 'XP_BOOST';
+  reference_id: string | null;
+  quantity: number;
+  title: string;
+  description: string;
+  status: 'LOCKED' | 'AVAILABLE' | 'CLAIMED';
+  media_url: string | null;
+};
+
 type State = {
   user: User | null;
   profile: UserProfile | null;
   inventory: InventoryItem[];
   ownedBorders: Border[];
   ownedTitles: Title[];
-  unclaimedRewards: any[]; // { id, level, reward_type, reward_id, quantity }
+  unclaimedRewards: any[]; // Deprecated, use rewardsMap
+  rewardsMap: LevelReward[];
   setUser: (user: User | null) => void;
   setProfile: (profile: UserProfile | null) => void;
   addXP: (amount: number) => Promise<void>;
@@ -72,6 +84,7 @@ type State = {
   toggleSprigNotifications: (enabled: boolean) => Promise<void>;
   buyShopItem: (itemId: string, price: number) => Promise<{ success: boolean; message: string }>;
   buyLootbox: (price: number) => Promise<{ success: boolean; message: string; rewardType?: string; rewardValue?: string }>;
+  fetchRewardsMap: () => Promise<void>;
 
   // Blocking
   blockedUserIds: Set<string>;
@@ -88,6 +101,7 @@ export const useUserStore = create<State>((set, get) => ({
   ownedBorders: [],
   ownedTitles: [],
   unclaimedRewards: [],
+  rewardsMap: [],
   sprigNotificationsEnabled: true,
 
   loadSettings: async () => {
@@ -117,6 +131,7 @@ export const useUserStore = create<State>((set, get) => ({
       get().fetchInventory();
       get().fetchBlockedUsers();
       get().loadSettings();
+      get().fetchRewardsMap();
 
       // Subscribe to DM inbox globally (for notifications anywhere in the app)
       // Use setTimeout to ensure UserStore is set first
@@ -662,6 +677,52 @@ export const useUserStore = create<State>((set, get) => ({
     set({ unclaimedRewards: data || [] });
   },
 
+  fetchRewardsMap: async () => {
+    const { user } = get();
+    if (!user) return;
+
+    try {
+      const { data, error } = await db.gamification
+        .rpc('get_user_rewards_status', { p_user_id: user.id });
+
+      if (error) {
+        console.error('[UserStore] Error fetching rewards map:', error);
+        return;
+      }
+
+      // Process rewards to resolve storage URLs
+      const processedRewards = await Promise.all((data || []).map(async (reward: any) => {
+        let mediaUrl = reward.media_url;
+
+        // Only process if looks like a path (not http) and exists
+        if (mediaUrl && !mediaUrl.startsWith('http')) {
+          let mediaPath = mediaUrl;
+          // Seasonal fix pattern from fetchBorders
+          if (mediaPath.includes('seasonal_summer') || mediaPath.includes('seasonal_winter')) {
+            mediaPath = mediaPath.replace('seasonal_summer', 'seasonal').replace('seasonal_winter', 'seasonal');
+          }
+
+          // Assume 'border-skins' for now as that's the only one joined. 
+          // If we add other types later, we might need a bucket column or logic.
+          const { data: storageData } = db.public.storage.from('border-skins').getPublicUrl(mediaPath);
+
+          if (storageData?.publicUrl) {
+            mediaUrl = storageData.publicUrl;
+          }
+        }
+
+        return {
+          ...reward,
+          media_url: mediaUrl
+        };
+      }));
+
+      set({ rewardsMap: processedRewards });
+    } catch (e) {
+      console.error('[UserStore] Exception fetching rewards map:', e);
+    }
+  },
+
   claimReward: async (level: number) => {
     const { user, fetchUnclaimedRewards, fetchProfile, fetchInventory, fetchTitles, fetchBorders } = get();
     if (!user) return false;
@@ -683,7 +744,8 @@ export const useUserStore = create<State>((set, get) => ({
           fetchProfile(), // Update coins/XP if relevant
           fetchInventory(), // Update items
           fetchTitles(), // Update titles
-          fetchBorders() // Update borders
+          fetchBorders(), // Update borders
+          get().fetchRewardsMap() // Refresh the map
         ]);
         return true;
       }

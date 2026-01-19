@@ -24,7 +24,7 @@ type Reward = {
     level: number;
     title: string;
     description: string;
-    image?: ImageSourcePropType;
+    image?: any;
 };
 
 type Props = {
@@ -55,6 +55,7 @@ const getTheme = (title: string) => {
 export default function RewardDetailsModal({ visible, reward, isClaimed, isLocked, onClose, onClaimAction }: Props) {
     const { theme } = useUnistyles();
     const [fetchedImage, setFetchedImage] = useState<string | null>(null);
+    const [imageError, setImageError] = useState(false);
     const [isClosing, setIsClosing] = useState(false);
 
     // Animations
@@ -204,13 +205,23 @@ export default function RewardDetailsModal({ visible, reward, isClaimed, isLocke
             );
         }
 
-        // For items with images (coins, XP boost)
-        if (reward.image) {
+        // For items with images (coins, XP boost, borders)
+        if (reward.image && !imageError) {
+            const isGif = reward.image?.uri && typeof reward.image.uri === 'string' && reward.image.uri.includes('.gif');
             return (
-                <RNImage 
+                <ExpoImage 
                     source={reward.image} 
-                    style={styles.rewardImageLarge} 
-                    resizeMode="contain" 
+                    style={[
+                        styles.rewardImageLarge,
+                        isGif && {
+                            width: SCREEN_WIDTH * 0.44, // ~158% of 0.28
+                            height: SCREEN_WIDTH * 0.44,
+                            // Adjust margins if needed, but centering should handle it if container permits
+                        }
+                    ]} 
+                    contentFit="contain"
+                    transition={200}
+                    onError={() => setImageError(true)}
                 />
             );
         }
@@ -293,12 +304,12 @@ export default function RewardDetailsModal({ visible, reward, isClaimed, isLocke
                 {isClaimed && (
                     <View style={{ 
                         position: 'absolute', 
-                        top: -65, 
-                        right: -25, 
+                        top: -SCREEN_WIDTH * 0.15, 
+                        right: -SCREEN_WIDTH * 0.05, 
                         zIndex: 999, // Ensure it's on top of everything
                         elevation: 50, // Android requirement to break out of parent elevation
-                        width: 130, // Explicit container size
-                        height: 130,
+                        width: SCREEN_WIDTH * 0.35, // Explicit container size
+                        height: SCREEN_WIDTH * 0.35,
                         overflow: 'visible'
                     }}>
                         <ExpoImage
@@ -370,7 +381,7 @@ const styles = StyleSheet.create({
     card: {
         width: Math.min(SCREEN_WIDTH * 0.88, 360),
         borderRadius: 28,
-        padding: 28,
+        padding: SCREEN_WIDTH * 0.07, // ~28px on regular phones
         alignItems: 'center',
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 15 },
@@ -382,15 +393,15 @@ const styles = StyleSheet.create({
     },
     glowBackground: {
         position: 'absolute',
-        top: -50,
-        width: 250,
-        height: 250,
-        borderRadius: 125,
+        top: -SCREEN_WIDTH * 0.12,
+        width: SCREEN_WIDTH * 0.6,
+        height: SCREEN_WIDTH * 0.6,
+        borderRadius: (SCREEN_WIDTH * 0.6) / 2,
     },
     glowGradient: {
         width: '100%',
         height: '100%',
-        borderRadius: 150,
+        borderRadius: (SCREEN_WIDTH * 0.6) / 2,
     },
     sparkleContainer: {
         position: 'absolute',
@@ -420,12 +431,12 @@ const styles = StyleSheet.create({
         minHeight: SCREEN_WIDTH * 0.3,
     },
     rewardImageLarge: {
-        width: SCREEN_WIDTH * 0.25,
-        height: SCREEN_WIDTH * 0.25,
+        width: SCREEN_WIDTH * 0.28,
+        height: SCREEN_WIDTH * 0.28,
     },
     borderImageLarge: {
-        width: SCREEN_WIDTH * 0.3,
-        height: SCREEN_WIDTH * 0.3,
+        width: SCREEN_WIDTH * 0.35,
+        height: SCREEN_WIDTH * 0.35,
     },
     lockedContainer: {
         alignItems: 'center',
@@ -441,8 +452,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     titleGradientBadge: {
-        paddingHorizontal: 28,
-        paddingVertical: 14,
+        paddingHorizontal: SCREEN_WIDTH * 0.07,
+        paddingVertical: SCREEN_WIDTH * 0.035,
         borderRadius: 16,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
@@ -452,26 +463,26 @@ const styles = StyleSheet.create({
     },
     titleNameText: {
         color: 'white',
-        fontSize: 24,
+        fontSize: SCREEN_WIDTH * 0.06, // Responsive font size
         fontWeight: '800',
         textAlign: 'center',
         letterSpacing: 0.5,
     },
     iconFallback: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
+        width: SCREEN_WIDTH * 0.25,
+        height: SCREEN_WIDTH * 0.25,
+        borderRadius: (SCREEN_WIDTH * 0.25) / 2,
         justifyContent: 'center',
         alignItems: 'center',
     },
     title: {
-        fontSize: 24,
+        fontSize: SCREEN_WIDTH * 0.065,
         fontWeight: '800',
         textAlign: 'center',
         marginBottom: 6,
     },
     levelLabel: {
-        fontSize: 14,
+        fontSize: SCREEN_WIDTH * 0.035,
         fontWeight: '600',
         marginBottom: 16,
     },
@@ -483,9 +494,9 @@ const styles = StyleSheet.create({
         borderRadius: 1,
     },
     description: {
-        fontSize: 15,
+        fontSize: SCREEN_WIDTH * 0.038,
         textAlign: 'center',
-        lineHeight: 22,
+        lineHeight: SCREEN_WIDTH * 0.055,
         marginBottom: 24,
         paddingHorizontal: 8,
     },
