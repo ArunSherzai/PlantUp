@@ -32,7 +32,7 @@ export default function FeedScreen() {
     const insets = useSafeAreaInsets();
     const { posts: allPosts, loading: postsLoading, refreshPosts: refreshFeed } = usePosts();
     const [refreshing, setRefreshing] = useState(false);
-    
+
     // Filter out blocked posts
     const posts = allPosts.filter(p => !p.is_blocked);
 
@@ -233,7 +233,7 @@ export default function FeedScreen() {
                                         <Text style={{ color: theme.colors.text }}>No posts yet. Be the first!</Text>
                                     </View>
                                 )}
-                                <View style={{ height: vh * 10 }} />
+
                             </ScrollView>
                         )}
                     </DraggableBottomSheet>
