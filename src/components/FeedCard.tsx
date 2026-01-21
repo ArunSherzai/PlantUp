@@ -1,4 +1,3 @@
-
 import * as React from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { useUnistyles } from 'react-native-unistyles';
@@ -45,9 +44,14 @@ interface FeedCardProps {
     sensorData?: string;
 }
 
-const FeedCard = React.memo(({ imageUri, caption, hashtags, isVideo, style, onPress, username, userAvatar, aspectRatio, hideCaption, postType, sensorData }: FeedCardProps) => {
+const FeedCard = ({ imageUri, caption, hashtags, isVideo, style, onPress, username, userAvatar, aspectRatio, hideCaption, postType, sensorData }: FeedCardProps) => {
     const { theme } = useUnistyles();
     const hasMedia = (imageUri?.uri || (typeof imageUri === 'number')) && postType !== 'sensorData';
+
+    // Debug logging
+    if (caption) {
+      // console.log('DEBUG FeedCard:', { caption: caption.substring(0, 10), surface: theme.colors.surface });
+    }
 
     // Extract sensor data from sensorData prop (which is now caption)
     const parsedSensorData = postType === 'sensorData' ? extractSensorData(sensorData) : null;
@@ -124,7 +128,12 @@ const FeedCard = React.memo(({ imageUri, caption, hashtags, isVideo, style, onPr
                 </>
             ) : (
                 <LinearGradient
-                    colors={[theme.colors.surface, theme.colors.surface === '#FFFFFF' ? '#F0F0F0' : '#2A2E32']}
+                    colors={[
+                        theme.colors.surface, 
+                        (theme.colors.surface.toUpperCase() === '#FFFFFF' || theme.colors.surface.toUpperCase() === '#FFF') 
+                            ? '#F0F0F0' 
+                            : '#2A2E32'
+                    ]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={[
@@ -155,6 +164,7 @@ const FeedCard = React.memo(({ imageUri, caption, hashtags, isVideo, style, onPr
                         {(() => {
                             const cleanCaption = caption ? caption.replace(/#\w+/g, '').trim() : "No content";
                             const isShort = cleanCaption.length < 60;
+                            
                             return (
                                 <Text
                                     style={[
@@ -182,7 +192,7 @@ const FeedCard = React.memo(({ imageUri, caption, hashtags, isVideo, style, onPr
             )}
         </TouchableOpacity>
     );
-});
+};
 
 export default FeedCard;
 

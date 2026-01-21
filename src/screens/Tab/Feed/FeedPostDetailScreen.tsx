@@ -502,7 +502,7 @@ export default function FeedPostDetailScreen() {
                                     </TouchableOpacity>
                                 </View>
                             ) : isTextPost ? (
-                                <View style={[styles.spacer, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#F0F5F1' }]}>
+                                <View style={[styles.spacer, { justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background }]}>
                                     <View style={[styles.textCardLarge, { backgroundColor: theme.colors.surface }]}>
                                         <View style={styles.textBadge}>
                                             <Text style={styles.textBadgeText}>Thought</Text>
@@ -520,7 +520,7 @@ export default function FeedPostDetailScreen() {
                                 // Fallback: If no sensor data (legacy post), show as text post
                                 if (!sensorData) {
                                     return (
-                                        <View style={[styles.spacer, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#F0F5F1' }]}>
+                                        <View style={[styles.spacer, { justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background }]}>
                                             <View style={[styles.textCardLarge, { backgroundColor: theme.colors.surface }]}>
                                                 <View style={styles.textBadge}>
                                                     <Text style={styles.textBadgeText}>Status</Text>
@@ -535,15 +535,15 @@ export default function FeedPostDetailScreen() {
                                 }
 
                                 return (
-                                    <View style={[styles.backgroundImage, { backgroundColor: '#F0F5F1', justifyContent: 'center', padding: 20 }]}>
-                                        <View style={{ backgroundColor: 'white', borderRadius: 20, padding: 20, maxHeight: '80%' }}>
+                                    <View style={[styles.backgroundImage, { backgroundColor: theme.colors.background, justifyContent: 'center', padding: 20 }]}>
+                                        <View style={{ backgroundColor: theme.colors.surface, borderRadius: 20, padding: 20, maxHeight: '80%' }}>
                                             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
                                                 <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#E0F7FA', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
                                                     <FontAwesome6 name="leaf" size={20} color="#00BCD4" />
                                                 </View>
                                                 <View>
                                                     <Text style={{ fontSize: 18, fontWeight: 'bold', color: theme.colors.text }}>Plant Check-in</Text>
-                                                    <Text style={{ fontSize: 14, color: '#888' }}>Happy & Healthy!</Text>
+                                                    <Text style={{ fontSize: 14, color: theme.colors.greyedOut }}>Happy & Healthy!</Text>
                                                 </View>
                                             </View>
                                             <ScrollView showsVerticalScrollIndicator={false}>
@@ -582,7 +582,7 @@ export default function FeedPostDetailScreen() {
                                     />
                                 )
                             ) : (
-                                <View style={[styles.backgroundImage, { backgroundColor: '#F0F5F1' }]} />
+                                <View style={[styles.backgroundImage, { backgroundColor: theme.colors.background }]} />
                             )}
 
                             {/* Play/Pause Indicator (Optional, shown when paused) */}
@@ -605,9 +605,7 @@ export default function FeedPostDetailScreen() {
                             <FontAwesome6 name="chevron-left" size={20} color="white" />
                         </TouchableOpacity>
 
-                        <TouchableOpacity style={styles.headerButton}>
-                            <FontAwesome6 name="magnifying-glass" size={20} color="white" />
-                        </TouchableOpacity>
+
                     </View>
 
                     {/* Mute Button positioned relative to header or via flex */}
@@ -629,44 +627,43 @@ export default function FeedPostDetailScreen() {
                 </View >
 
                 {/* Right Side Actions (Flex aligned to bottom-right) */}
-                < Animated.View style={
-                    [
+                {/* Right Side Actions (Flex aligned to bottom-right) */}
+                <Animated.View style={[
                         styles.rightActionsContainer,
-                        { backgroundColor: (isTextPost || post?.type === 'sensorData') ? 'rgba(0,0,0,0.1)' : 'transparent', borderRadius: 30, paddingTop: 10, paddingBottom: 10 },
-                        // animatedActionStyle // Assuming animatedActionStyle is defined and used for this component
-                    ]} >
+                        { backgroundColor: 'transparent', paddingBottom: 10 },
+                    ]}>
                     <TouchableOpacity style={styles.rightActionItem} onPress={handleLike}>
                         <Animated.View style={animatedHeartStyle}>
                             <FontAwesome6
                                 name={showHeartBreak ? "heart-crack" : "heart"}
                                 size={30}
-                                color={isLiked || showHeartBreak ? "#FF3B30" : "white"}
+                                color={isLiked || showHeartBreak ? "#FF3B30" : theme.colors.icon}
                                 solid={isLiked || showHeartBreak}
                             />
                         </Animated.View>
-                        <Text style={[styles.rightActionText, isTextPost && { color: theme.colors.text, textShadowColor: 'transparent' }]}>{formatNumber(likesCount)}</Text>
+                        <Text style={[styles.rightActionText, { color: theme.colors.text, textShadowColor: 'transparent' }]}>{formatNumber(likesCount)}</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.rightActionItem} onPress={openComments}>
-                        <FontAwesome6 name="comment-dots" size={30} color={isTextPost ? theme.colors.text : "white"} />
-                        <Text style={[styles.rightActionText, isTextPost && { color: theme.colors.text, textShadowColor: 'transparent' }]}>{formatNumber(post?.comments_count || comments.length || 0)}</Text>
+                        <FontAwesome6 name="comment-dots" size={30} color={theme.colors.icon} />
+                        <Text style={[styles.rightActionText, { color: theme.colors.text, textShadowColor: 'transparent' }]}>{formatNumber(post?.comments_count || comments.length || 0)}</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.rightActionItem}>
-                        <FontAwesome6 name="share-nodes" size={30} color={isTextPost ? theme.colors.text : "white"} />
-                        <Text style={[styles.rightActionText, isTextPost && { color: theme.colors.text, textShadowColor: 'transparent' }]}>Share</Text>
+                        <FontAwesome6 name="share-nodes" size={30} color={theme.colors.icon} />
+                        <Text style={[styles.rightActionText, { color: theme.colors.text, textShadowColor: 'transparent' }]}>Share</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.rightActionItem} onPress={handleSave}>
                         <FontAwesome6
                             name="bookmark"
                             size={30}
-                            color={isSaved ? "#FFD700" : (isTextPost ? theme.colors.text : "white")}
+                            color={isSaved ? "#FFD700" : theme.colors.icon}
                             solid={isSaved}
                         />
-                        <Text style={[styles.rightActionText, isTextPost && { color: theme.colors.text, textShadowColor: 'transparent' }]}>Save</Text>
+                        <Text style={[styles.rightActionText, { color: theme.colors.text, textShadowColor: 'transparent' }]}>Save</Text>
                     </TouchableOpacity>
-                </Animated.View >
+                </Animated.View>
             </SafeAreaView >
 
             {/* Dynamic Bottom Sheet */}

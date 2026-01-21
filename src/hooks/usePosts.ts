@@ -41,7 +41,7 @@ export function usePosts(options?: UsePostsOptions) {
                     .from('Block_posts')
                     .select('post_id')
                     .eq('user_id', user.id);
-                
+
                 if (blockedData) {
                     blockedData.forEach((b: any) => blockedPostIds.add(b.post_id));
                 }
@@ -130,7 +130,10 @@ export function usePosts(options?: UsePostsOptions) {
                 };
             });
 
-            setPosts(mergedPosts);
+            // Shuffle posts for random feed
+            const shuffledPosts = mergedPosts.sort(() => Math.random() - 0.5);
+
+            setPosts(shuffledPosts);
             setError(null);
 
         } catch (err: any) {

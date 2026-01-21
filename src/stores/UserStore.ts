@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { User } from '@supabase/supabase-js';
 import { db } from '../utils/supabase';
+import { BlockService } from '../features/blocking/BlockService';
 import { getLevelFromXP } from '../utils/leveling';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -856,7 +857,6 @@ export const useUserStore = create<State>((set, get) => ({
 
   fetchBlockedUsers: async () => {
     try {
-      const { BlockService } = require('../features/blocking/BlockService');
       const blockedIds = await BlockService.getBlockedUsers();
       set({ blockedUserIds: new Set(blockedIds) });
     } catch (e) {
@@ -866,7 +866,6 @@ export const useUserStore = create<State>((set, get) => ({
 
   blockUser: async (userId: string) => {
     try {
-      const { BlockService } = require('../features/blocking/BlockService');
       await BlockService.blockUser(userId);
 
       const newSet = new Set(get().blockedUserIds);
@@ -881,7 +880,6 @@ export const useUserStore = create<State>((set, get) => ({
 
   unblockUser: async (userId: string) => {
     try {
-      const { BlockService } = require('../features/blocking/BlockService');
       await BlockService.unblockUser(userId);
 
       const newSet = new Set(get().blockedUserIds);

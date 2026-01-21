@@ -8,8 +8,8 @@ import { useUserStore } from '~/stores/UserStore';
 
 // --- Placeholder Data ---
 const MOCK_ITEMS = [
-    { id: 'lootbox', name: 'Lootbox', rarity: 'rare', quantity: 'x1', price: '500', currency: 'gold', imageColor: '#9B59B6', icon: 'gift' },
-    { id: 'xp_boost_24h', name: 'XP Boost', rarity: 'epic', quantity: 'x1', price: '500', currency: 'gold', imageColor: '#2ecc71', icon: 'flask' },
+    { id: 'lootbox', name: 'Lootbox', rarity: 'rare', quantity: 'x1', price: '500', currency: 'gold', imageColor: '#E67E22', icon: 'gift' },
+    { id: 'xp_boost_24h', name: 'XP Boost', rarity: 'epic', quantity: 'x1', price: '500', currency: 'gold', imageColor: '#9B59B6', icon: 'flask', image: require('../../../../assets/images/XPBoostItem.png') },
     { id: 'streak_freeze_24h', name: 'Streak Freeze', rarity: 'rare', quantity: 'x1', price: '500', currency: 'gold', imageColor: '#3498DB', icon: 'snowflake' },
 ];
 
@@ -23,8 +23,8 @@ const RARITY_COLORS: { [key: string]: string } = {
 
 // Metadata for Inventory Items (Client-side mapping for visuals)
 const ITEM_METADATA: { [key: string]: any } = {
-    'xp_boost_24h': { name: 'XP Boost', icon: 'flask', color: '#2ecc71', rarity: 'epic', description: 'x1.5 XP for 24h' },
-    'lootbox': { name: 'Lootbox', icon: 'gift', color: '#9B59B6', rarity: 'rare', description: 'Random rewards!' },
+    'xp_boost_24h': { name: 'XP Boost', icon: 'flask', color: '#9B59B6', rarity: 'epic', description: 'x1.5 XP for 24h', image: require('../../../../assets/images/XPBoostItem.png') },
+    'lootbox': { name: 'Lootbox', icon: 'gift', color: '#E67E22', rarity: 'rare', description: 'Random rewards!' },
     'streak_freeze_24h': { name: 'Streak Freeze', icon: 'snowflake', color: '#3498DB', rarity: 'rare', description: 'Save your streak!' },
     // Add generic fallback
     'default': { name: 'Unknown Item', icon: 'box', color: '#BDC3C7', rarity: 'common', description: 'Mystery item' }
@@ -117,15 +117,19 @@ export default function ShopScreen() {
                  {inventory.map((invItem) => {
                      const meta = ITEM_METADATA[invItem.item_id] || ITEM_METADATA['default'];
                      return (
-                        <View key={invItem.item_id} style={[styles.card, { borderColor: RARITY_COLORS[meta.rarity] }]}>
-                            <View style={[styles.rarityStripe, { backgroundColor: RARITY_COLORS[meta.rarity] }]} />
+                        <View key={invItem.item_id} style={[styles.card, { borderColor: meta.color || RARITY_COLORS[meta.rarity] }]}>
+                            <View style={[styles.rarityStripe, { backgroundColor: meta.color || RARITY_COLORS[meta.rarity] }]} />
                             
                             <View style={[styles.imagePlaceholder, { backgroundColor: meta.color }]}>
-                                <FontAwesome6 name={meta.icon} size={32} color="#FFF" />
+                                {meta.image ? (
+                                    <Image source={meta.image} style={{ width: 60, height: 60, resizeMode: 'contain' }} />
+                                ) : (
+                                    <FontAwesome6 name={meta.icon} size={32} color="#FFF" />
+                                )}
                             </View>
 
                             <Text style={styles.itemName} numberOfLines={1}>{meta.name}</Text>
-                            <Text style={[styles.rarityLabel, { color: RARITY_COLORS[meta.rarity], fontSize: 9 }]}>
+                            <Text style={[styles.rarityLabel, { color: meta.color || RARITY_COLORS[meta.rarity], fontSize: 9 }]}>
                                 {meta.description}
                             </Text>
                             
@@ -189,18 +193,22 @@ export default function ShopScreen() {
                         {/* Shop Grid */}
                         <View style={styles.grid}>
                             {MOCK_ITEMS.map((item) => (
-                                <View key={item.id} style={[styles.card, { borderColor: RARITY_COLORS[item.rarity] }]}>
+                                <View key={item.id} style={[styles.card, { borderColor: item.imageColor || RARITY_COLORS[item.rarity] }]}>
                                     {/* Rarity Ribbon (Simple Corner Detail) */}
-                                    <View style={[styles.rarityStripe, { backgroundColor: RARITY_COLORS[item.rarity] }]} />
+                                    <View style={[styles.rarityStripe, { backgroundColor: item.imageColor || RARITY_COLORS[item.rarity] }]} />
 
                                     {/* Item Image Placeholder */}
                                     <View style={[styles.imagePlaceholder, { backgroundColor: item.imageColor }]}>
-                                        <FontAwesome6 name={item.icon} size={32} color="#FFF" />
+                                        {(item as any).image ? (
+                                            <Image source={(item as any).image} style={{ width: 60, height: 60, resizeMode: 'contain' }} />
+                                        ) : (
+                                            <FontAwesome6 name={item.icon} size={32} color="#FFF" />
+                                        )}
                                     </View>
 
                                     {/* Item Info */}
                                     <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
-                                    <Text style={[styles.rarityLabel, { color: RARITY_COLORS[item.rarity] }]}>
+                                    <Text style={[styles.rarityLabel, { color: item.imageColor || RARITY_COLORS[item.rarity] }]}>
                                         {item.rarity.toUpperCase()}
                                     </Text>
                                     <View style={styles.quantityBadge}>

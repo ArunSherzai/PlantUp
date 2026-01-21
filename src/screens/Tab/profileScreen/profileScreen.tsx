@@ -31,7 +31,7 @@ import { FlatList } from 'react-native';
 
 // --- Sub-components to prevent full screen re-renders ---
 const StatsRow = memo(({ stats, theme, typographyColor }: { stats: any[], theme: any, typographyColor: string }) => (
-  <View style={styles.statsRow}>
+  <View style={[styles.statsRow, { backgroundColor: theme.colors.background }]}>
     {stats.map((stat, index) => {
       const content = (
         <>

@@ -286,22 +286,23 @@ export default function ShowMissionsScreen() {
           <View style={{ height: 32, marginBottom: 10 }} />
 
           {/* Top Right Shop Button */}
-          <View style={{ position: 'absolute', top: 5, right: 20, zIndex: 100 }}>
+          <View style={{ position: 'absolute', top: vh * 1, right: vw * 5, zIndex: 100 }}>
              <TouchableOpacity 
                 onPress={() => navigation.navigate('Shop')}
                 style={{
                     backgroundColor: 'rgba(255,255,255,0.2)', 
-                    padding: 8, 
-                    borderRadius: 20, 
+                    paddingHorizontal: vw * 4,
+                    paddingVertical: vh * 1.2, 
+                    borderRadius: vw * 5, 
                     borderWidth: 1, 
                     borderColor: 'rgba(255,255,255,0.4)',
                     flexDirection: 'row',
                     alignItems: 'center',
-                    gap: 5
+                    gap: vw * 2
                 }}
              >
-                 <FontAwesome6 name="shop" size={18} color="white" />
-                 <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 12 }}>Shop</Text>
+                 <FontAwesome6 name="shop" size={vw * 5} color="white" />
+                 <Text style={{ color: 'white', fontWeight: 'bold', fontSize: vw * 3.5 }}>Shop</Text>
              </TouchableOpacity>
           </View>
 
