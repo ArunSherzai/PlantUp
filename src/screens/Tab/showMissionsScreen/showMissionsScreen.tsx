@@ -63,8 +63,13 @@ const getStreakMultiplier = (streak: number) => {
   return 2.0;
 };
 
+import { useNavigation } from '@react-navigation/native';
+
+// ... 
+
 export default function ShowMissionsScreen() {
   const { theme } = useUnistyles();
+  const navigation = useNavigation<any>();
   const [quests, setQuests] = useState<UserQuest[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -280,9 +285,24 @@ export default function ShowMissionsScreen() {
           {/* Spacer to replace 'PlantUp' text and keep layout consistent */}
           <View style={{ height: 32, marginBottom: 10 }} />
 
-          {/* Top Right Booster Widget */}
+          {/* Top Right Shop Button */}
           <View style={{ position: 'absolute', top: 5, right: 20, zIndex: 100 }}>
-            <BoosterWidget />
+             <TouchableOpacity 
+                onPress={() => navigation.navigate('Shop')}
+                style={{
+                    backgroundColor: 'rgba(255,255,255,0.2)', 
+                    padding: 8, 
+                    borderRadius: 20, 
+                    borderWidth: 1, 
+                    borderColor: 'rgba(255,255,255,0.4)',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 5
+                }}
+             >
+                 <FontAwesome6 name="shop" size={18} color="white" />
+                 <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 12 }}>Shop</Text>
+             </TouchableOpacity>
           </View>
 
           <MaskedView

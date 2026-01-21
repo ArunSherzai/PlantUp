@@ -28,7 +28,11 @@ export type SoundType =
     | 'freeze_used'
     | 'lootbox_open'
     | 'lootbox_reward'
-    | 'sprig_noti';
+    | 'sprig_noti'
+    | 'swipe'
+    | 'flip'
+    | 'bin'
+    | 'purchase';
 
 // Sound file mappings - using simple filenames without special characters
 const SOUND_FILES: Record<SoundType, any> = {
@@ -47,6 +51,10 @@ const SOUND_FILES: Record<SoundType, any> = {
     lootbox_open: require('../../assets/sounds/lootbox_open.wav'),
     lootbox_reward: require('../../assets/sounds/lootbox_reward.wav'),
     sprig_noti: require('../../assets/sounds/sprig_noti.wav'),
+    swipe: require('../../assets/sounds/swipe.wav'),
+    flip: require('../../assets/sounds/flip.wav'),
+    bin: require('../../assets/sounds/Bin.wav'),
+    purchase: require('../../assets/sounds/cash-register-kaching-sound-effect-125042.wav'),
 };
 
 // Sounds to preload at startup (most frequently used)

@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   TouchableOpacity,
 } from 'react-native';
+import { playSound } from '~/utils/SoundManager';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PlantCoinBox } from '~/components/PlantCoinBox';
 import { useNavigation } from '@react-navigation/native';
@@ -96,11 +97,15 @@ export default function PlantListScreen() {
         <View style={styles.sheetContent}>
           <View style={styles.carouselContainer}>
             <FlatList
-              onMomentumScrollEnd={(event) => {
+              onScroll={(event) => {
                 const index = Math.round(
                   event.nativeEvent.contentOffset.x / event.nativeEvent.layoutMeasurement.width
                 );
-                setActiveIndex(index);
+                // Only update if changed to avoid duplicate sounds if user scrolls a tiny bit and snap back
+                if (index !== activeIndex) {
+                    setActiveIndex(index);
+                    playSound('swipe');
+                }
               }}
               data={plants}
               keyExtractor={(item) => item.id}

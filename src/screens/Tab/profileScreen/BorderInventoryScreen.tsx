@@ -25,6 +25,7 @@ export default function BorderInventoryScreen() {
   }, [fetchBorders]);
 
   const handleEquip = async (borderId: string | null) => {
+    playSound('confirm');
     await equipBorder(borderId);
   };
 
@@ -33,6 +34,7 @@ export default function BorderInventoryScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => {
+          playSound('click');
           if (navigation.canGoBack()) {
             navigation.goBack();
           } else {
@@ -58,8 +60,17 @@ export default function BorderInventoryScreen() {
               No borders owned yet.
             </Text>
             <Text style={[styles.emptySubText, { color: theme.colors.greyedOut }]}>
-              Complete quests or level up to earn them!
+              Visit the shop to get Lootboxes!
             </Text>
+            <TouchableOpacity 
+                style={[styles.equipButton, { backgroundColor: theme.colors.primary, marginTop: 20 }]}
+                onPress={() => {
+                    playSound('click');
+                    navigation.navigate('Shop' as never);
+                }}
+            >
+                <Text style={styles.equipButtonText}>Go to Shop</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.grid}>

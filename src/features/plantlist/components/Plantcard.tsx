@@ -14,6 +14,7 @@ import { db } from '../../../utils/supabase';
 import { styles, vw, vh } from '../styles/plantStyles';
 import { PlantItem } from '../types/plant.types';
 import { useNavigation } from '@react-navigation/native';
+import { playSound } from '~/utils/SoundManager';
 
 interface Props {
   item: PlantItem;
@@ -79,11 +80,13 @@ export const PlantCard = React.memo(
         return;
       }
 
+      playSound('flip');
       await refreshPlants();
       onActionPress();
     };
 
     const handleDelete = async () => {
+      playSound('bin');
       const { error } = await db.social.from('Plants').delete().eq('id', item.id);
 
       if (error) {
@@ -153,7 +156,7 @@ export const PlantCard = React.memo(
                   justifyContent: 'space-between',
                   height: '100%',
                 }}>
-                <TouchableOpacity onPress={onActionPress}>
+                <TouchableOpacity onPress={() => { playSound('flip'); onActionPress(); }}>
                   <FontAwesome6 name="repeat" size={24} color="white" />
                 </TouchableOpacity>
 
@@ -259,7 +262,7 @@ export const PlantCard = React.memo(
                   <Text style={styles.label}></Text>
 
                   <View style={styles.buttonRow}>
-                    <TouchableOpacity style={styles.cancelButton} onPress={onActionPress}>
+                    <TouchableOpacity style={styles.cancelButton} onPress={() => { playSound('flip'); onActionPress(); }}>
                       <Text style={styles.cancelButtonText}>Cancel</Text>
                     </TouchableOpacity>
 
@@ -271,7 +274,7 @@ export const PlantCard = React.memo(
               </View>
             </View>
 
-            <TouchableOpacity style={styles.plantCardActionButton} onPress={onActionPress}>
+            <TouchableOpacity style={styles.plantCardActionButton} onPress={() => { playSound('flip'); onActionPress(); }}>
               <FontAwesome6 name="repeat" size={24} color="white" />
             </TouchableOpacity>
           </LinearGradient>

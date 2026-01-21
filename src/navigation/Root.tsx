@@ -21,7 +21,7 @@ export type RootStackParamList = {
   CreatePost: undefined;
   FeedPostDetail: { post: any }; // Using any to match Post interface roughly for now, or import it
   UserPlants: { userId?: string };
-  Lootbox: { itemName: string };
+  Lootbox: { itemName: string; rewardId?: string; rewardType?: string };
   MessageDetail: { id: string; name: string; avatar: any };
   Connections: { initialTab: 'followers' | 'following'; userId?: string };
   PublicProfile: { userId: string };
@@ -30,6 +30,7 @@ export type RootStackParamList = {
   TitleInventory: undefined;
   PlantStats: { plantId: string; onlyShowSelected?: boolean };
   Plant3DTest: undefined;
+  Shop: { initialTab?: 'shop' | 'inventory' };
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -65,6 +66,7 @@ import MessageDetailScreen from '~/screens/Tab/directMessages/MessageDetailScree
 import ConnectionsScreen from '../screens/Tab/profileScreen/ConnectionsScreen';
 import PublicProfileScreen from '~/screens/Tab/profileScreen/PublicProfileScreen';
 import DirectMessagesScreen from '~/screens/Tab/directMessages/DirectMessagesScreen';
+import ShopScreen from '~/screens/Tab/shop/ShopScreen';
 import SpriteComponent from '~/components/SpriteComponent';
 import { View } from 'react-native';
 import BorderInventoryScreen from '~/screens/Tab/profileScreen/BorderInventoryScreen';
@@ -155,6 +157,11 @@ export default function RootStack() {
             <Stack.Screen
               name="DirectMessages"
               component={DirectMessagesScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="Shop"
+              component={ShopScreen}
               options={{ headerShown: false }}
             />
 
