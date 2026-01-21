@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, ActivityIndicator, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useUnistyles } from 'react-native-unistyles';
 import { usePosts } from '../../../../hooks/usePosts';
@@ -15,8 +15,6 @@ interface PostListTabProps {
 export default function PostListTab({ userId, likedBy, emptyMessage = 'No posts found.' }: PostListTabProps) {
     const { theme } = useUnistyles();
     const navigation = useNavigation<any>();
-    const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-    const vh = SCREEN_HEIGHT / 100;
     const { posts: allPosts, loading, error } = usePosts({ userId, likedBy });
 
     const posts = allPosts.filter(p => !p.is_blocked);
@@ -42,8 +40,8 @@ export default function PostListTab({ userId, likedBy, emptyMessage = 'No posts 
             <View style={styles.emptyContainer}>
                 <FontAwesome5 name="images" size={48} color={theme.colors.greyedOut} style={{ marginBottom: 16 }} />
                 <Text style={[styles.emptyText, { color: theme.colors.typography }]}>{emptyMessage}</Text>
-                {/* Distance below as requested - responsive */}
-                <View style={{ height: vh * 10 }} />
+                {/* Distance below as requested */}
+                <View style={{ height: 60 }} />
             </View>
         );
     }
@@ -54,7 +52,7 @@ export default function PostListTab({ userId, likedBy, emptyMessage = 'No posts 
                 posts={posts}
                 onPostPress={(post) => navigation.navigate('FeedPostDetail', { post })}
             />
-            <View style={{ height: vh * 12 }} />
+            <View style={{ height: 100 }} />
         </View>
     );
 }

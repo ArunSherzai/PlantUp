@@ -315,9 +315,15 @@ export default function CreatePostScreen() {
           }
         }
       } else if (media && media.type === 'sensor') {
-        finalType = 'sensor';
+        // Use 'sensorData' to match other screens (FeedCard, FeedPostDetail)
+        finalType = 'sensorData';
         const d = media.sensorData;
+        // Keep the visible caption nice
         finalCaption += `\n\n🌿 Status:\n🌡️ ${d.temperature}°C | 💧 ${d.soil_moisture}%`;
+
+        // Append hidden data marker for parsing
+        const SENSOR_MARKER = '|||SENSOR_DATA|||';
+        finalCaption += SENSOR_MARKER + JSON.stringify(d);
       }
 
       // 3. Create DB Entry

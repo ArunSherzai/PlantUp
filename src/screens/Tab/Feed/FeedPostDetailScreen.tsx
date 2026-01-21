@@ -513,9 +513,27 @@ export default function FeedPostDetailScreen() {
                                         <FontAwesome6 name="leaf" size={120} color="#4CA771" style={styles.leafIcon} />
                                     </View>
                                 </View>
-                            ) : post?.type === 'sensorData' ? (() => {
+
+                            ) : (post?.type === 'sensorData' || post?.type === 'sensor') ? (() => {
                                 const sensorData = extractSensorData(post?.caption);
-                                if (!sensorData) return <View style={[styles.backgroundImage, { backgroundColor: '#F0F5F1', justifyContent: 'center', alignItems: 'center' }]}><Text>No sensor data found</Text></View>;
+
+                                // Fallback: If no sensor data (legacy post), show as text post
+                                if (!sensorData) {
+                                    return (
+                                        <View style={[styles.spacer, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#F0F5F1' }]}>
+                                            <View style={[styles.textCardLarge, { backgroundColor: theme.colors.surface }]}>
+                                                <View style={styles.textBadge}>
+                                                    <Text style={styles.textBadgeText}>Status</Text>
+                                                </View>
+                                                <View style={{ flex: 1, justifyContent: 'center' }}>
+                                                    <Text style={[styles.textPostContent, { color: theme.colors.text }]}>{post?.caption}</Text>
+                                                </View>
+                                                <FontAwesome6 name="leaf" size={120} color="#4CA771" style={styles.leafIcon} />
+                                            </View>
+                                        </View>
+                                    );
+                                }
+
                                 return (
                                     <View style={[styles.backgroundImage, { backgroundColor: '#F0F5F1', justifyContent: 'center', padding: 20 }]}>
                                         <View style={{ backgroundColor: 'white', borderRadius: 20, padding: 20, maxHeight: '80%' }}>
@@ -579,9 +597,9 @@ export default function FeedPostDetailScreen() {
             </TapGestureHandler>
 
             {/* Overlay Layer for Controls (Pointer Events: Box-None) */}
-            <SafeAreaView style={styles.overlayContainer} pointerEvents="box-none">
+            < SafeAreaView style={styles.overlayContainer} pointerEvents="box-none" >
                 {/* Header & Mute Row */}
-                <View style={styles.topControlsContainer} pointerEvents="box-none">
+                < View style={styles.topControlsContainer} pointerEvents="box-none" >
                     <View style={styles.header}>
                         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}>
                             <FontAwesome6 name="chevron-left" size={20} color="white" />
@@ -593,27 +611,30 @@ export default function FeedPostDetailScreen() {
                     </View>
 
                     {/* Mute Button positioned relative to header or via flex */}
-                    {isVideo && (
-                        <TouchableOpacity
-                            style={styles.muteButton}
-                            onPress={() => setMuted(!muted)}
-                            activeOpacity={0.7}
-                        >
-                            <FontAwesome6
-                                name={muted ? "volume-xmark" : "volume-high"}
-                                size={20}
-                                color="white"
-                            />
-                        </TouchableOpacity>
-                    )}
-                </View>
+                    {
+                        isVideo && (
+                            <TouchableOpacity
+                                style={styles.muteButton}
+                                onPress={() => setMuted(!muted)}
+                                activeOpacity={0.7}
+                            >
+                                <FontAwesome6
+                                    name={muted ? "volume-xmark" : "volume-high"}
+                                    size={20}
+                                    color="white"
+                                />
+                            </TouchableOpacity>
+                        )
+                    }
+                </View >
 
                 {/* Right Side Actions (Flex aligned to bottom-right) */}
-                <Animated.View style={[
-                    styles.rightActionsContainer,
-                    { backgroundColor: (isTextPost || post?.type === 'sensorData') ? 'rgba(0,0,0,0.1)' : 'transparent', borderRadius: 30, paddingTop: 10, paddingBottom: 10 },
-                    // animatedActionStyle // Assuming animatedActionStyle is defined and used for this component
-                ]}>
+                < Animated.View style={
+                    [
+                        styles.rightActionsContainer,
+                        { backgroundColor: (isTextPost || post?.type === 'sensorData') ? 'rgba(0,0,0,0.1)' : 'transparent', borderRadius: 30, paddingTop: 10, paddingBottom: 10 },
+                        // animatedActionStyle // Assuming animatedActionStyle is defined and used for this component
+                    ]} >
                     <TouchableOpacity style={styles.rightActionItem} onPress={handleLike}>
                         <Animated.View style={animatedHeartStyle}>
                             <FontAwesome6
@@ -645,17 +666,18 @@ export default function FeedPostDetailScreen() {
                         />
                         <Text style={[styles.rightActionText, isTextPost && { color: theme.colors.text, textShadowColor: 'transparent' }]}>Save</Text>
                     </TouchableOpacity>
-                </Animated.View>
-            </SafeAreaView>
+                </Animated.View >
+            </SafeAreaView >
 
             {/* Dynamic Bottom Sheet */}
-            <BottomSheet
+            < BottomSheet
                 ref={bottomSheetRef}
                 index={0} // Open to first snap point (25%)
                 snapPoints={snapPoints}
                 // animatedIndex={sheetIndex} // This line was not in the original, adding it based on the instruction snippet
                 enablePanDownToClose={false}
-                backgroundStyle={{ backgroundColor: theme.colors.surface }}
+                backgroundStyle={{ backgroundColor: theme.colors.surface }
+                }
                 handleIndicatorStyle={{ backgroundColor: theme.colors.greyedOut }}
                 onChange={(index: number) => {
                     // Slight logic to ensure mode feels correct, mostly handled by explicit state
@@ -753,73 +775,75 @@ export default function FeedPostDetailScreen() {
                         </View>
                     </View>
                 </View>
-            </BottomSheet>
+            </BottomSheet >
 
             {/* Report/Block Menu Overlay */}
-            {menuStage !== 'none' && (
-                <View style={[styles.modalOverlay, { zIndex: 9999, elevation: 100 }]}>
-                    <TouchableOpacity
-                        style={StyleSheet.absoluteFill}
-                        activeOpacity={1}
-                        onPress={() => setMenuStage('none')}
-                    />
-                    <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
-                        {menuStage === 'initial' ? (
-                            <>
-                                <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Options</Text>
-                                <TouchableOpacity
-                                    style={styles.reportOption}
-                                    onPress={() => setMenuStage('report')}
-                                >
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                                        <FontAwesome6 name="flag" size={16} color={theme.colors.text} />
-                                        <Text style={[styles.reportOptionText, { color: theme.colors.text }]}>Report Post</Text>
-                                    </View>
-                                    <FontAwesome6 name="chevron-right" size={14} color={theme.colors.greyedOut} />
-                                </TouchableOpacity>
-
-                                <TouchableOpacity
-                                    style={styles.reportOption}
-                                    onPress={handleBlock}
-                                >
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                                        <FontAwesome6 name="ban" size={16} color={theme.colors.text} />
-                                        <Text style={[styles.reportOptionText, { color: theme.colors.text }]}>Block Post</Text>
-                                    </View>
-                                </TouchableOpacity>
-                            </>
-                        ) : (
-                            <>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15, width: '100%' }}>
-                                    <TouchableOpacity onPress={() => setMenuStage('initial')} style={{ padding: 5 }}>
-                                        <FontAwesome6 name="arrow-left" size={18} color={theme.colors.text} />
-                                    </TouchableOpacity>
-                                    <Text style={[styles.modalTitle, { color: theme.colors.text, marginBottom: 0, marginLeft: 10 }]}>Report Reason</Text>
-                                </View>
-
-                                {reportReasons.map((reason, index) => (
+            {
+                menuStage !== 'none' && (
+                    <View style={[styles.modalOverlay, { zIndex: 9999, elevation: 100 }]}>
+                        <TouchableOpacity
+                            style={StyleSheet.absoluteFill}
+                            activeOpacity={1}
+                            onPress={() => setMenuStage('none')}
+                        />
+                        <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+                            {menuStage === 'initial' ? (
+                                <>
+                                    <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Options</Text>
                                     <TouchableOpacity
-                                        key={index}
                                         style={styles.reportOption}
-                                        onPress={() => handleReport(reason)}
+                                        onPress={() => setMenuStage('report')}
                                     >
-                                        <Text style={[styles.reportOptionText, { color: theme.colors.text }]}>{reason}</Text>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                            <FontAwesome6 name="flag" size={16} color={theme.colors.text} />
+                                            <Text style={[styles.reportOptionText, { color: theme.colors.text }]}>Report Post</Text>
+                                        </View>
                                         <FontAwesome6 name="chevron-right" size={14} color={theme.colors.greyedOut} />
                                     </TouchableOpacity>
-                                ))}
-                            </>
-                        )}
 
-                        <TouchableOpacity
-                            style={styles.cancelButton}
-                            onPress={() => setMenuStage('none')}
-                        >
-                            <Text style={styles.cancelButtonText}>Cancel</Text>
-                        </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={styles.reportOption}
+                                        onPress={handleBlock}
+                                    >
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                            <FontAwesome6 name="ban" size={16} color={theme.colors.text} />
+                                            <Text style={[styles.reportOptionText, { color: theme.colors.text }]}>Block Post</Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                </>
+                            ) : (
+                                <>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15, width: '100%' }}>
+                                        <TouchableOpacity onPress={() => setMenuStage('initial')} style={{ padding: 5 }}>
+                                            <FontAwesome6 name="arrow-left" size={18} color={theme.colors.text} />
+                                        </TouchableOpacity>
+                                        <Text style={[styles.modalTitle, { color: theme.colors.text, marginBottom: 0, marginLeft: 10 }]}>Report Reason</Text>
+                                    </View>
+
+                                    {reportReasons.map((reason, index) => (
+                                        <TouchableOpacity
+                                            key={index}
+                                            style={styles.reportOption}
+                                            onPress={() => handleReport(reason)}
+                                        >
+                                            <Text style={[styles.reportOptionText, { color: theme.colors.text }]}>{reason}</Text>
+                                            <FontAwesome6 name="chevron-right" size={14} color={theme.colors.greyedOut} />
+                                        </TouchableOpacity>
+                                    ))}
+                                </>
+                            )}
+
+                            <TouchableOpacity
+                                style={styles.cancelButton}
+                                onPress={() => setMenuStage('none')}
+                            >
+                                <Text style={styles.cancelButtonText}>Cancel</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
-                </View>
-            )}
-        </GestureHandlerRootView>
+                )
+            }
+        </GestureHandlerRootView >
     );
 }
 

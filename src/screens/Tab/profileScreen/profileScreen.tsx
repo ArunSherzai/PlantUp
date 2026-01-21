@@ -360,7 +360,7 @@ export default function ProfileScreen() {
       {/* Draggable Bottom Sheet */}
       <DraggableBottomSheet initialHeight={0.70} maxHeight={0.9}>
         <ScrollView
-          contentContainerStyle={[styles.sheetContent, { paddingBottom: vh * 20 }]}
+          contentContainerStyle={[styles.sheetContent, { paddingBottom: 100 }]}
           showsVerticalScrollIndicator={false}>
 
           {/* Profile Card */}
