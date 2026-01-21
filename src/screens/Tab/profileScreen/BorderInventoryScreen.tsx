@@ -5,6 +5,7 @@ import { useUnistyles } from 'react-native-unistyles';
 import { useNavigation } from '@react-navigation/native';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { useUserStore } from '../../../stores/UserStore';
+import { playSound } from '~/utils/SoundManager';
 
 export default function BorderInventoryScreen() {
   const { theme } = useUnistyles();
@@ -20,6 +21,7 @@ export default function BorderInventoryScreen() {
     setRefreshing(true);
     await fetchBorders();
     setRefreshing(false);
+    playSound('reload');
   }, [fetchBorders]);
 
   const handleEquip = async (borderId: string | null) => {
@@ -31,13 +33,13 @@ export default function BorderInventoryScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => {
-            if (navigation.canGoBack()) {
-                navigation.goBack();
-            } else {
-                // Determine fall back screen or just console log in dev
-                console.log("Cannot go back from BorderInventory");
-                // Optional: navigation.navigate('TabNavigator'); 
-            }
+          if (navigation.canGoBack()) {
+            navigation.goBack();
+          } else {
+            // Determine fall back screen or just console log in dev
+            console.log("Cannot go back from BorderInventory");
+            // Optional: navigation.navigate('TabNavigator'); 
+          }
         }}>
           <FontAwesome6 name="chevron-left" size={24} color={theme.colors.text} />
         </TouchableOpacity>
@@ -116,18 +118,18 @@ export default function BorderInventoryScreen() {
                     style={styles.avatarPreview}
                   />
                   {border.media_url && (
-                    <ExpoImage 
-                        source={{ uri: border.media_url }} 
-                        style={[
-                          styles.borderPreview,
-                          border.media_url.includes('.gif') && {
-                            width: '158%', // 🟢 Scale up ONLY for GIFs
-                            height: '158%',
-                            top: '-29%',
-                            left: '-29%',
-                          }
-                        ]}
-                        contentFit="contain"
+                    <ExpoImage
+                      source={{ uri: border.media_url }}
+                      style={[
+                        styles.borderPreview,
+                        border.media_url.includes('.gif') && {
+                          width: '158%', // 🟢 Scale up ONLY for GIFs
+                          height: '158%',
+                          top: '-29%',
+                          left: '-29%',
+                        }
+                      ]}
+                      contentFit="contain"
                     />
                   )}
                 </View>

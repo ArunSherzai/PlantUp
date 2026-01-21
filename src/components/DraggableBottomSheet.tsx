@@ -3,7 +3,7 @@ import { View, Dimensions } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
-import { BottomTabBarHeightContext } from '@react-navigation/bottom-tabs';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -21,8 +21,13 @@ export default function DraggableBottomSheet({
   maxHeight = 0.9,
 }: BottomSheetProps) {
   const { theme } = useUnistyles();
-  // Safe usage of tab bar height
-  const tabBarHeight = React.useContext(BottomTabBarHeightContext) || 0;
+  let tabBarHeight = 0;
+  try {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    tabBarHeight = useBottomTabBarHeight();
+  } catch (error) {
+    tabBarHeight = 0;
+  }
   // BERECHNUNG DER GRENZEN (Prozentual)
   const START_Y = -SCREEN_HEIGHT * initialHeight;
   const MAX_Y = -SCREEN_HEIGHT * maxHeight;

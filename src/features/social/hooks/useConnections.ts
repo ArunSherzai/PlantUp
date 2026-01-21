@@ -91,14 +91,7 @@ export function useConnections(targetUserId?: string) {
                 follower_id: user.id,
                 following_id: targetId
             });
-            if (error) {
-                if (error.code === '23505') {
-                    // Duplicate key means already following. Treat as success.
-                    console.warn('Already following user, ignoring duplicate insert.');
-                } else {
-                    throw error;
-                }
-            }
+            if (error) throw error;
             await fetchConnections();
         } catch (error) {
             console.error('Error following user:', error);

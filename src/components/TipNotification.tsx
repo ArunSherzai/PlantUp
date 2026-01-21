@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, TouchableOpacity, Dimensions, PanResponder, Image } from 'react-native';
 import { useUnistyles } from 'react-native-unistyles';
 import { TipObject } from '../utils/tipResolver';
+import { playSound } from '~/utils/SoundManager';
 
 interface TipNotificationProps {
     tip: TipObject | null;
@@ -33,6 +34,9 @@ export default function TipNotification({ tip, onClose }: TipNotificationProps) 
 
     useEffect(() => {
         if (tip) {
+            // Play notification sound
+            playSound('sprig_noti');
+
             // Slide in
             Animated.spring(slideAnim, {
                 toValue: 50, // Position from top

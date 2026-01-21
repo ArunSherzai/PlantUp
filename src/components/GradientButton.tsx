@@ -3,12 +3,14 @@ import { Text, TouchableOpacity, TouchableOpacityProps, TextStyle } from 'react-
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@react-navigation/native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { playSound, SoundType } from '~/utils/SoundManager';
 
 interface GradientButtonProps extends TouchableOpacityProps {
   text: string;
   color1?: string;
   color2?: string;
-  textStyle?: TextStyle
+  textStyle?: TextStyle;
+  soundType?: SoundType | 'none';
 }
 
 export default function GradientButton({
@@ -17,17 +19,25 @@ export default function GradientButton({
   color2,
   style,
   textStyle,
+  soundType = 'click',
+  onPress,
   ...props
 }: GradientButtonProps) {
-    const { theme } = useUnistyles();
+  const { theme } = useUnistyles();
 
-    const gradientColors: [string, string] = color1 && color2
+  const gradientColors: [string, string] = color1 && color2
     ? [color1, color2]
     : [theme.colors.secondary, theme.colors.primary];
 
+  const handlePress = (event: any) => {
+    if (soundType !== 'none') {
+      playSound(soundType);
+    }
+    onPress?.(event);
+  };
 
   return (
-    <TouchableOpacity activeOpacity={0.8} style={styles.container} {...props}>
+    <TouchableOpacity activeOpacity={0.8} style={styles.container} onPress={handlePress} {...props}>
       <LinearGradient
         colors={gradientColors}
         start={{ x: 0, y: 0 }}
@@ -42,22 +52,23 @@ export default function GradientButton({
 
 const styles = StyleSheet.create((theme) => ({
   container: {
-      width: '100%',
-      alignItems: 'center',
-    },
-    button: {
-      width: "70%",
-      height: 50,
-      borderRadius: theme.buttons.borderRadius,
-      justifyContent: 'center',
-      alignItems: 'center',
-      elevation: 5,
-    },
-    text: {
-      fontSize: 12,
-      fontWeight: 'bold',
-      color: theme.colors.textDark,
-      fontFamily: theme.fonts.regular,
-    },
+    width: '100%',
+    alignItems: 'center',
+  },
+  button: {
+    width: "70%",
+    height: 50,
+    borderRadius: theme.buttons.borderRadius,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 5,
+  },
+  text: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: theme.colors.textDark,
+    fontFamily: theme.fonts.regular,
+  },
 }));
+
 

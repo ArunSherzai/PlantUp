@@ -21,7 +21,7 @@ export type RootStackParamList = {
   CreatePost: undefined;
   FeedPostDetail: { post: any }; // Using any to match Post interface roughly for now, or import it
   UserPlants: { userId?: string };
-  Lootbox: { itemName: string; rewardId?: string; rewardType?: string; };
+  Lootbox: { itemName: string };
   MessageDetail: { id: string; name: string; avatar: any };
   Connections: { initialTab: 'followers' | 'following'; userId?: string };
   PublicProfile: { userId: string };
@@ -29,7 +29,6 @@ export type RootStackParamList = {
   BorderInventory: undefined;
   TitleInventory: undefined;
   PlantStats: { plantId: string; onlyShowSelected?: boolean };
-  Shop: { initialTab?: 'shop' | 'inventory' };
   Plant3DTest: undefined;
 };
 
@@ -74,7 +73,6 @@ import ShowPlantStats from '~/screens/Tab/plantStats/ShowPlantStats';
 import AppearanceScreen from '~/screens/Tab/SettingsScreen/AppearanceScreen';
 import NotificationsScreen from '~/screens/Tab/SettingsScreen/NotificationsScreen';
 import AccountScreen from '~/screens/Tab/SettingsScreen/AccountScreen';
-import ShopScreen from '~/screens/Tab/shop/ShopScreen';
 import Plant3DTestScreen from '~/screens/Tab/Plant3DTestScreen/Plant3DTestScreen';
 
 import { StatusBar } from 'expo-status-bar';
@@ -165,13 +163,6 @@ export default function RootStack() {
               component={ShowPlantStats}
               options={{ headerShown: false }}
             />
-
-            <Stack.Screen
-              name="Shop"
-              component={ShopScreen}
-              options={{ headerShown: false }}
-            />
-
           </Stack.Group>
 
           {/* MODAL FLOWS (Slide up + Swipe to dismiss) */}
