@@ -64,11 +64,14 @@ type State = {
   ownedTitles: Title[];
   unclaimedRewards: any[]; // Deprecated, use rewardsMap
   rewardsMap: LevelReward[];
+  isFetchingProfile: boolean;
+  lastStreakCheckDate: string | null;
   setUser: (user: User | null) => void;
   setProfile: (profile: UserProfile | null) => void;
   addXP: (amount: number) => Promise<void>;
   updateStreak: (newStreak: number, lastDate: string) => void;
   fetchProfile: () => Promise<void>;
+  fetchDeepProfile: () => Promise<void>;
   fetchInventory: () => Promise<void>;
   activateBooster: (itemId: string) => Promise<{ success: boolean; message?: string }>;
   checkStreakRescue: () => Promise<void>;
@@ -102,6 +105,8 @@ export const useUserStore = create<State>((set, get) => ({
   ownedTitles: [],
   unclaimedRewards: [],
   rewardsMap: [],
+  isFetchingProfile: false,
+  lastStreakCheckDate: null,
   sprigNotificationsEnabled: true,
 
   loadSettings: async () => {
@@ -127,21 +132,34 @@ export const useUserStore = create<State>((set, get) => ({
   setUser: (user) => {
     set({ user });
     if (user) {
+      // 1. Prioritize essential profile data for immediate UI interaction
       get().fetchProfile();
-      get().fetchInventory();
-      get().fetchBlockedUsers();
-      get().loadSettings();
-      get().fetchRewardsMap();
 
-      // Subscribe to DM inbox globally (for notifications anywhere in the app)
-      // Use setTimeout to ensure UserStore is set first
+      // 2. Stagger other non-critical data
+      setTimeout(() => {
+        get().fetchInventory();
+        get().fetchBlockedUsers();
+        get().loadSettings();
+      }, 800);
+
+      setTimeout(() => {
+        // Fetch full profile details (counts, titles, etc.)
+        get().fetchDeepProfile();
+      }, 1500);
+
+      setTimeout(() => {
+        get().fetchRewardsMap();
+      }, 2500);
+
+      // Subscribe to DM inbox 
       setTimeout(() => {
         const { subscribeToInbox, fetchConversations } = require('./DMStore').useDMStore.getState();
         fetchConversations();
         subscribeToInbox();
-      }, 100);
-    } else {
-      set({ profile: null, inventory: [], ownedBorders: [] });
+      }, 3500);
+    }
+    else {
+      set({ profile: null, inventory: [], ownedBorders: [], ownedTitles: [] });
 
       // Unsubscribe from inbox on logout
       const { unsubscribeFromInbox } = require('./DMStore').useDMStore.getState();
@@ -247,10 +265,17 @@ export const useUserStore = create<State>((set, get) => ({
   },
 
   fetchProfile: async () => {
-    const { user, checkStreakRescue } = get();
-    if (!user) return;
+    const { user, checkStreakRescue, isFetchingProfile, lastStreakCheckDate } = get();
+    if (!user || isFetchingProfile) return;
 
-    await checkStreakRescue();
+    set({ isFetchingProfile: true });
+
+    // 0. Only check streak rescue once per day/session
+    const today = new Date().toISOString().split('T')[0];
+    if (lastStreakCheckDate !== today) {
+      await checkStreakRescue();
+      set({ lastStreakCheckDate: today });
+    }
 
     // 1. Fetch Gamification Stats
     // Using "Player_stats" strictly to match DB casing
@@ -267,77 +292,17 @@ export const useUserStore = create<State>((set, get) => ({
       .eq('id', user.id)
       .single();
 
-    // 3. Fetch Counts
-    const plantsPromise = db.social
-      .from('Plants')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id);
-
-    const followersPromise = db.social
-      .from('follows')
-      .select('*', { count: 'exact', head: true })
-      .eq('following_id', user.id);
-
-    const followingPromise = db.social
-      .from('follows')
-      .select('*', { count: 'exact', head: true })
-      .eq('follower_id', user.id);
-
-    // 4. Fetch Title
-    const titlePromise = db.gamification
-      .from('User_titles')
-      .select('selected, Titles (titlename, color)')
-      .eq('userid', user.id)
-      .eq('selected', true)
-      .maybeSingle();
-
-    // 5. Fetch Equipped Border
-    const borderPromise = db.gamification
-      .from('User_owned_border')
-      .select('is_equipped, Cosmetic_avatar_borders (*)')
-      .eq('user_id', user.id)
-      .eq('is_equipped', true)
-      .maybeSingle();
-
-    const [statsResult, userResult, plantsResult, followersResult, followingResult, titleResult, borderResult] = await Promise.all([
+    const [statsResult, userResult] = await Promise.all([
       statsPromise,
-      userPromise,
-      plantsPromise,
-      followersPromise,
-      followingPromise,
-      titlePromise,
-      borderPromise
+      userPromise
     ]);
 
     // Debug Logs
     if (statsResult.error) console.error('[UserStore] Stats Error:', statsResult.error);
     if (userResult.error) console.error('[UserStore] User Error:', userResult.error);
-    if (statsResult.data) console.log('[UserStore] Stats Data Loaded:', statsResult.data);
 
     const statsData = statsResult.data;
-    const statsError = statsResult.error;
-    let userData = userResult.data;
-    const titleData = titleResult.data;
-    const titleInfo = titleData?.Titles as unknown as { titlename: string; color: string } | null;
-
-    // Process Border
-    let equippedBorderData = borderResult.data?.Cosmetic_avatar_borders as unknown as Border | null;
-
-    if (equippedBorderData && (equippedBorderData as any).media_url) {
-      // Fix for seasonal folders: replace specific seasons with generic 'seasonal' folder
-      let mediaPath = (equippedBorderData as any).media_url;
-      if (mediaPath.includes('seasonal_summer') || mediaPath.includes('seasonal_winter')) {
-        mediaPath = mediaPath.replace('seasonal_summer', 'seasonal').replace('seasonal_winter', 'seasonal');
-      }
-
-      const { data } = await db.public.storage
-        .from('border-skins')
-        .getPublicUrl(mediaPath);
-
-      if (data?.publicUrl) {
-        equippedBorderData = { ...equippedBorderData, media_url: data.publicUrl };
-      }
-    }
+    const userData = userResult.data;
 
     // Process Avatar Path
     let profileImageUrl = undefined;
@@ -351,29 +316,28 @@ export const useUserStore = create<State>((set, get) => ({
       }
     }
 
+    const { profile: currentProfile } = get();
+
     let finalProfile: UserProfile = {
-      xp: 0,
-      level: 1,
+      xp: statsData?.xp || 0,
+      level: statsData?.level || 1,
       username: userData?.username || user.email?.split('@')[0] || 'Gardener',
       plant_coins: userData?.plant_coins || 0,
       bio: userData?.bio || '',
       profile_image: profileImageUrl,
-      streak_length: 0,
-      last_completed_date: null,
-      active_boost_end_time: null,
-      streak_rescued_date: null,
-      title: titleInfo?.titlename,
-      titlecolor: titleInfo?.color,
-      plants_count: plantsResult.count || 0,
-      followers_count: followersResult.count || 0,
-      following_count: followingResult.count || 0,
-      equipped_border: equippedBorderData,
+      streak_length: currentProfile?.streak_length || 0,
+      last_completed_date: currentProfile?.last_completed_date || null,
+      active_boost_end_time: currentProfile?.active_boost_end_time || null,
+      streak_rescued_date: currentProfile?.streak_rescued_date || null,
+      plants_count: currentProfile?.plants_count || 0,
+      followers_count: currentProfile?.followers_count || 0,
+      following_count: currentProfile?.following_count || 0,
+      equipped_border: currentProfile?.equipped_border,
+      title: currentProfile?.title,
+      titlecolor: currentProfile?.titlecolor,
     };
 
     if (statsData) {
-      finalProfile.xp = statsData.xp || 0;
-      finalProfile.level = statsData.level || 1;
-
       // STREAK CALCULATION Logic
       // The DB stores the last known streak. We must check if it's stale.
       const lastDateStr = statsData.last_completed_date;
@@ -382,10 +346,7 @@ export const useUserStore = create<State>((set, get) => ({
 
       let effectiveStreak = dbStreak;
 
-      if (!lastDateStr) {
-        // If no date is recorded but streak exists, it's invalid/stale -> Reset
-        if (dbStreak > 0) effectiveStreak = 0;
-      } else {
+      if (lastDateStr) {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const last = new Date(lastDateStr);
@@ -400,6 +361,9 @@ export const useUserStore = create<State>((set, get) => ({
         if (diffDays > 1 && !isRescuedToday) {
           effectiveStreak = 0; // Visual reset
         }
+      } else if (dbStreak > 0) {
+        // If no date is recorded but streak exists, it's invalid/stale -> Reset
+        effectiveStreak = 0;
       }
 
       finalProfile.streak_length = effectiveStreak;
@@ -419,7 +383,84 @@ export const useUserStore = create<State>((set, get) => ({
       }
     }
 
-    set({ profile: finalProfile });
+    set({ profile: finalProfile, isFetchingProfile: false });
+  },
+
+  fetchDeepProfile: async () => {
+    const { user, profile } = get();
+    if (!user || !profile) return;
+
+    // 1. Fetch Counts & Titles in parallel
+    const plantsPromise = db.social
+      .from('Plants')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id);
+
+    const followersPromise = db.social
+      .from('follows')
+      .select('*', { count: 'exact', head: true })
+      .eq('following_id', user.id);
+
+    const followingPromise = db.social
+      .from('follows')
+      .select('*', { count: 'exact', head: true })
+      .eq('follower_id', user.id);
+
+    const titlePromise = db.gamification
+      .from('User_titles')
+      .select('selected, Titles (titlename, color)')
+      .eq('userid', user.id)
+      .eq('selected', true)
+      .maybeSingle();
+
+    // 5. Fetch Equipped Border
+    const borderPromise = db.gamification
+      .from('User_owned_border')
+      .select('is_equipped, Cosmetic_avatar_borders (*)')
+      .eq('user_id', user.id)
+      .eq('is_equipped', true)
+      .maybeSingle();
+
+    const [plantsResult, followersResult, followingResult, titleResult, borderResult] = await Promise.all([
+      plantsPromise,
+      followersPromise,
+      followingPromise,
+      titlePromise,
+      borderPromise
+    ]);
+
+    const titleData = titleResult.data;
+    const titleInfo = titleData?.Titles as unknown as { titlename: string; color: string } | null;
+    // Process Border
+    let equippedBorderData = borderResult.data?.Cosmetic_avatar_borders as unknown as Border | null;
+
+    if (equippedBorderData && (equippedBorderData as any).media_url) {
+      // Fix for seasonal folders: replace specific seasons with generic 'seasonal' folder
+      let mediaPath = (equippedBorderData as any).media_url;
+      if (mediaPath.includes('seasonal_summer') || mediaPath.includes('seasonal_winter')) {
+        mediaPath = mediaPath.replace('seasonal_summer', 'seasonal').replace('seasonal_winter', 'seasonal');
+      }
+
+      const { data } = db.public.storage
+        .from('border-skins')
+        .getPublicUrl(mediaPath);
+
+      if (data?.publicUrl) {
+        equippedBorderData = { ...equippedBorderData, media_url: data.publicUrl };
+      }
+    }
+
+    set({
+      profile: {
+        ...profile,
+        plants_count: plantsResult.count || 0,
+        followers_count: followersResult.count || 0,
+        following_count: followingResult.count || 0,
+        title: titleInfo?.titlename,
+        titlecolor: titleInfo?.color,
+        equipped_border: equippedBorderData,
+      }
+    });
   },
 
   addXP: async (amount: number) => {
@@ -498,7 +539,7 @@ export const useUserStore = create<State>((set, get) => ({
             mediaPath = mediaPath.replace('seasonal_summer', 'seasonal').replace('seasonal_winter', 'seasonal');
           }
 
-          const { data } = await db.public.storage
+          const { data } = db.public.storage
             .from('border-skins').getPublicUrl(mediaPath);
           if (data?.publicUrl) {
             mediaUrl = data.publicUrl;

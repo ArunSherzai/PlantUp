@@ -3,6 +3,7 @@ import * as React from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { useUnistyles } from 'react-native-unistyles';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const SENSOR_MARKER = '|||SENSOR_DATA|||';
 
@@ -68,7 +69,6 @@ const FeedCard = React.memo(({ imageUri, caption, hashtags, isVideo, style, onPr
                     { backgroundColor: 'white', padding: 10, justifyContent: 'center' },
                     aspectRatio ? { aspectRatio } : undefined
                 ]}>
-                    {/* Tiny header since space is limited */}
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
                         <FontAwesome6 name="leaf" size={12} color="#4CA771" style={{ marginRight: 5 }} />
                         <Text style={{ fontSize: 10, color: '#888', fontWeight: 'bold' }}>STATUS</Text>
@@ -117,43 +117,68 @@ const FeedCard = React.memo(({ imageUri, caption, hashtags, isVideo, style, onPr
                                 <FontAwesome6 name="play" size={vw * 3} color="white" />
                             </View>
                         )}
-                        {/* Menu button overlaying image for media posts */}
                         <TouchableOpacity style={[styles.menuButton, { bottom: 8, right: 8 }]}>
                             <FontAwesome6 name="ellipsis" size={vw * 4} color="white" />
                         </TouchableOpacity>
                     </View>
-
-
                 </>
             ) : (
-                // Text Only Card Layout (Mimicking Image Structure)
-                <>
-                    <View style={[
-                        styles.imageContainer, // Inherit shape/radius
-                        { backgroundColor: theme.colors.surface, borderLeftWidth: 4, borderLeftColor: theme.colors.primary },
+                <LinearGradient
+                    colors={[theme.colors.surface, theme.colors.surface === '#FFFFFF' ? '#F0F0F0' : '#2A2E32']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[
+                        styles.imageContainer,
                         aspectRatio ? { aspectRatio } : undefined
-                    ]}>
-
-                        {/* Badge at top */}
-                        <View style={[styles.badge, { backgroundColor: theme.colors.background }]}>
-                            <Text style={[styles.badgeText, { color: theme.colors.primary }]}>Thought</Text>
-                        </View>
-
-                        {/* Main Content (Centered in Box) */}
-                        <View style={{ paddingHorizontal: vw * 3, flex: 1, justifyContent: 'center' }}>
-                            <Text style={[styles.textBody, { color: theme.colors.text, marginBottom: 0 }]} numberOfLines={aspectRatio && aspectRatio < 1 ? 8 : 4}>
-                                {caption ? caption.replace(/#\w+/g, '').trim() : "No content"}
-                            </Text>
-                        </View>
-
-                        {/* Menu button (Ellipsis) - Same position as media posts */}
-                        <TouchableOpacity style={[styles.menuButton, { bottom: 8, right: 8 }]}>
-                            <FontAwesome6 name="ellipsis" size={vw * 4} color="white" />
-                        </TouchableOpacity>
+                    ]}
+                >
+                    {/* Decorative Background Elements */}
+                    <View style={styles.backgroundDecoration}>
+                        <FontAwesome6 name="leaf" size={80} color={theme.colors.primary} style={{ opacity: 0.03, transform: [{ rotate: '-20deg' }] }} />
+                    </View>
+                    <View style={{ position: 'absolute', top: vh * 2, right: vw * 4, opacity: 0.1 }}>
+                        <FontAwesome6 name="quote-right" size={30} color={theme.colors.primary} />
                     </View>
 
+                    {/* Stylized Curved Accent */}
+                    <View style={[styles.curvedAccent, { backgroundColor: theme.colors.primary }]} />
 
-                </>
+                    {/* Badge at top */}
+                    <View style={styles.badgeContainer}>
+                        <View style={[styles.badge, { backgroundColor: theme.colors.primary + '20' }]}>
+                            <Text style={[styles.badgeText, { color: theme.colors.primary }]}>Thought</Text>
+                        </View>
+                    </View>
+
+                    {/* Main Content */}
+                    <View style={{ paddingHorizontal: vw * 4, flex: 1, justifyContent: 'center', zIndex: 1 }}>
+                        {(() => {
+                            const cleanCaption = caption ? caption.replace(/#\w+/g, '').trim() : "No content";
+                            const isShort = cleanCaption.length < 60;
+                            return (
+                                <Text
+                                    style={[
+                                        styles.textBody,
+                                        {
+                                            color: theme.colors.text,
+                                            fontSize: isShort ? vw * 4.5 : vw * 3.5,
+                                            fontWeight: isShort ? '700' : '500',
+                                            lineHeight: isShort ? vw * 6 : vw * 5,
+                                        }
+                                    ]}
+                                    numberOfLines={aspectRatio && aspectRatio < 1 ? 10 : 6}
+                                >
+                                    {cleanCaption}
+                                </Text>
+                            );
+                        })()}
+                    </View>
+
+                    {/* Menu button */}
+                    <TouchableOpacity style={[styles.menuButton, { bottom: 8, right: 8 }]}>
+                        <FontAwesome6 name="ellipsis" size={vw * 4} color={theme.colors.text} style={{ opacity: 0.6 }} />
+                    </TouchableOpacity>
+                </LinearGradient>
             )}
         </TouchableOpacity>
     );
@@ -164,24 +189,16 @@ export default FeedCard;
 const styles = StyleSheet.create({
     container: {
         borderRadius: vw * 4,
-        // overflow: 'hidden', // Remove overflow hidden if we want shadow on card, but usually needed for image clipping
-        // For "all corners of image rounded", we can just round the image container.
         marginBottom: vh * 2,
         flex: 1,
         position: 'relative',
-        // backgroundColor handled by props
-    },
-    textCardContainer: {
-        borderLeftWidth: 4,
-        padding: vw * 3,
-        minHeight: vh * 18,
     },
     imageContainer: {
         width: '100%',
         aspectRatio: 0.8,
-        borderRadius: vw * 4, // Round all corners of the image
-        overflow: 'hidden', // Clip the image to radius
-        position: 'relative', // For absolute positioned children inside
+        borderRadius: vw * 4,
+        overflow: 'hidden',
+        position: 'relative',
     },
     image: {
         width: '100%',
@@ -195,7 +212,6 @@ const styles = StyleSheet.create({
         marginTop: - (vw * 8) / 2,
         backgroundColor: 'rgba(0,0,0,0.4)',
         borderRadius: vw * 8,
-        padding: 0,
         width: vw * 8,
         height: vw * 8,
         alignItems: 'center',
@@ -207,70 +223,42 @@ const styles = StyleSheet.create({
         position: 'absolute',
         padding: 4,
         zIndex: 10,
-        // backgroundColor: 'rgba(0,0,0,0.3)', // Removed grey background
-        // Add shadow text if white on image?
     },
-    content: {
-        padding: vw * 2.5,
-        paddingRight: vw * 2.5,
-    },
-    caption: {
-        fontSize: vw * 3,
-        fontWeight: '500',
-        marginBottom: vh * 0.5,
-        // color: '#000', // Handled by theme
-    },
-    hashtags: {
-        fontSize: vw * 2.8,
-        fontWeight: '600',
-        marginTop: vh * 0.5,
-    },
-    // Text Card Styles
-    textWaitWrapper: {
-        flex: 1,
-    },
-    textHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 8,
-    },
-    avatarPlaceholder: {
-        width: vw * 5,
-        height: vw * 5,
-        borderRadius: vw * 2.5,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 6,
-    },
-    username: {
-        fontSize: vw * 3,
-        fontWeight: '600',
+    backgroundDecoration: {
+        position: 'absolute',
+        bottom: -10,
+        right: -10,
+        zIndex: 0,
     },
     badge: {
         alignSelf: 'flex-start',
-        paddingHorizontal: vw * 2,
-        paddingVertical: vh * 0.25,
-        borderRadius: 4,
-        marginBottom: vh * 1,
+        paddingHorizontal: vw * 2.5,
+        paddingVertical: vh * 0.4,
+        borderRadius: 12,
+    },
+    badgeContainer: {
         marginTop: vh * 1.5,
-        marginLeft: vw * 3,
+        marginLeft: vw * 4,
+        marginBottom: vh * 1,
     },
     badgeText: {
-        fontSize: vw * 2.5,
-        fontWeight: '700',
+        fontSize: vw * 2.2,
+        fontWeight: '800',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
     textBody: {
         fontSize: vw * 3.5,
         fontWeight: '500',
-        lineHeight: vw * 5,
-        marginBottom: vh * 1.5,
+        lineHeight: vw * 5.2,
     },
-    textFooter: {
-        flexDirection: 'row',
-        marginTop: 'auto',
-        paddingBottom: vh * 2.5,
-        paddingRight: vw * 5,
-        paddingLeft: vw * 5,
+    curvedAccent: {
+        position: 'absolute',
+        left: 0,
+        top: '15%',
+        bottom: '15%',
+        width: 4,
+        borderTopRightRadius: 4,
+        borderBottomRightRadius: 4,
     }
 });

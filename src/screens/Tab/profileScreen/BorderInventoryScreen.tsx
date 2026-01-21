@@ -1,8 +1,10 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, RefreshControl } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
 import { Image as ExpoImage } from 'expo-image';
 import { useUnistyles } from 'react-native-unistyles';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { useUserStore } from '../../../stores/UserStore';
 
@@ -11,6 +13,7 @@ export default function BorderInventoryScreen() {
   const navigation = useNavigation();
   const { ownedBorders, fetchBorders, equipBorder, profile } = useUserStore();
   const [refreshing, setRefreshing] = React.useState(false);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     fetchBorders();
@@ -29,15 +32,15 @@ export default function BorderInventoryScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
         <TouchableOpacity style={styles.backButton} onPress={() => {
-            if (navigation.canGoBack()) {
-                navigation.goBack();
-            } else {
-                // Determine fall back screen or just console log in dev
-                console.log("Cannot go back from BorderInventory");
-                // Optional: navigation.navigate('TabNavigator'); 
-            }
+          if (navigation.canGoBack()) {
+            navigation.goBack();
+          } else {
+            // Determine fall back screen or just console log in dev
+            console.log("Cannot go back from BorderInventory");
+            // Optional: navigation.navigate('TabNavigator'); 
+          }
         }}>
           <FontAwesome6 name="chevron-left" size={24} color={theme.colors.text} />
         </TouchableOpacity>
@@ -46,6 +49,7 @@ export default function BorderInventoryScreen() {
       </View>
 
       <ScrollView
+        style={styles.scrollView}
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
@@ -116,18 +120,18 @@ export default function BorderInventoryScreen() {
                     style={styles.avatarPreview}
                   />
                   {border.media_url && (
-                    <ExpoImage 
-                        source={{ uri: border.media_url }} 
-                        style={[
-                          styles.borderPreview,
-                          border.media_url.includes('.gif') && {
-                            width: '158%', // 🟢 Scale up ONLY for GIFs
-                            height: '158%',
-                            top: '-29%',
-                            left: '-29%',
-                          }
-                        ]}
-                        contentFit="contain"
+                    <ExpoImage
+                      source={{ uri: border.media_url }}
+                      style={[
+                        styles.borderPreview,
+                        border.media_url.includes('.gif') && {
+                          width: '158%', // 🟢 Scale up ONLY for GIFs
+                          height: '158%',
+                          top: '-29%',
+                          left: '-29%',
+                        }
+                      ]}
+                      contentFit="contain"
                     />
                   )}
                 </View>
@@ -172,7 +176,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 60,
     paddingBottom: 20,
   },
   backButton: {
@@ -181,6 +184,9 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
+  },
+  scrollView: {
+    flex: 1,
   },
   content: {
     padding: 20,

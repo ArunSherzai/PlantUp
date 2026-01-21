@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ActivityIndicator, StyleSheet, Dimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useUnistyles } from 'react-native-unistyles';
 import { usePosts } from '../../../../hooks/usePosts';
+import { FontAwesome5 } from '@expo/vector-icons';
 import MasonryFeedGrid from '../../../../components/MasonryFeedGrid';
 
 interface PostListTabProps {
@@ -14,6 +15,8 @@ interface PostListTabProps {
 export default function PostListTab({ userId, likedBy, emptyMessage = 'No posts found.' }: PostListTabProps) {
     const { theme } = useUnistyles();
     const navigation = useNavigation<any>();
+    const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+    const vh = SCREEN_HEIGHT / 100;
     const { posts: allPosts, loading, error } = usePosts({ userId, likedBy });
 
     const posts = allPosts.filter(p => !p.is_blocked);
@@ -36,8 +39,11 @@ export default function PostListTab({ userId, likedBy, emptyMessage = 'No posts 
 
     if (posts.length === 0) {
         return (
-            <View style={styles.centerContainer}>
-                <Text style={{ color: theme.colors.typography, fontStyle: 'italic' }}>{emptyMessage}</Text>
+            <View style={styles.emptyContainer}>
+                <FontAwesome5 name="images" size={48} color={theme.colors.greyedOut} style={{ marginBottom: 16 }} />
+                <Text style={[styles.emptyText, { color: theme.colors.typography }]}>{emptyMessage}</Text>
+                {/* Distance below as requested - responsive */}
+                <View style={{ height: vh * 10 }} />
             </View>
         );
     }
@@ -46,9 +52,9 @@ export default function PostListTab({ userId, likedBy, emptyMessage = 'No posts 
         <View style={styles.container}>
             <MasonryFeedGrid
                 posts={posts}
-                onPostPress={(post) => navigation.navigate('FeedPostDetail', { post })} // Assuming 'FeedPostDetail' exists and takes 'post'
+                onPostPress={(post) => navigation.navigate('FeedPostDetail', { post })}
             />
-            <View style={{ height: 100 }} />
+            <View style={{ height: vh * 12 }} />
         </View>
     );
 }
@@ -61,5 +67,17 @@ const styles = StyleSheet.create({
         padding: 40,
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    emptyContainer: {
+        width: '100%',
+        paddingVertical: 60,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    emptyText: {
+        fontSize: 16,
+        fontWeight: '500',
+        opacity: 0.7,
+        textAlign: 'center',
     },
 });

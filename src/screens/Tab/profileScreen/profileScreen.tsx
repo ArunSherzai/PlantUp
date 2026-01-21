@@ -1,17 +1,18 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, Image, ScrollView, TouchableOpacity, Alert, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, Image, Alert, ActivityIndicator, StyleSheet, TouchableOpacity, InteractionManager } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
 import { Image as ExpoImage } from 'expo-image';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useUnistyles } from 'react-native-unistyles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import { Dimensions } from 'react-native';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 const vw = width / 100;
+const vh = height / 100;
 
 import { useUserStore } from '../../../stores/UserStore';
 import DraggableBottomSheet from '../../../components/DraggableBottomSheet';
@@ -24,45 +25,119 @@ import PostListTab from './components/PostListTab';
 import { FontAwesome5 } from '@expo/vector-icons';
 import RewardDetailsModal from '../../../components/RewardDetailsModal';
 import PlantPotPreview, { PlantMode } from '../../../components/PlantPotPreview';
-import { useMemo } from 'react';
+import { useMemo, memo } from 'react';
+import { FlatList } from 'react-native';
 
+
+// --- Sub-components to prevent full screen re-renders ---
+const StatsRow = memo(({ stats, theme, typographyColor }: { stats: any[], theme: any, typographyColor: string }) => (
+  <View style={styles.statsRow}>
+    {stats.map((stat, index) => {
+      const content = (
+        <>
+          <GradientText text={String(stat.value)} style={[styles.statValue, { color: theme.colors.primary }]} />
+          <Text style={[styles.statLabel, { color: typographyColor, opacity: 0.6 }]}>{stat.label}</Text>
+        </>
+      );
+      return stat.onPress ? (
+        <TouchableOpacity key={index} style={styles.statItem} onPress={stat.onPress}>
+          {content}
+        </TouchableOpacity>
+      ) : (
+        <View key={index} style={styles.statItem}>
+          {content}
+        </View>
+      );
+    })}
+  </View>
+));
 
 export default function ProfileScreen() {
   const { theme } = useUnistyles();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
-  const { user, profile, fetchProfile, fetchUnclaimedRewards, unclaimedRewards, claimReward, rewardsMap, fetchRewardsMap } = useUserStore();
+
+  // Use selectors to prevent unnecessary re-renders when other parts of the store change
+  const user = useUserStore(state => state.user);
+  const profile = useUserStore(state => state.profile);
+  const fetchProfile = useUserStore(state => state.fetchProfile);
+  const fetchUnclaimedRewards = useUserStore(state => state.fetchUnclaimedRewards);
+  const unclaimedRewards = useUserStore(state => state.unclaimedRewards);
+  const claimReward = useUserStore(state => state.claimReward);
+  const rewardsMap = useUserStore(state => state.rewardsMap);
+  const fetchRewardsMap = useUserStore(state => state.fetchRewardsMap);
+
   const [activeTab, setActiveTab] = useState('leveling');
   const [isBioExpanded, setIsBioExpanded] = useState(false);
   const [isBioTruncated, setIsBioTruncated] = useState(false);
   // Just use 'any' for now since Reward type in leveling.ts might not match perfectly with DB reward
   const [selectedReward, setSelectedReward] = useState<any>(null);
 
+  // New state to delay heavy 3D plant rendering to improve startup responsiveness
+  const [isPlantReady, setIsPlantReady] = useState(false);
+
   useFocusEffect(
     useCallback(() => {
+      // If we already have a profile, we can skip immediate fetch to improve responsiveness
+      // But we still want to refresh occasionally.
       if (user) {
-        fetchProfile();
-        fetchUnclaimedRewards();
-        fetchRewardsMap();
+        // Only fetch if profile is missing - setUser already triggers initial fetches
+        if (!profile) {
+          fetchProfile();
+          fetchUnclaimedRewards();
+        }
       }
-    }, [user, fetchProfile, fetchUnclaimedRewards, fetchRewardsMap])
+
+      // Defer plant rendering significantly more to ensure startup interactions are priority
+      let timer: NodeJS.Timeout;
+      const task = InteractionManager.runAfterInteractions(() => {
+        timer = setTimeout(() => {
+          setIsPlantReady(true);
+        }, 3000); // 3-second safety window for heavy assets
+      });
+
+      return () => {
+        task.cancel();
+        if (timer) clearTimeout(timer);
+      };
+    }, [user, profile, fetchProfile, fetchUnclaimedRewards])
   );
 
-  if (!user) {
+  // Derived Values - moved before useMemo because they are used as dependencies
+  const currentLevel = profile?.level || 1;
+  const currentXP = profile?.xp || 0;
+  const currentRank = getRankName(currentLevel);
+  const currentLevelXP = getTotalXPForLevel(currentLevel);
+  const xpForNext = getXPForNextLevel(currentLevel);
+  const xpInLevel = currentXP - currentLevelXP;
+  const xpNeededInLevel = xpForNext - currentLevelXP;
+  const plantSeed = user?.id ? user.id.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0) : 12345;
+
+  // Calculate L-System config based on growth (0-100) - moved to top level to avoid hook errors
+  const lsystemConfig = useMemo(() => {
+    const t = Math.max(0, Math.min(100, currentLevel)) / 100;
+    return {
+      iterations: 2 + Math.floor(t * 2), // Scale from 2 to 4
+      length: 0.01 + t * 0.12,
+      thickness: 0.003 + t * 0.02,
+      lengthScale: 0.6 + t * 0.35,
+      leafSize: 0.01 + t * 0.05,
+      bloomSize: 0.02 + t * 0.06,
+      leafChance: t * 0.5,
+      bloomChance: t > 0.25 ? (t - 0.25) * 1.07 : 0,
+    };
+  }, [currentLevel]);
+
+  if (!user || !profile) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={{ flex: 1, backgroundColor: theme.colors.background, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
   }
 
-  // Derived Values
-  const currentLevel = profile?.level || 1;
-  const currentXP = profile?.xp || 0;
-  const currentRank = getRankName(currentLevel);
-
-  // Placeholder data for stats
-  const stats = [
+  // Placeholder data for stats (memoized)
+  const stats = useMemo(() => [
     { label: 'Plants', value: profile?.plants_count || 0 },
     { label: 'Coins', value: profile?.plant_coins || 0 },
     {
@@ -75,7 +150,7 @@ export default function ProfileScreen() {
       value: profile?.followers_count || 0,
       onPress: () => navigation.navigate('Connections', { initialTab: 'followers' })
     },
-  ];
+  ], [profile?.plants_count, profile?.plant_coins, profile?.following_count, profile?.followers_count, navigation]);
 
   const handleClaimReward = async (level: number, title: string) => {
     const success = await claimReward(level);
@@ -89,14 +164,14 @@ export default function ProfileScreen() {
   const getRewardImage = (reward: any) => {
     // 1. Prioritize Media URL from DB (e.g. for Borders)
     if (reward.media_url) {
-        return { uri: reward.media_url }; 
+      return { uri: reward.media_url };
     }
 
     // 2. Specific Local Assts based on Type/ID
     switch (reward.reward_type) {
       case 'COINS': return require('../../../../assets/images/plantupcoin.png');
       case 'XP_BOOST': return require('../../../../assets/images/XPBoostItem.png');
-      default: return undefined; 
+      default: return undefined;
     }
   };
 
@@ -132,27 +207,6 @@ export default function ProfileScreen() {
               };
               const gradientColors = RANK_GRADIENTS[currentRank] || ['#4CAF50', '#388E3C'];
               const progress = getLevelProgress(currentXP, currentLevel);
-              const currentLevelXP = getTotalXPForLevel(currentLevel);
-              const xpForNext = getXPForNextLevel(currentLevel);
-              const xpInLevel = currentXP - currentLevelXP;
-              const xpNeededInLevel = xpForNext - currentLevelXP;
-              const plantSeed = user?.id ? user.id.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0) : 12345;
-
-              // Calculate L-System config based on growth (0-100)
-              const lsystemConfig = useMemo(() => {
-                const t = Math.max(0, Math.min(100, currentLevel)) / 100;
-                return {
-                  iterations: 2 + Math.floor(t * 2), // Scale from 2 to 4
-                  length: 0.01 + t * 0.12,
-                  thickness: 0.003 + t * 0.02,
-                  lengthScale: 0.6 + t * 0.35,
-                  leafSize: 0.01 + t * 0.05,
-                  bloomSize: 0.02 + t * 0.06,
-                  leafChance: t * 0.5,
-                  bloomChance: t > 0.25 ? (t - 0.25) * 1.07 : 0,
-                };
-              }, [currentLevel]);
-
               return (
                 <LinearGradient
                   colors={gradientColors}
@@ -161,21 +215,20 @@ export default function ProfileScreen() {
                   style={[styles.profileCard, { alignItems: 'center', width: '100%', padding: 20 }]} // Reusing profileCard style as base
                 >
                   {/* 3D Plant Container */}
-                  <View style={{
-                    width: '100%',
-                    aspectRatio: 1,
-                    borderRadius: 12,
-                    overflow: 'hidden',
-                    backgroundColor: 'rgba(0,0,0,0.15)',
-                    marginBottom: 15,
-                  }}>
-                    <PlantPotPreview
-                      seed={plantSeed}
-                      growth={currentLevel}
-                      mode="lsystem"
-                      lsystemConfig={lsystemConfig}
-                      potType="PotStandard"
-                    />
+                  <View style={{ height: vw * 75, width: '100%', borderRadius: 25, overflow: 'hidden', backgroundColor: 'rgba(0,0,0,0.05)', marginBottom: 20 }}>
+                    {isPlantReady ? (
+                      <PlantPotPreview
+                        seed={plantSeed}
+                        growth={currentLevel}
+                        mode="lsystem"
+                        lsystemConfig={lsystemConfig}
+                        potType="PotStandard"
+                      />
+                    ) : (
+                      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                        <ActivityIndicator color={theme.colors.primary} />
+                      </View>
+                    )}
                   </View>
 
                   {/* Level Info */}
@@ -214,34 +267,41 @@ export default function ProfileScreen() {
               );
             })()}
 
+            <Text style={[styles.sectionTitle, { color: theme.colors.typography }]}>Level Rewards</Text>
 
-
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Rewards</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.rewardsScroll}>
-               {rewardsMap.map((reward) => {
-                  // Map DB status to UI props
-                  const isUnlocked = reward.status !== 'LOCKED';
-                  const isClaimed = reward.status === 'CLAIMED';
-                  
-                  // If image_url is in DB use it, else derive from type
-                  const rewardImageSource = getRewardImage(reward);
-                  
-                 return (
+            {rewardsMap.length > 0 ? (
+              <FlatList
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.rewardsScroll}
+                contentContainerStyle={{ paddingRight: 40 }}
+                data={rewardsMap}
+                keyExtractor={(item, index) => index.toString()}
+                removeClippedSubviews={true}
+                initialNumToRender={5}
+                windowSize={5}
+                renderItem={({ item: reward }) => (
                   <RewardItem
-                    key={reward.level}
                     title={reward.title}
                     description={reward.description}
-                    image={rewardImageSource} 
-                    isUnlocked={isUnlocked}
-                    isClaimed={isClaimed}
-                    onClaim={isClaimed ? undefined : () => setSelectedReward({ ...reward, image: rewardImageSource })}
+                    isUnlocked={reward.status !== 'LOCKED'}
+                    isClaimed={reward.status === 'CLAIMED'}
+                    image={reward.media_url ? { uri: reward.media_url } : null}
+                    onClaim={() => {
+                      if (reward.status === 'AVAILABLE') {
+                        handleClaimReward(reward.level, reward.title);
+                      } else {
+                        setSelectedReward(reward);
+                      }
+                    }}
                   />
-                )
-              })}
-            </ScrollView>
+                )}
+              />
+            ) : (
+              <View style={styles.comingSoonContainer}>
+                <Text style={[styles.comingSoonText, { color: theme.colors.typography }]}>Fetching rewards...</Text>
+              </View>
+            )}
           </>
         );
       case 'posts':
@@ -264,229 +324,216 @@ export default function ProfileScreen() {
   };
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <StatusBar style="light" />
+      {/* Header Background */}
+      <View style={styles.headerBg}>
+        <Image
+          source={require('../../../../assets/images/profileScreenBackground.png')}
+          style={styles.headerGradient}
+          resizeMode="cover"
+        />
 
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        {/* Header Background */}
-        <View style={styles.headerBg}>
-          <Image
-            source={require('../../../../assets/images/profileScreenBackground.png')}
-            style={styles.headerGradient}
-            resizeMode="cover"
-          />
-
-          <View style={[styles.headerContent, { paddingTop: insets.top }]}>
-            {/* Header Top Row: Settings Only */}
-            <View style={styles.headerTopRow}>
-              {/* Settings Button */}
-              <TouchableOpacity
-                style={styles.iconButton}
-                onPress={() => navigation.navigate('Settings')}
-              >
-                <FontAwesome6 name="gear" size={24} color={theme.colors.textDark} />
-              </TouchableOpacity>
-            </View>
-
-            <Text 
-                style={[styles.headerTitle, { color: theme.colors.textDark }]}
-                adjustsFontSizeToFit
-                numberOfLines={3}
-                minimumFontScale={0.5}
+        <View style={[styles.headerContent, { paddingTop: insets.top }]}>
+          {/* Header Top Row: Settings Only */}
+          <View style={styles.headerTopRow}>
+            {/* Settings Button */}
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={() => navigation.navigate('Settings')}
             >
-              Your{'\n'}Growing{'\n'}Profile!
-            </Text>
+              <FontAwesome6 name="gear" size={24} color={theme.colors.textDark} />
+            </TouchableOpacity>
           </View>
+
+          <Text
+            style={[styles.headerTitle, { color: theme.colors.textDark }]}
+            adjustsFontSizeToFit
+            numberOfLines={3}
+            minimumFontScale={0.5}
+          >
+            Your{'\n'}Growing{'\n'}Profile!
+          </Text>
         </View>
+      </View>
 
-        {/* Draggable Bottom Sheet */}
-        <DraggableBottomSheet initialHeight={0.70} maxHeight={0.9}>
-          <ScrollView
-            contentContainerStyle={[styles.sheetContent, { paddingBottom: 100 }]}
-            showsVerticalScrollIndicator={false}>
+      {/* Draggable Bottom Sheet */}
+      <DraggableBottomSheet initialHeight={0.70} maxHeight={0.9}>
+        <ScrollView
+          contentContainerStyle={[styles.sheetContent, { paddingBottom: vh * 20 }]}
+          showsVerticalScrollIndicator={false}>
 
-            {/* Profile Card */}
-            <View style={[styles.profileCard, { backgroundColor: theme.colors.background }]}>
-              <View style={styles.topRow}>
-                <View style={[styles.avatarContainer, { position: 'relative' }]}>
-                  <Image
-                    source={
-                      profile?.profile_image
-                        ? { uri: profile.profile_image }
-                        : require('../../../../assets/images/Profilbild.jpg')
-                    }
-                    style={[styles.avatar, { backgroundColor: theme.colors.greyedOut }]}
-                    resizeMode="cover"
+          {/* Profile Card */}
+          <View style={[styles.profileCard, { backgroundColor: theme.colors.background }]}>
+            <View style={styles.topRow}>
+              <View style={[styles.avatarContainer, { position: 'relative' }]}>
+                <Image
+                  source={
+                    profile?.profile_image
+                      ? { uri: profile.profile_image }
+                      : require('../../../../assets/images/Profilbild.jpg')
+                  }
+                  style={[styles.avatar, { backgroundColor: theme.colors.greyedOut }]}
+                  resizeMode="cover"
+                />
+                {profile?.equipped_border?.media_url && (
+                  <ExpoImage
+                    key={profile.equipped_border.media_url} // Force re-mount on change!
+                    source={{ uri: profile.equipped_border.media_url }}
+                    style={{
+                      // 🟢 RESPONSIVE SIZING RELATIVE TO AVATAR (80px)
+                      // GIFs are approx 2.6x avatar size, PNGs 1.68x
+                      position: 'absolute',
+                      width: profile.equipped_border.media_url.includes('.gif') ? '262%' : '168%',
+                      height: profile.equipped_border.media_url.includes('.gif') ? '262%' : '168%',
+                      // Center using negative percentage margins (half of extra width)
+                      top: profile.equipped_border.media_url.includes('.gif') ? '-81%' : '-34%',
+                      left: profile.equipped_border.media_url.includes('.gif') ? '-81%' : '-34%',
+                      zIndex: 1,
+                    }}
+                    pointerEvents="none"
+                    contentFit="contain"
                   />
-                  {profile?.equipped_border?.media_url && (
-                    <ExpoImage
-                      key={profile.equipped_border.media_url} // Force re-mount on change!
-                      source={{ uri: profile.equipped_border.media_url }}
-                      style={{
-                          // 🟢 RESPONSIVE SIZING RELATIVE TO AVATAR (80px)
-                          // GIFs are approx 2.6x avatar size, PNGs 1.68x
-                          position: 'absolute',
-                          width: profile.equipped_border.media_url.includes('.gif') ? '262%' : '168%',
-                          height: profile.equipped_border.media_url.includes('.gif') ? '262%' : '168%',
-                          // Center using negative percentage margins (half of extra width)
-                          top: profile.equipped_border.media_url.includes('.gif') ? '-81%' : '-34%',
-                          left: profile.equipped_border.media_url.includes('.gif') ? '-81%' : '-34%',
-                          zIndex: 1,
-                      }}
-                      pointerEvents="none"
-                      contentFit="contain"
-                    />
-                  )}
+                )}
+              </View>
+
+              <View style={styles.userInfo}>
+                <View style={styles.nameRow}>
+                  <Text style={[styles.userName, { color: theme.colors.text }]}>
+                    {profile?.username || user?.email?.split('@')[0] || 'Gardener'}
+                  </Text>
                 </View>
 
-                <View style={styles.userInfo}>
-                  <View style={styles.nameRow}>
-                    <Text style={[styles.userName, { color: theme.colors.text }]}>
-                      {profile?.username || user?.email?.split('@')[0] || 'Gardener'}
-                    </Text>
-                  </View>
-
-                  <TouchableOpacity
-                    onPress={() => navigation.navigate('TitleInventory')}
-                    style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 14,
-                        color: profile?.titlecolor || theme.colors.text,
-                        fontWeight: '600',
-                        marginRight: 8,
-                      }}>
-                      {profile?.title}
-                    </Text>
-                    <GradientIcon name="pen" size={12} />
-                  </TouchableOpacity>
-                </View>
-
-                {/* Values T-Shirt Icon */}
                 <TouchableOpacity
-                  onPress={() => navigation.navigate('BorderInventory')}
-                  style={{ padding: 8 }}
+                  onPress={() => navigation.navigate('TitleInventory')}
+                  style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}
                 >
-                  <FontAwesome5 name="tshirt" size={24} color={theme.colors.gradient[1]} />
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      color: profile?.titlecolor || theme.colors.text,
+                      fontWeight: '600',
+                      marginRight: 8,
+                    }}>
+                    {profile?.title}
+                  </Text>
+                  <GradientIcon name="pen" size={12} />
                 </TouchableOpacity>
               </View>
 
-              {/* Bio Section (Below Top Row) */}
-              <View>
-                {/* Hidden Text for measurement */}
-                <Text
-                  style={[styles.userBio, { position: 'absolute', opacity: 0, zIndex: -1 }]}
-                  onTextLayout={(e: { nativeEvent: { lines: any[] } }) => {
-                    if (e.nativeEvent.lines.length > 1) setIsBioTruncated(true);
-                  }}
-                >
-                  {profile?.bio || ''}
-                </Text>
-
-                <Text
-                  style={[styles.userBio, { color: theme.colors.text }]}
-                  numberOfLines={isBioExpanded ? undefined : 1}
-                >
-                  {profile?.bio || ''}
-                </Text>
-                {isBioTruncated && (
-                  <TouchableOpacity onPress={() => setIsBioExpanded(!isBioExpanded)}>
-                    <Text style={{ color: theme.colors.primary, fontSize: 12, marginTop: 4, fontWeight: '600' }}>
-                      {isBioExpanded ? 'Show less' : 'Show more'}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-
-            {/* Stats Row */}
-            <View style={[styles.statsRow, { backgroundColor: theme.colors.background }]}>
-              {stats.map((stat, index) => {
-                const Wrapper = stat.onPress ? TouchableOpacity : View;
-                return (
-                  <Wrapper key={index} style={styles.statItem} onPress={stat.onPress}>
-                    <GradientText text={String(stat.value)} style={[styles.statValue, { color: theme.colors.primary }]} />
-                    <Text style={[styles.statLabel, { color: theme.colors.typography }]}>{stat.label}</Text>
-                  </Wrapper>
-                );
-              })}
-            </View>
-
-            {/* Action Buttons */}
-            <View style={[styles.actionRow, { backgroundColor: theme.colors.background }]}>
+              {/* Values T-Shirt Icon */}
               <TouchableOpacity
-                style={styles.actionButton}
-                onPress={() => setActiveTab('leveling')}>
-                {activeTab === 'leveling' ? (
-                  <View style={{ alignItems: 'center', width: '100%' }}>
-                    <GradientIcon name="seedling" size={20} />
-                    <LinearGradient
-                      colors={theme.colors.gradient}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.activeTabLine}
-                    />
-                  </View>
-                ) : (
-                  <FontAwesome6 name="seedling" size={20} color={theme.colors.greyedOut} />
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton} onPress={() => setActiveTab('posts')}>
-                {activeTab === 'posts' ? (
-                  <View style={{ alignItems: 'center', width: '100%' }}>
-                    <GradientIcon name="list" size={20} />
-                    <LinearGradient
-                      colors={theme.colors.gradient}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.activeTabLine}
-                    />
-                  </View>
-                ) : (
-                  <FontAwesome6 name="list" size={20} color={theme.colors.greyedOut} />
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton} onPress={() => setActiveTab('likes')}>
-                {activeTab === 'likes' ? (
-                  <View style={{ alignItems: 'center', width: '100%' }}>
-                    <GradientIcon name="thumbs-up" size={20} />
-                    <LinearGradient
-                      colors={theme.colors.gradient}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.activeTabLine}
-                    />
-                  </View>
-                ) : (
-                  <FontAwesome6 name="thumbs-up" size={20} color={theme.colors.greyedOut} />
-                )}
+                onPress={() => navigation.navigate('BorderInventory')}
+                style={{ padding: 8 }}
+              >
+                <FontAwesome5 name="tshirt" size={24} color={theme.colors.gradient[1]} />
               </TouchableOpacity>
             </View>
 
-            {/* Dynamic Content */}
-            {renderContent()}
+            {/* Bio Section (Below Top Row) */}
+            <View>
+              {/* Hidden Text for measurement */}
+              <Text
+                style={[styles.userBio, { position: 'absolute', opacity: 0, zIndex: -1 }]}
+                onTextLayout={(e: { nativeEvent: { lines: any[] } }) => {
+                  if (e.nativeEvent.lines.length > 1) setIsBioTruncated(true);
+                }}
+              >
+                {profile?.bio || ''}
+              </Text>
 
-          </ScrollView>
-        </DraggableBottomSheet>
+              <Text
+                style={[styles.userBio, { color: theme.colors.text }]}
+                numberOfLines={isBioExpanded ? undefined : 1}
+              >
+                {profile?.bio || ''}
+              </Text>
+              {isBioTruncated && (
+                <TouchableOpacity onPress={() => setIsBioExpanded(!isBioExpanded)}>
+                  <Text style={{ color: theme.colors.primary, fontSize: 12, marginTop: 4, fontWeight: '600' }}>
+                    {isBioExpanded ? 'Show less' : 'Show more'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
 
-        {/* Reward Details Modal */}
-        <RewardDetailsModal
-          visible={!!selectedReward}
-          reward={selectedReward}
-          isLocked={selectedReward ? !!(selectedReward.status === 'LOCKED') : false}
-          isClaimed={selectedReward ? !!(selectedReward.status === 'CLAIMED') : false}
-          onClose={() => setSelectedReward(null)}
-          onClaimAction={() => {
-            if (selectedReward) {
-              handleClaimReward(selectedReward.level, selectedReward.title);
-              // Optionally close modal or let it auto-update to "Collected"
-              // If we close: setSelectedReward(null);
-              // If we keep open: The 'isClaimed' prop will update when store updates!
-            }
-          }}
-        />
-      </View>
-    </GestureHandlerRootView>
+          <StatsRow stats={stats} theme={theme} typographyColor={theme.colors.typography} />
+
+          {/* Action Buttons */}
+          <View style={[styles.actionRow, { backgroundColor: theme.colors.background }]}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => setActiveTab('leveling')}>
+              {activeTab === 'leveling' ? (
+                <View style={{ alignItems: 'center', width: '100%' }}>
+                  <GradientIcon name="seedling" size={20} />
+                  <LinearGradient
+                    colors={theme.colors.gradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.activeTabLine}
+                  />
+                </View>
+              ) : (
+                <FontAwesome6 name="seedling" size={20} color={theme.colors.greyedOut} />
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionButton} onPress={() => setActiveTab('posts')}>
+              {activeTab === 'posts' ? (
+                <View style={{ alignItems: 'center', width: '100%' }}>
+                  <GradientIcon name="list" size={20} />
+                  <LinearGradient
+                    colors={theme.colors.gradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.activeTabLine}
+                  />
+                </View>
+              ) : (
+                <FontAwesome6 name="list" size={20} color={theme.colors.greyedOut} />
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionButton} onPress={() => setActiveTab('likes')}>
+              {activeTab === 'likes' ? (
+                <View style={{ alignItems: 'center', width: '100%' }}>
+                  <GradientIcon name="thumbs-up" size={20} />
+                  <LinearGradient
+                    colors={theme.colors.gradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.activeTabLine}
+                  />
+                </View>
+              ) : (
+                <FontAwesome6 name="thumbs-up" size={20} color={theme.colors.greyedOut} />
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* Dynamic Content */}
+          {renderContent()}
+
+        </ScrollView>
+      </DraggableBottomSheet>
+
+      {/* Reward Details Modal */}
+      <RewardDetailsModal
+        visible={!!selectedReward}
+        reward={selectedReward}
+        isLocked={selectedReward ? !!(selectedReward.status === 'LOCKED') : false}
+        isClaimed={selectedReward ? !!(selectedReward.status === 'CLAIMED') : false}
+        onClose={() => setSelectedReward(null)}
+        onClaimAction={() => {
+          if (selectedReward) {
+            handleClaimReward(selectedReward.level, selectedReward.title);
+            // Optionally close modal or let it auto-update to "Collected"
+            // If we close: setSelectedReward(null);
+            // If we keep open: The 'isClaimed' prop will update when store updates!
+          }
+        }}
+      />
+    </View>
   );
 }
 

@@ -32,7 +32,7 @@ export default function FeedScreen() {
     const insets = useSafeAreaInsets();
     const { posts: allPosts, loading: postsLoading, refreshPosts: refreshFeed } = usePosts();
     const [refreshing, setRefreshing] = useState(false);
-    
+
     // Filter out blocked posts
     const posts = allPosts.filter(p => !p.is_blocked);
 
@@ -231,9 +231,10 @@ export default function FeedScreen() {
                                 {posts.length === 0 && (
                                     <View style={{ padding: 20, alignItems: 'center' }}>
                                         <Text style={{ color: theme.colors.text }}>No posts yet. Be the first!</Text>
+                                        <View style={{ height: vh * 15 }} />
                                     </View>
                                 )}
-                                <View style={{ height: vh * 10 }} />
+                                <View style={{ height: vh * 20 }} />
                             </ScrollView>
                         )}
                     </DraggableBottomSheet>
@@ -377,7 +378,7 @@ const styles = StyleSheet.create({
     scrollContent: {
         paddingHorizontal: vw * 4,
         paddingTop: vh * 2,
-        paddingBottom: vh * 15, // Space for bottom tab bar
+        paddingBottom: vh * 25, // More space for bottom tab bar and air
     },
     masonryContainer: {
         flexDirection: 'row',
