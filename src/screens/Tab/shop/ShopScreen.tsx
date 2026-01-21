@@ -7,7 +7,6 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useUserStore } from '~/stores/UserStore';
 
 // --- Placeholder Data ---
-// --- Placeholder Data ---
 const MOCK_ITEMS = [
     { id: 'lootbox', name: 'Lootbox', rarity: 'rare', quantity: 'x1', price: '500', currency: 'gold', imageColor: '#9B59B6', icon: 'gift' },
     { id: 'xp_boost_24h', name: 'XP Boost', rarity: 'epic', quantity: 'x1', price: '500', currency: 'gold', imageColor: '#2ecc71', icon: 'flask' },
@@ -35,6 +34,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '~/navigation/Root';
 
 import { Audio } from 'expo-av';
+import { playSound } from '~/utils/SoundManager';
 
 export default function ShopScreen() {
     const { theme } = useUnistyles();
@@ -48,52 +48,12 @@ export default function ShopScreen() {
     // State
     const [activeTab, setActiveTab] = React.useState<'shop' | 'inventory'>('shop');
     const [loadingId, setLoadingId] = React.useState<string | null>(null);
-    const [sound, setSound] = React.useState<Audio.Sound | null>(null);
 
     React.useEffect(() => {
         if (route.params?.initialTab) {
             setActiveTab(route.params.initialTab);
         }
     }, [route.params]);
-
-    // Pre-load sound
-    React.useEffect(() => {
-        async function loadSound() {
-            try {
-                const { sound } = await Audio.Sound.createAsync(
-                    require('../../../../assets/sounds/cash-register-kaching-sound-effect-125042.wav')
-                );
-                setSound(sound);
-            } catch (error) {
-                console.log('Error loading sound', error);
-            }
-        }
-        loadSound();
-
-        return () => {
-            if (sound) {
-                sound.unloadAsync();
-            }
-        };
-    }, []);
-
-    const playPurchaseSound = async () => {
-        try {
-           if (sound) {
-               await sound.replayAsync();
-           } else {
-               // Fallback if not loaded yet
-               const { sound: newSound } = await Audio.Sound.createAsync(
-                   require('../../../../assets/sounds/cash-register-kaching-sound-effect-125042.wav')
-               );
-               await newSound.playAsync();
-               setSound(newSound);
-           }
-
-        } catch (error) {
-            console.log('Error playing sound', error);
-        }
-    };
 
     const handlePurchase = async (item: typeof MOCK_ITEMS[0]) => {
         if (loadingId) return;
@@ -103,11 +63,11 @@ export default function ShopScreen() {
             if (item.id === 'lootbox') {
                 const result = await buyLootbox(Number(item.price));
                 if (result.success) {
-                    playPurchaseSound(); // Play sound
+                    playSound('purchase'); 
                     // Navigate to Lootbox screen with the reward
                     navigation.navigate('Lootbox', { 
                         itemName: 'Lootbox',
-                        rewardId: result.rewardValue,
+                        rewardId: result.rewardValue, // @ts-ignore
                         rewardType: result.rewardType
                     });
                 } else {
@@ -116,7 +76,7 @@ export default function ShopScreen() {
             } else {
                 const result = await buyShopItem(item.id, Number(item.price));
                 if (result.success) {
-                    playPurchaseSound(); // Play sound
+                    playSound('purchase'); 
                     // alert('Purchase Successful!'); // Removed as requested
                 } else {
                     alert(result.message || 'Purchase Failed');

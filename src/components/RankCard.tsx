@@ -1,5 +1,6 @@
 import React, { Suspense, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { ErrorBoundary } from './ErrorBoundary';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
@@ -101,25 +102,31 @@ export default function RankCard({ level, xp, rankName = 'Blooming Sprout', seed
       style={styles.container}>
 
       {/* 3D Plant Preview - Inline Canvas like test screen */}
-      <View style={styles.plantContainer}>
-        <Canvas
-          dpr={[1, 2]}
-          camera={{ position: [0.8, 0.5, 0.8], fov: 45, near: 0.01, far: 50 }}
-          style={{ flex: 1 }}
-        >
-          <CameraController />
+      <ErrorBoundary fallback={
+        <View style={[styles.plantContainer, { justifyContent: 'center', alignItems: 'center' }]}>
+           <Text style={{color: 'white'}}>3D View Unavailable</Text>
+        </View>
+      }>
+        <View style={styles.plantContainer}>
+            <Canvas
+            dpr={[1, 2]}
+            camera={{ position: [0.8, 0.5, 0.8], fov: 45, near: 0.01, far: 50 }}
+            style={{ flex: 1 }}
+            >
+            <CameraController />
 
-          {/* Lighting */}
-          <ambientLight intensity={0.5} />
-          <hemisphereLight args={['#87CEEB', '#556B2F', 0.6]} />
-          <directionalLight position={[3, 5, 2]} intensity={1.2} color="#FFF8DC" />
-          <directionalLight position={[-2, 3, -1]} intensity={0.4} color="#B0C4DE" />
+            {/* Lighting */}
+            <ambientLight intensity={0.5} />
+            <hemisphereLight args={['#87CEEB', '#556B2F', 0.6]} />
+            <directionalLight position={[3, 5, 2]} intensity={1.2} color="#FFF8DC" />
+            <directionalLight position={[-2, 3, -1]} intensity={0.4} color="#B0C4DE" />
 
-          <Suspense fallback={null}>
-            <RotatingPlantScene seed={seed} growth={level} />
-          </Suspense>
-        </Canvas>
-      </View>
+            <Suspense fallback={null}>
+                <RotatingPlantScene seed={seed} growth={level} />
+            </Suspense>
+            </Canvas>
+        </View>
+      </ErrorBoundary>
 
       {/* Level Info */}
       <View style={styles.infoContainer}>

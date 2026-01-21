@@ -10,11 +10,11 @@ import Animated, {
 } from 'react-native-reanimated';
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import { FontAwesome6 } from '@expo/vector-icons';
-import { Audio } from 'expo-av'; // Import Audio
 import { db } from '../../../utils/supabase';
 import { styles, vw, vh } from '../styles/plantStyles';
 import { PlantItem } from '../types/plant.types';
 import { useNavigation } from '@react-navigation/native';
+import { playSound } from '~/utils/SoundManager';
 
 interface Props {
   item: PlantItem;
@@ -37,51 +37,8 @@ export const PlantCard = React.memo(
 
     const [plantTypes, setPlantTypes] = useState<{ id: number; name: string }[]>([]);
 
-    // Sound helpers
-    async function playFlipSound() {
-        try {
-            const { sound } = await Audio.Sound.createAsync(
-                require('../../../../assets/sounds/flip.wav')
-            );
-            await sound.playAsync();
-            // Unload after playing? standard practice is strict management, but for quick FX let's auto-unload if possible or let GC handle it?
-            // createAsync returns sound which should be unloaded. 
-            // For simple implementation locally:
-            // This is "fire and forget" but without unloadAsync it might leak.
-            // Better to attach an onPlaybackStatusUpdate or just rely on a small timeout/useEffect cleanup?
-            // Actually, for a quick sound, we can't easily hook into React lifecycle from here easily without state.
-            // Let's stick to simple playAsync.
-            // Better:
-            sound.setOnPlaybackStatusUpdate(async (status) => {
-                if (status.isLoaded && status.didJustFinish) {
-                    await sound.unloadAsync();
-                }
-            });
-        } catch (e) {
-            // console.log(e);
-        }
-    }
-
-    async function playBinSound() {
-        try {
-            const { sound } = await Audio.Sound.createAsync(
-                require('../../../../assets/sounds/bin.wav')
-            );
-            await sound.playAsync();
-            sound.setOnPlaybackStatusUpdate(async (status) => {
-                if (status.isLoaded && status.didJustFinish) {
-                    await sound.unloadAsync();
-                }
-            });
-        } catch (e) {
-            // console.log(e);
-        }
-    }
-
     // Flip animation
     useEffect(() => {
-      // Sound moved to direct onPress for lower latency
-      
       flip.value = withTiming(showActionText ? 1 : 0, {
         duration: 700,
         easing: Easing.out(Easing.cubic),
@@ -123,14 +80,13 @@ export const PlantCard = React.memo(
         return;
       }
 
-      playFlipSound(); // Keep here for Save action
+      playSound('flip');
       await refreshPlants();
       onActionPress();
     };
 
     const handleDelete = async () => {
-      playBinSound(); // Play sound immediately
-      
+      playSound('bin');
       const { error } = await db.social.from('Plants').delete().eq('id', item.id);
 
       if (error) {
@@ -200,7 +156,7 @@ export const PlantCard = React.memo(
                   justifyContent: 'space-between',
                   height: '100%',
                 }}>
-                <TouchableOpacity onPress={() => { playFlipSound(); onActionPress(); }}>
+                <TouchableOpacity onPress={() => { playSound('flip'); onActionPress(); }}>
                   <FontAwesome6 name="repeat" size={24} color="white" />
                 </TouchableOpacity>
 
@@ -306,7 +262,7 @@ export const PlantCard = React.memo(
                   <Text style={styles.label}></Text>
 
                   <View style={styles.buttonRow}>
-                    <TouchableOpacity style={styles.cancelButton} onPress={() => { playFlipSound(); onActionPress(); }}>
+                    <TouchableOpacity style={styles.cancelButton} onPress={() => { playSound('flip'); onActionPress(); }}>
                       <Text style={styles.cancelButtonText}>Cancel</Text>
                     </TouchableOpacity>
 
@@ -318,7 +274,7 @@ export const PlantCard = React.memo(
               </View>
             </View>
 
-            <TouchableOpacity style={styles.plantCardActionButton} onPress={() => { playFlipSound(); onActionPress(); }}>
+            <TouchableOpacity style={styles.plantCardActionButton} onPress={() => { playSound('flip'); onActionPress(); }}>
               <FontAwesome6 name="repeat" size={24} color="white" />
             </TouchableOpacity>
           </LinearGradient>

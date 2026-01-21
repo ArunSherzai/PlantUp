@@ -25,11 +25,13 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import * as VideoThumbnails from 'expo-video-thumbnails';
-import { Video as Compressor } from 'react-native-compressor';
-import Video from 'react-native-video';
+import { Video } from 'react-native-compressor';
+import DraggableBottomSheet from '~/components/DraggableBottomSheet';
+import SensorDisplayCard from '~/components/SensorDisplayCard';
 
 import { db } from '../../../utils/supabase';
 import { useUserStore } from '../../../stores/UserStore';
+import { playSound } from '~/utils/SoundManager';
 
 const { height } = Dimensions.get('window');
 
@@ -64,10 +66,13 @@ export default function CreatePostScreen() {
     thumbnailUri?: string; // New field for thumbnail
   } | null>(null);
 
-  const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
-
-  // Video Playback State
-  const [isVideoPaused, setIsVideoPaused] = useState(true);
+  // --- SENSOR SELECTION STATE ---
+  const [showSensorSelection, setShowSensorSelection] = useState(false);
+  const [selectionStep, setSelectionStep] = useState<'plants' | 'records'>('plants');
+  const [plants, setPlants] = useState<any[]>([]);
+  const [selectedPlant, setSelectedPlant] = useState<any>(null);
+  const [sensorRecords, setSensorRecords] = useState<any[]>([]);
+  const [fetchingSensorData, setFetchingSensorData] = useState(false);
 
   // Profile Image Logic with Fallback
   const profileImage = profile?.profile_image
@@ -77,10 +82,10 @@ export default function CreatePostScreen() {
   const closeMenu = () => setShowAttachmentMenu(false);
 
   // --- FUNKTION: FOTO & VIDEO AUSWÄHLEN ---
-  const pickMedia = async (mediaType: ImagePicker.MediaTypeOptions = ImagePicker.MediaTypeOptions.All) => {
+  const pickMedia = async () => {
     closeMenu();
     const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: mediaType,
+      mediaTypes: ImagePicker.MediaTypeOptions.All,
       quality: 0.7,
       videoMaxDuration: 60,
       allowsEditing: true,
@@ -94,23 +99,11 @@ export default function CreatePostScreen() {
         return;
       }
 
-      let thumbnailUri = undefined;
-      // If we picked a video, generate thumbnail (or if we picked 'All' and got a video)
-      if (asset.type === 'video') {
-        try {
-          const { uri } = await VideoThumbnails.getThumbnailAsync(asset.uri);
-          thumbnailUri = uri;
-        } catch (e) {
-          console.warn('Could not generate thumbnail', e);
-        }
-      }
-
       setMedia({
         uri: asset.uri,
         type: asset.type === 'video' ? 'video' : 'image',
         mimeType: asset.mimeType || (asset.type === 'video' ? 'video/mp4' : 'image/jpeg'),
         name: asset.fileName || `upload.${asset.type === 'video' ? 'mp4' : 'jpg'}`,
-        thumbnailUri,
       });
     }
   };
@@ -146,43 +139,126 @@ export default function CreatePostScreen() {
 
   // --- FUNKTION: SENSOR DATEN ---
   const attachSensorData = async () => {
+    console.log('[CreatePost] attachSensorData started. UserID:', userId);
     closeMenu();
-    if (!userId) return;
-    setLoading(true);
+    if (!userId) {
+      console.log('[CreatePost] No User ID found.');
+      return;
+    }
+    setFetchingSensorData(true);
     try {
-      const { data: plants } = await db.social
+      console.log('[CreatePost] Fetching plants from db.social.Plants...');
+      // User requested "user table" for plants
+      const { data: userPlants, error } = await db.social
         .from('Plants')
         .select('id, nickname')
-        .eq('user_id', userId)
-        .limit(1);
-      if (!plants?.length) {
-        Alert.alert('No Plants', 'Add a plant first.');
+        .eq('user_id', userId);
+
+      if (error) {
+        console.error('[CreatePost] Error fetching plants:', error);
+        throw error;
+      }
+
+      console.log('[CreatePost] Fetched plants:', userPlants);
+
+      if (!userPlants || userPlants.length === 0) {
+        console.log('[CreatePost] No plants found.');
+        Alert.alert('No Plants', 'You haven\'t added any plants yet.');
         return;
       }
 
-      const { data: reading } = await db.micro
-        .from('Controllers')
-        .select('*')
-        .eq('plant_id', plants[0].id)
-        .order('time', { ascending: false })
-        .limit(1)
-        .single();
-
-      if (reading) {
-        setMedia({
-          uri: '',
-          type: 'sensor',
-          name: `${plants[0].nickname} Status`,
-          sensorData: reading,
-        });
-      } else {
-        Alert.alert('No Data', 'No sensor data found.');
-      }
+      // Initialize plants with empty records and collapsed state
+      const initializedPlants = userPlants.map(p => ({ ...p, records: [], expanded: false, loadingRecords: false }));
+      setPlants(initializedPlants);
+      setShowSensorSelection(true);
     } catch (e) {
-      console.log(e);
+      console.error('[CreatePost] Exception in attachSensorData:', e);
+      Alert.alert('Error', 'Could not load your plants.');
     } finally {
-      setLoading(false);
+      setFetchingSensorData(false);
     }
+  };
+
+  const togglePlantExpansion = async (plantIndex: number) => {
+    console.log('[CreatePost] Toggling expansion for plant index:', plantIndex);
+    const plant = plants[plantIndex];
+    console.log('[CreatePost] Plant info:', plant);
+
+    // Create a new copy of plants to avoid direct mutation
+    const newPlants = plants.map((p, i) => i === plantIndex ? { ...p } : p);
+
+    // If collapsing, just toggle off
+    if (plant.expanded) {
+      console.log('[CreatePost] Collapsing plant.');
+      newPlants[plantIndex].expanded = false;
+      setPlants(newPlants);
+      return;
+    }
+
+    // Toggle ON immediately so UI feels responsive (will show loading spinner)
+    newPlants[plantIndex].expanded = true;
+
+    // If no records yet, we need to fetch
+    if (!plant.records || plant.records.length === 0) {
+      console.log('[CreatePost] Fetching records for plant ID:', plant.id);
+      newPlants[plantIndex].loadingRecords = true;
+      setPlants(newPlants); // Update UI to show loading spinner
+
+      try {
+        const { data: records, error } = await db.micro
+          .from('Controllers')
+          .select('*')
+          .eq('plant_id', plant.id)
+          .order('time', { ascending: false })
+          .limit(10);
+
+        if (error) {
+          console.error('[CreatePost] Error fetching Controller records:', error);
+          throw error;
+        }
+
+        console.log('[CreatePost] Fetched records:', records);
+
+        // UPDATE STATE AGAIN with fetched records
+        // IMPORTANT: We need to get the latest state or just reuse our local copy if we assume no other race conditions
+        // For safety in this simple case, we update our local copy and set it.
+        // We need to re-copy potentially if other plants changed, but usually only one action happens at a time here.
+        // Better: use function update or just update the index of current state if possible, but map is safer.
+
+        setPlants(currentPlants => {
+          const updated = [...currentPlants];
+          updated[plantIndex] = {
+            ...updated[plantIndex],
+            loadingRecords: false,
+            records: records || []
+          };
+          return updated;
+        });
+
+      } catch (e) {
+        console.error('[CreatePost] Exception fetching records:', e);
+        Alert.alert('Error', 'Could not load records.');
+
+        setPlants(currentPlants => {
+          const updated = [...currentPlants];
+          updated[plantIndex] = { ...updated[plantIndex], loadingRecords: false };
+          return updated;
+        });
+      }
+    } else {
+      // Records already exist, just set state from earlier toggle
+      setPlants(newPlants);
+    }
+  };
+
+  const selectSensorRecord = (plant: any, record: any) => {
+    setMedia({
+      uri: '',
+      type: 'sensor',
+      name: `${plant.nickname} Status`,
+      sensorData: { ...record, nickname: plant.nickname },
+    });
+    setShowSensorSelection(false);
   };
 
   // --- HAUPTFUNKTION: POSTEN ---
@@ -221,7 +297,7 @@ export default function CreatePostScreen() {
         if (media.type === 'video') {
           try {
             console.log('Compressing video...');
-            const compressedUri = await Compressor.compress(
+            const compressedUri = await Video.compress(
               media.uri,
               {
                 compressionMethod: 'auto',
@@ -339,6 +415,7 @@ export default function CreatePostScreen() {
 
       if (error) throw error;
 
+      playSound('confirm');
       Alert.alert('Success', 'Post created!');
 
       // >>> RESET HERE <<<
@@ -444,93 +521,47 @@ export default function CreatePostScreen() {
             />
           </KeyboardAwareScrollView>
 
-
-          {/* 3. PREVIEW AREA: MEDIA or THOUGHT */}
-          <View style={styles.previewWrapper}>
-            {media ? (
-              media.type === 'document' || media.type === 'sensor' ? (
-                // Document/Sensor Card Style (Keep Compact)
-                <View style={styles.previewBar}>
+          {/* 3. PREVIEW BAR */}
+          {media && (
+            <View style={styles.previewBar}>
+              {media.type === 'sensor' ? (
+                <View style={{ width: '100%', paddingVertical: 10 }}>
+                  <View style={[styles.previewContent, { marginBottom: 10 }]}>
+                    <FontAwesome6 name="leaf" size={16} color="#329D9C" />
+                    <Text style={styles.previewText} numberOfLines={1}>
+                      {media.name}
+                    </Text>
+                    <TouchableOpacity onPress={() => setMedia(null)} style={{ marginLeft: 'auto' }}>
+                      <FontAwesome6 name="xmark" size={16} color="#999" />
+                    </TouchableOpacity>
+                  </View>
+                  <SensorDisplayCard data={media.sensorData} />
+                </View>
+              ) : (
+                <>
                   <View style={styles.previewContent}>
                     <FontAwesome6
-                      name={media.type === 'sensor' ? 'leaf' : 'file-lines'}
+                      name={
+                        media.type === 'image'
+                          ? 'image'
+                          : media.type === 'video'
+                            ? 'video'
+                            : 'file-lines'
+                      }
                       size={16}
-                      color={theme.colors.primary}
+                      color="#329D9C"
                     />
                     <Text style={styles.previewText} numberOfLines={1}>
                       {media.name || media.type}
                     </Text>
                   </View>
                   <TouchableOpacity onPress={() => setMedia(null)}>
-                    <FontAwesome6 name="xmark" size={16} color={theme.colors.greyedOut} />
+                    <FontAwesome6 name="xmark" size={16} color="#999" />
                   </TouchableOpacity>
-                </View>
-              ) : (
-                // Media Preview (Video/Image) - 9:16 Aspect Ratio
-                <View style={styles.feedPreviewContainer}>
-                  {media.type === 'video' ? (
-                    <View style={{ flex: 1, position: 'relative' }}>
-                      <Video
-                        source={{ uri: media.uri }}
-                        style={styles.feedMediaImage}
-                        resizeMode="cover"
-                        controls={false}
-                        paused={isVideoPaused}
-                        repeat={true}
-                      />
-                      <Pressable
-                        onPress={() => setIsVideoPaused(!isVideoPaused)}
-                        style={StyleSheet.absoluteFill}
-                      >
-                        {/* Centered Play Icon */}
-                        {isVideoPaused && (
-                          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                            <View style={styles.playIconContainer}>
-                              <FontAwesome6 name="play" size={40} color="rgba(255,255,255,0.8)" />
-                            </View>
-                          </View>
-                        )}
-                      </Pressable>
-                    </View>
-                  ) : (
-                    <TouchableOpacity onPress={() => setFullScreenImage(media.uri)} style={{ flex: 1 }}>
-                      <Image
-                        source={{ uri: media.uri }}
-                        style={styles.feedMediaImage}
-                        resizeMode="cover"
-                      />
-                    </TouchableOpacity>
-                  )}
-
-
-
-                  {/* Remove Button (Top Right) */}
-                  <TouchableOpacity
-                    style={styles.closeButtonOverlay}
-                    onPress={() => setMedia(null)}
-                  >
-                    <FontAwesome6 name="xmark" size={18} color="white" />
-                  </TouchableOpacity>
-                </View>
-              )
-            ) : caption.length > 0 ? (
-              // THOUGHT BUBBLE PREVIEW (If no media, but text exists)
-              <View style={styles.thoughtPreviewContainer}>
-                <View style={styles.textCardLarge}>
-                  <View style={styles.textBadge}>
-                    <Text style={styles.textBadgeText}>Thought</Text>
-                  </View>
-                  <Text style={styles.previewSubtitle}>Preview</Text>
-                  <View style={{ flex: 1, justifyContent: 'center' }}>
-                    <Text style={styles.textPostContent} numberOfLines={8}>
-                      {caption}
-                    </Text>
-                  </View>
-                  <FontAwesome6 name="leaf" size={120} color="#4CA771" style={styles.leafIcon} />
-                </View>
-              </View>
-            ) : null}
-          </View>
+                </>
+              )}
+            </View>
+          )}
 
           {/* 4. BUTTON UNTEN */}
           <View style={styles.toolbar}>
@@ -556,18 +587,7 @@ export default function CreatePostScreen() {
             <Text style={styles.modalTitle}>Add to your post</Text>
 
             <View style={styles.gridContainer}>
-              <AttachmentCard
-                icon="image"
-                color="#4A90E2"
-                label="Photo"
-                onPress={() => pickMedia(ImagePicker.MediaTypeOptions.Images)}
-              />
-              <AttachmentCard
-                icon="video"
-                color="#E056FD"
-                label="Video"
-                onPress={() => pickMedia(ImagePicker.MediaTypeOptions.Videos)}
-              />
+              <AttachmentCard icon="image" color="#4A90E2" label="Media" onPress={pickMedia} />
               {/* GIF Button Removed */}
               <AttachmentCard
                 icon="file-lines"
@@ -586,28 +606,79 @@ export default function CreatePostScreen() {
         </Pressable>
       </Modal>
 
-      {/* 6. FULL SCREEN IMAGE MODAL */}
+      {/* 6. SENSOR SELECTION MODAL */}
       <Modal
-        visible={!!fullScreenImage}
+        animationType="slide"
         transparent={true}
-        animationType="fade"
-        statusBarTranslucent={true}
-        onRequestClose={() => setFullScreenImage(null)}
-      >
-        <View style={styles.fullScreenContainer}>
-          <StatusBar hidden={true} />
-          <Image
-            source={{ uri: fullScreenImage || '' }}
-            style={styles.fullScreenImage}
-            resizeMode="contain"
-          />
-          <TouchableOpacity
-            style={styles.closeFullScreenButton}
-            onPress={() => setFullScreenImage(null)}
-          >
-            <FontAwesome6 name="xmark" size={24} color="white" />
-          </TouchableOpacity>
-        </View>
+        visible={showSensorSelection}
+        onRequestClose={() => setShowSensorSelection(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setShowSensorSelection(false)}>
+          <View style={[styles.modalContent, { minHeight: 400 }]}>
+            <View style={styles.modalHandle} />
+
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Plant + Data</Text>
+            </View>
+
+            {fetchingSensorData ? (
+              <ActivityIndicator size="large" color="#329D9C" style={{ marginTop: 40 }} />
+            ) : (
+              <KeyboardAwareScrollView showsVerticalScrollIndicator={false}>
+                {plants.map((plant, index) => (
+                  <View key={plant.id} style={styles.plantContainer}>
+                    {/* Plant Header */}
+                    <TouchableOpacity
+                      style={styles.plantHeader}
+                      onPress={() => togglePlantExpansion(index)}
+                    >
+                      <View style={styles.plantHeaderLeft}>
+                        <View style={styles.listItemIcon}>
+                          <FontAwesome6 name="leaf" size={18} color="#00C853" />
+                        </View>
+                        <Text style={styles.listItemTitle}>{plant.nickname}</Text>
+                      </View>
+                      <FontAwesome6
+                        name={plant.expanded ? "chevron-up" : "chevron-down"}
+                        size={16}
+                        color={theme.colors.greyedOut}
+                      />
+                    </TouchableOpacity>
+
+                    {/* Expandable Records List */}
+                    {plant.expanded && (
+                      <View style={styles.recordsList}>
+                        {plant.loadingRecords ? (
+                          <ActivityIndicator size="small" color="#329D9C" style={{ marginVertical: 10 }} />
+                        ) : plant.records.length === 0 ? (
+                          <Text style={styles.noRecordsText}>No recent data found.</Text>
+                        ) : (
+                          plant.records.map((record: any, rIndex: number) => (
+                            <TouchableOpacity
+                              key={`${record.id}-${rIndex}`}
+                              style={styles.recordItem}
+                              onPress={() => selectSensorRecord(plant, record)}
+                            >
+                              <FontAwesome6 name="clock" size={14} color="#329D9C" style={{ width: 20 }} />
+                              <Text style={styles.recordTime}>
+                                {new Date(record.time).toLocaleString([], {
+                                  month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                                })}
+                              </Text>
+                              <View style={styles.recordValues}>
+                                <Text style={styles.recordValueText}>🌡️ {record.temperature}°</Text>
+                                <Text style={styles.recordValueText}>💧 {record.soil_moisture}%</Text>
+                              </View>
+                            </TouchableOpacity>
+                          ))
+                        )}
+                      </View>
+                    )}
+                  </View>
+                ))}
+              </KeyboardAwareScrollView>
+            )}
+          </View>
+        </Pressable>
       </Modal>
     </View>
   );
@@ -864,6 +935,7 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.text,
   },
   gifIcon: {
+    borderWidth: 2,
     borderRadius: 4,
     width: 24,
     height: 24,
@@ -871,174 +943,77 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: 'center',
     borderColor: theme.colors.icon, // Annahme: Icon Border passt zur Icon Farbe
   },
-  previewWrapper: {
+  // Sensor Modal Specific Styles
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 20,
+    justifyContent: 'center',
   },
-  mediaPreviewContainer: {
-    width: '100%',
-    height: 250,
-    borderRadius: 16,
+  plantContainer: {
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.greyedOut,
+    borderRadius: 12,
     overflow: 'hidden',
-    position: 'relative',
+  },
+  plantHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
     backgroundColor: theme.colors.background,
   },
-  mediaPreviewImage: {
-    width: '100%',
-    height: '100%',
+  plantHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
-  removeMediaButton: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+  listItemIcon: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 10,
-  },
-  // --- FEED STYLE PREVIEW ---
-  feedPreviewContainer: {
-    width: '100%',
-    height: height * 0.5, // 50% of screen height
-    borderRadius: 20,
-    overflow: 'hidden',
-    backgroundColor: 'black',
-    marginBottom: 20,
-    position: 'relative',
-  },
-  feedMediaImage: {
-    width: '100%',
-    height: '100%',
-  },
-  rightActionsOverlay: {
-    position: 'absolute',
-    right: 15,
-    bottom: 50, // Above bottom
-    gap: 20,
-    alignItems: 'center',
-  },
-  actionItem: {
-    alignItems: 'center',
-    gap: 4,
-  },
-  shadowIcon: {
-    shadowColor: 'black',
-    shadowOpacity: 0.5,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-  },
-  actionText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: 'bold',
-    textShadowColor: 'rgba(0,0,0,0.5)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
-  },
-  closeButtonOverlay: {
-    position: 'absolute',
-    top: 15,
-    right: 15,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    padding: 10,
-    borderRadius: 20,
-  },
-
-  // --- THOUGHT BUBBLE PREVIEW ---
-  thoughtPreviewContainer: {
-    width: '100%',
-    alignItems: 'center',
-    marginBottom: 20,
-    // Remove background context here to let the card stand out or match video container behavior
-    // backgroundColor: '#F0F5F1', 
-    padding: 0, // Remove padding to match video container width
-    borderRadius: 20,
-  },
-  textCardLarge: {
-    width: '100%',
-    height: height * 0.5, // 50% of screen height
     backgroundColor: theme.colors.surface,
-    borderRadius: 20,
-    padding: 20,
+    alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 5,
-    position: 'relative',
-    overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#eee',
+    borderColor: theme.colors.greyedOut,
   },
-  textBadge: {
-    position: 'absolute',
-    top: 20,
-    left: 20,
-    backgroundColor: '#F0F5F1',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    zIndex: 10,
-  },
-  textBadgeText: {
-    color: '#4CA771',
-    fontWeight: 'bold',
-    fontSize: 12,
-  },
-  previewSubtitle: {
-    position: 'absolute',
-    top: 25, // Align with badge loosely or right below
-    right: 20,
-    color: theme.colors.greyedOut,
-    fontSize: 12,
+  listItemTitle: {
+    fontSize: 16,
     fontWeight: '600',
-    zIndex: 10,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  textPostContent: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    lineHeight: 32,
     color: theme.colors.text,
-    zIndex: 5,
   },
-  leafIcon: {
-    position: 'absolute',
-    bottom: -20,
-    right: -20,
-    opacity: 0.1,
+  recordsList: {
+    backgroundColor: theme.colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.greyedOut,
   },
-
-  fullScreenContainer: {
+  recordItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.greyedOut,
+  },
+  recordTime: {
+    fontSize: 14,
+    color: theme.colors.text,
     flex: 1,
-    backgroundColor: 'black',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
-  fullScreenImage: {
-    width: '100%',
-    height: '100%',
+  recordValues: {
+    flexDirection: 'row',
+    gap: 10,
   },
-  closeFullScreenButton: {
-    position: 'absolute',
-    top: 50,
-    right: 20,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 20,
+  recordValueText: {
+    fontSize: 13,
+    color: theme.colors.secondary,
+    fontWeight: '500',
   },
-  playIconContainer: {
-    position: 'absolute',
-    alignSelf: 'center',
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    borderRadius: 40,
-    width: 70,
-    height: 70,
-    justifyContent: 'center',
-    alignItems: 'center',
-  }
+  noRecordsText: {
+    padding: 20,
+    textAlign: 'center',
+    color: theme.colors.greyedOut,
+    fontStyle: 'italic',
+  },
 }));

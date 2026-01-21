@@ -3,9 +3,11 @@ import { View, Text, Image, TouchableOpacity } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 import { useUserStore } from '../stores/UserStore';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
+import { useNavigation } from '@react-navigation/native';
 
 export const PlantCoinBox = () => {
   const { profile, addPlantCoins } = useUserStore();
+  const navigation = useNavigation<any>();
 
   const formattedCoins = React.useMemo(() => {
     if (profile?.plant_coins == null) return '0';
@@ -17,10 +19,10 @@ export const PlantCoinBox = () => {
       <View style={styles.box}>
         {/* green + button */}
         <TouchableOpacity
-          onPress={() => addPlantCoins(100)} // 👈 FIXED: now only runs on press
+          onPress={() => navigation.navigate('Shop')}
           style={styles.plusButton}
           activeOpacity={0.8}>
-          <FontAwesome6 name="circle-plus" size={22} style={styles.plusIcon} />
+          <FontAwesome6 name="shop" size={16} style={styles.plusIcon} />
         </TouchableOpacity>
 
         {/* amount */}

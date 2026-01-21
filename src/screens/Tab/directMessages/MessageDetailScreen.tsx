@@ -9,6 +9,7 @@ import { useDMStore, ChatMessage } from '../../../stores/DMStore';
 import { useUserStore } from '../../../stores/UserStore';
 import { initializeSounds, unloadSounds } from '../../../utils/soundEffects';
 import { useTypingIndicator } from '../../../hooks/useTypingIndicator';
+import { playSound } from '~/utils/SoundManager';
 import { TypingIndicator } from '../../../components/TypingIndicator';
 
 type Props = StackScreenProps<RootStackParamList, 'MessageDetail'>;
@@ -153,12 +154,15 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
                 timestamp: Date.now(),
             };
             setUiMessages((prev) => [newMessage, ...prev]);
+            playSound('send');
         } else {
             // Real Send: Store handles optimistic update via subscription usually, 
             // but we can rely on immediate append in store if we wanted.
             // For now, sendMessage just inserts, and subscription event adds to list.
             const success = await sendMessage(id, textToSend);
-            if (!success) {
+            if (success) {
+                playSound('send');
+            } else {
                 alert('Failed to send message');
                 setInputText(textToSend);
             }
@@ -278,27 +282,32 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
                 <View style={{ width: 30 }} />
             </View>
 
-            {/* Chat List */}
-            <FlatList
-                ref={flatListRef}
-                data={uiMessages}
-                renderItem={renderItem}
-                keyExtractor={(item) => item.id}
-                inverted={true}
-                contentContainerStyle={styles.listContent}
-                onEndReached={loadMoreMessages}
-                onEndReachedThreshold={0.2}
-                ListFooterComponent={loadingMore ? <ActivityIndicator size="small" color={theme.colors.primary} style={{ marginVertical: 10 }} /> : null}
-            />
+            <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 60 : 0}
+            >
+                {/* Chat List */}
+                <FlatList
+                    ref={flatListRef}
+                    data={uiMessages}
+                    renderItem={renderItem}
+                    keyExtractor={(item) => item.id}
+                    inverted={true}
+                    contentContainerStyle={styles.listContent}
+                    onEndReached={loadMoreMessages}
+                    onEndReachedThreshold={0.2}
+                    ListFooterComponent={loadingMore ? <ActivityIndicator size="small" color={theme.colors.primary} style={{ marginVertical: 10 }} /> : null}
+                    keyboardShouldPersistTaps="handled"
+                />
 
-            {/* Typing Indicator */}
-            {!isSprig && <TypingIndicator visible={isOtherUserTyping} avatar={avatar} />}
+                {/* Typing Indicator */}
+                {!isSprig && <TypingIndicator visible={isOtherUserTyping} avatar={avatar} />}
 
-            {/* Input Area */}
-            <KeyboardAvoidingView style={{ marginBottom: 10 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={10}>
-                <View style={[styles.inputContainer, { borderTopColor: 'transparent' }]}>
+                {/* Input Area */}
+                <View style={[styles.inputContainer, { borderTopColor: 'transparent', marginBottom: insets.bottom + 10 }]}>
                     <TextInput
-                        style={[styles.input, { backgroundColor: '#F0F0F0', color: '#000', borderRadius: 15, height: 60, fontSize: 16 }]}
+                        style={[styles.input, { backgroundColor: '#F0F0F0', color: '#000', borderRadius: 15, height: 60, fontSize: 16, paddingVertical: 10, paddingHorizontal: 15 }]}
                         placeholder="Type a message..."
                         placeholderTextColor="#999"
                         value={inputText}
@@ -310,6 +319,8 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
                                 stopTyping();
                             }
                         }}
+                        multiline={false}
+                        textAlignVertical="center"
                     />
                     <TouchableOpacity onPress={handleSend} style={[styles.sendButton, { backgroundColor: theme.colors.primary, borderRadius: 15, height: 60, width: 60, justifyContent: 'center', alignItems: 'center' }]}>
                         <FontAwesome name="paper-plane" size={16} color="#FFF" />

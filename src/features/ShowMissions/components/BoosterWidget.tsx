@@ -1,22 +1,29 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, Alert, Image, Dimensions } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
 import { StyleSheet as UnistylesSheet, useUnistyles } from 'react-native-unistyles';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useUserStore } from '../../../stores/UserStore';
+import { playSound } from '~/utils/SoundManager';
 
 const { width } = Dimensions.get('window');
 const vw = width / 100;
 
+const BOOSTER_ITEM_ID = 'xp_boost_24h';
+
 export default function BoosterWidget() {
   const { theme } = useUnistyles();
-  const { profile, fetchProfile } = useUserStore();
+  const { profile, inventory, activateBooster, fetchProfile } = useUserStore();
   const [timeLeft, setTimeLeft] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   // Check Active Boost
   const boostEndTime = profile?.active_boost_end_time;
   const isBoostActive = boostEndTime && new Date(boostEndTime) > new Date();
+
+  // Check Inventory
+  const boosterItem = inventory.find(i => i.item_id === BOOSTER_ITEM_ID);
+  const ownedQuantity = boosterItem?.quantity || 0;
 
   useEffect(() => {
     if (!isBoostActive || !boostEndTime) {
@@ -34,7 +41,7 @@ export default function BoosterWidget() {
         // FORCE REFRESH when timer expires
         // This will update 'profile.active_boost_end_time' -> causing isBoostActive to be false
         // -> removing the banner in ShowMissionsScreen automatically.
-        fetchProfile(); 
+        fetchProfile();
         return;
       }
 
@@ -50,39 +57,56 @@ export default function BoosterWidget() {
     return () => clearInterval(interval);
   }, [boostEndTime, isBoostActive]);
 
-  // Navigation
-  const navigation = useNavigation<any>(); // Simple typing for now to avoid circular deps if needed
+  const handleActivate = async () => {
+    if (isBoostActive) {
+      Alert.alert('Boost Active', `Time remaining: ${timeLeft}`);
+      return;
+    }
 
-  const handleActivate = () => {
-    // Navigate to Shop, specifically the Inventory tab
-    navigation.navigate('Shop', { initialTab: 'inventory' });
+    if (ownedQuantity <= 0) {
+      Alert.alert('No Booster', 'You do not have any XP Fertilizers!');
+      return;
+    }
+
+    setLoading(true);
+    const result = await activateBooster(BOOSTER_ITEM_ID);
+    setLoading(false);
+
+    if (result.success) {
+      playSound('xp_boost');
+      Alert.alert('Boost Activated!', 'XP x1.5 active for 24h! 🚀');
+    } else {
+      Alert.alert('Error', result.message || 'Could not activate booster.');
+    }
   };
 
   // Always show for testing
   // if (!isBoostActive && ownedQuantity === 0) return null;
 
   return (
-    <TouchableOpacity onPress={handleActivate} style={styles.container}>
-       {/* Background Glow if active */}
-       {isBoostActive && (
-          <LinearGradient
-            colors={['rgba(46, 204, 113, 0.6)', 'rgba(39, 174, 96, 0.0)']}
-            style={styles.activeGlow}
-          />
-       )}
-       
-       <FontAwesome6 
-          name="basket-shopping"
-          size={32} 
-          color={isBoostActive ? "#FFFFFF" : theme.colors.text}
-          style={[styles.icon, isBoostActive && styles.activeIcon]} 
-       />
-       
-       {isBoostActive && (
-         <View style={styles.timerBadge}>
-            <Text style={styles.timerText}>{timeLeft}</Text>
-         </View>
-       )}
+    <TouchableOpacity onPress={handleActivate} disabled={loading} style={styles.container}>
+      {/* Background Glow if active */}
+      {isBoostActive && (
+        <LinearGradient
+          colors={['rgba(46, 204, 113, 0.6)', 'rgba(39, 174, 96, 0.0)']}
+          style={styles.activeGlow}
+        />
+      )}
+
+      <Image
+        source={require('../../../../assets/images/XPBoostItem.png')}
+        style={[styles.image, isBoostActive && styles.activeImage]}
+      />
+
+      {isBoostActive ? (
+        <View style={styles.timerBadge}>
+          <Text style={styles.timerText}>{timeLeft}</Text>
+        </View>
+      ) : (
+        <View style={styles.countBadge}>
+          <Text style={styles.countText}>{ownedQuantity}</Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
 }
@@ -94,17 +118,13 @@ const styles = UnistylesSheet.create((theme) => ({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  icon: {
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+  image: {
+    width: vw * 15,
+    height: vw * 15,
+    resizeMode: 'contain',
   },
-  activeIcon: {
-    shadowColor: '#FFF',
-    shadowOpacity: 0.5,
-    shadowRadius: 5,
-    elevation: 5,
+  activeImage: {
+    opacity: 1,
   },
   activeGlow: {
     position: 'absolute',
@@ -113,7 +133,7 @@ const styles = UnistylesSheet.create((theme) => ({
     borderRadius: vw * 12,
     zIndex: -1,
   },
-  
+
   // Badges
   countBadge: {
     position: 'absolute',
@@ -133,7 +153,7 @@ const styles = UnistylesSheet.create((theme) => ({
     fontSize: vw * 3.5,
     fontWeight: 'bold',
   },
-  
+
   timerBadge: {
     position: 'absolute',
     bottom: -vw * 1.5,

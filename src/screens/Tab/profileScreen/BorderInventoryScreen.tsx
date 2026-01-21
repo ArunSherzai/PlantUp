@@ -7,6 +7,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { useUserStore } from '../../../stores/UserStore';
+import { playSound } from '~/utils/SoundManager';
 
 export default function BorderInventoryScreen() {
   const { theme } = useUnistyles();
@@ -23,9 +24,11 @@ export default function BorderInventoryScreen() {
     setRefreshing(true);
     await fetchBorders();
     setRefreshing(false);
+    playSound('reload');
   }, [fetchBorders]);
 
   const handleEquip = async (borderId: string | null) => {
+    playSound('confirm');
     await equipBorder(borderId);
   };
 
@@ -34,6 +37,7 @@ export default function BorderInventoryScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
         <TouchableOpacity style={styles.backButton} onPress={() => {
+          playSound('click');
           if (navigation.canGoBack()) {
             navigation.goBack();
           } else {
@@ -60,8 +64,17 @@ export default function BorderInventoryScreen() {
               No borders owned yet.
             </Text>
             <Text style={[styles.emptySubText, { color: theme.colors.greyedOut }]}>
-              Complete quests or level up to earn them!
+              Visit the shop to get Lootboxes!
             </Text>
+            <TouchableOpacity 
+                style={[styles.equipButton, { backgroundColor: theme.colors.primary, marginTop: 20 }]}
+                onPress={() => {
+                    playSound('click');
+                    navigation.navigate('Shop' as never);
+                }}
+            >
+                <Text style={styles.equipButtonText}>Go to Shop</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.grid}>

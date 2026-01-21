@@ -6,6 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useUnistyles } from 'react-native-unistyles';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { useUserStore } from '../../../stores/UserStore';
+import { playSound } from '~/utils/SoundManager';
 
 export default function TitleInventoryScreen() {
   const { theme } = useUnistyles();
@@ -22,6 +23,7 @@ export default function TitleInventoryScreen() {
     setRefreshing(true);
     await fetchTitles();
     setRefreshing(false);
+    playSound('reload');
   }, [fetchTitles]);
 
   const handleEquip = async (titleId: string | null) => {

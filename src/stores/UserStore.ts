@@ -212,14 +212,12 @@ export const useUserStore = create<State>((set, get) => ({
 
       if (data) {
         console.log('[UserStore] Inventory Loaded (RPC):', data);
-        // Data format: [{ item_id: 'streak_freeze_24h', quantity: X }]
-
-        // DB Item Names now match Client IDs exactly.
+        // Data format: [{ item_id: 'name', quantity: X }]
+        // Just cast it directly if structure matches
         const inventory = data.map((item: any) => ({
           item_id: (item.item_id || 'unknown').trim(),
           quantity: item.quantity
         }));
-
         set({ inventory: inventory });
       } else {
         set({ inventory: [] });
@@ -802,9 +800,6 @@ export const useUserStore = create<State>((set, get) => ({
     const { user, fetchInventory, fetchProfile } = get();
     if (!user) return { success: false, message: 'Not logged in' };
 
-    // DB Item Name matches Client ID now (streak_freeze_24h, xp_boost_24h)
-    // No mapping needed.
-
     try {
       const { data, error } = await db.gamification.rpc('buy_shop_item', {
         p_item_name: itemId,
@@ -815,7 +810,6 @@ export const useUserStore = create<State>((set, get) => ({
       const result = data as any;
 
       if (result.success) {
-        // refresh balance and inventory
         fetchProfile();
         fetchInventory();
       }
@@ -904,4 +898,3 @@ export const useUserStore = create<State>((set, get) => ({
     return get().blockedUserIds.has(userId);
   }
 }));
-

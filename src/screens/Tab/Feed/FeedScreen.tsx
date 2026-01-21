@@ -13,6 +13,7 @@ import MasonryFeedGrid from '../../../components/MasonryFeedGrid';
 import { useUserSearch } from '../../../features/social/hooks/useUserSearch';
 import { useConnections } from '../../../features/social/hooks/useConnections';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { playSound } from '~/utils/SoundManager';
 
 const { width, height } = Dimensions.get('window');
 const vh = height / 100;
@@ -51,6 +52,7 @@ export default function FeedScreen() {
 
     // Pull to refresh handler
     const onRefresh = useCallback(async () => {
+        playSound('reload');
         setRefreshing(true);
         await refreshFeed();
         setRefreshing(false);
@@ -233,7 +235,7 @@ export default function FeedScreen() {
                                         <Text style={{ color: theme.colors.text }}>No posts yet. Be the first!</Text>
                                     </View>
                                 )}
-                                <View style={{ height: vh * 10 }} />
+
                             </ScrollView>
                         )}
                     </DraggableBottomSheet>
