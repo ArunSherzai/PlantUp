@@ -3,6 +3,7 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { Image as ExpoImage } from 'expo-image';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, interpolateColor } from 'react-native-reanimated';
 import { useEffect } from 'react';
+import { vw } from '~/features/plantlist/styles/plantStyles';
 
 export default function OverviewCard({ latest, health }: any) {
   const { theme } = useUnistyles();
@@ -19,7 +20,7 @@ export default function OverviewCard({ latest, health }: any) {
   // State Logic
   const getHealthState = (h: number | null) => {
     if (h === null) return { gif: null, color: theme.colors.greyedOut, label: 'No Data' };
-    if (h <= 10) return { gif: require('../../../../assets/animations/Dead_Sprig.gif'), color: '#ef4444', label: 'Critical' };
+    if (h <= 10) return { gif: require('../../../../assets/animations/dizzy_sprig.gif'), color: '#ef4444', label: 'Critical' };
     if (h <= 39) return { gif: require('../../../../assets/animations/sad_sprig.gif'), color: '#f97316', label: 'Needs Care' };
     if (h <= 59) return { gif: require('../../../../assets/animations/impatient_sprig.gif'), color: '#eab308', label: 'Okay' };
     return { gif: require('../../../../assets/animations/cool_sprig.gif'), color: '#22c55e', label: 'Great' };
@@ -66,7 +67,10 @@ export default function OverviewCard({ latest, health }: any) {
           {gif && (
             <ExpoImage
               source={gif}
-              style={styles.sprigCircle}
+              style={[
+                styles.sprigCircle,
+                label === 'Critical' && { width: vw * 38, height: vw * 38 } // Make dizzy sprig larger
+              ]}
               contentFit="contain"
             />
           )}
@@ -116,18 +120,18 @@ const styles = StyleSheet.create((theme) => ({
 
   /* Circle */
   circleOuter: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
+    width: vw * 26,
+    height: vw * 26,
+    borderRadius: (vw * 26) / 2,
     borderWidth: 4,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   circleInner: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: vw * 20,
+    height: vw * 20,
+    borderRadius: (vw * 20) / 2,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden', // Clip GIF if needed
@@ -142,8 +146,8 @@ const styles = StyleSheet.create((theme) => ({
   },
 
   sprigCircle: {
-    width: 100,
-    height: 100,
+    width: vw * 34,
+    height: vw * 34,
     // Adjust positioning to center the sprite perfectly if needed
   },
 }));

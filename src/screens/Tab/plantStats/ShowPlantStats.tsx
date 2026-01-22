@@ -135,6 +135,7 @@ export default function ShowPlantStats() {
   >('Temperature');
   const [timeRange, setTimeRange] = useState<TimeRangeKey>('Last 1 Hour (5 Recs)');
   const [barColor, setBarColor] = useState('#fdae11');
+  const [debugHealth, setDebugHealth] = useState<number | null>(null);
 
   const isDataFreshRef = useRef(false);
 
@@ -395,7 +396,27 @@ export default function ShowPlantStats() {
             contentContainerStyle={{ paddingBottom: vh * 25, paddingHorizontal: vw * 5, paddingTop: vh * 1.5 }}
             showsVerticalScrollIndicator={false}
             style={[styles.sheet, { backgroundColor: "transparent" }]}>
-            <OverviewCard latest={latest} health={health} />
+            
+            {/* Debug Controls */}
+            <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 5 }}>
+              {[10, 20, 50, 100].map(val => (
+                <TouchableOpacity 
+                  key={val} 
+                  onPress={() => setDebugHealth(val)}
+                  style={{ backgroundColor: theme.colors.surface, padding: 5, borderRadius: 5, borderWidth: 1, borderColor: theme.colors.greyedOut }}
+                >
+                  <Text style={{ fontSize: 10, color: theme.colors.text }}>{val}%</Text>
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity 
+                onPress={() => setDebugHealth(null)}
+                style={{ backgroundColor: '#ef4444', padding: 5, borderRadius: 5 }}
+              >
+                <Text style={{ fontSize: 10, color: 'white' }}>Reset</Text>
+              </TouchableOpacity>
+            </View>
+
+            <OverviewCard latest={latest} health={debugHealth !== null ? debugHealth : health} />
             <SnapshotBoxes latest={latest} />
 
             {/* Status Indicators */}
