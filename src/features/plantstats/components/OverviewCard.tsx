@@ -1,34 +1,53 @@
 import { View, Text } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { Image as ExpoImage } from 'expo-image';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, interpolateColor } from 'react-native-reanimated';
+import { useEffect } from 'react';
 
 export default function OverviewCard({ latest, health }: any) {
   const { theme } = useUnistyles();
 
   const formattedDate = latest
     ? new Date(latest.created_at).toLocaleString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-        day: '2-digit',
-        month: 'short',
-      })
+      hour: '2-digit',
+      minute: '2-digit',
+      day: '2-digit',
+      month: 'short',
+    })
     : '--';
+
+  // State Logic
+  const getHealthState = (h: number | null) => {
+    if (h === null) return { gif: null, color: theme.colors.greyedOut, label: 'No Data' };
+    if (h <= 10) return { gif: require('../../../../assets/animations/Dead_Sprig.gif'), color: '#ef4444', label: 'Critical' };
+    if (h <= 39) return { gif: require('../../../../assets/animations/sad_sprig.gif'), color: '#f97316', label: 'Needs Care' };
+    if (h <= 59) return { gif: require('../../../../assets/animations/impatient_sprig.gif'), color: '#eab308', label: 'Okay' };
+    return { gif: require('../../../../assets/animations/cool_sprig.gif'), color: '#22c55e', label: 'Great' };
+  };
+
+  const { gif, color, label } = getHealthState(health);
+
+  // Animation Styles
+  const animatedBorder = useAnimatedStyle(() => ({
+    borderColor: withTiming(color, { duration: 500 }),
+  }));
+
+  const animatedText = useAnimatedStyle(() => ({
+    color: withTiming(color, { duration: 500 }),
+  }));
 
   return (
     <View style={[styles.card, { backgroundColor: theme.colors.background }]}>
-      {/* LEFT SIDE */}
+      {/* LEFT SIDE: Always Text */}
       <View style={styles.left}>
         <Text style={[styles.title, { color: theme.colors.text }]}>Current health</Text>
 
-        {/* 🟢 NEW: If health is low, show percentage HERE prominently */}
-        {health < 50 && (
-          <Text style={[styles.healthValueLeft, { color: '#ef4444' }]}>
-            {health != null ? `${health}%` : '--'}
-          </Text>
-        )}
+        <Animated.Text style={[styles.healthValueLeft, animatedText]}>
+          {health != null ? `${health}%` : '--'}
+        </Animated.Text>
 
         <Text style={[styles.subtitle, { color: theme.colors.greyedOut }]}>
-          {latest ? 'Based on your most recent sensor snapshot' : 'No sensor data yet'}
+          Current Status: <Animated.Text style={[{ fontWeight: 'bold' }, animatedText]}>{label}</Animated.Text>
         </Text>
 
         <Text style={[styles.timestamp, { color: theme.colors.greyedOut }]}>
@@ -36,34 +55,23 @@ export default function OverviewCard({ latest, health }: any) {
         </Text>
       </View>
 
-      {/* HEALTH CIRCLE */}
-      <View
+      {/* RIGHT SIDE: Always GIF Circle */}
+      <Animated.View
         style={[
           styles.circleOuter,
-          {
-            borderColor: health < 50 ? '#ef4444' : theme.colors.primary, // Red border if low health
-            backgroundColor: theme.colors.surface,
-          },
+          { backgroundColor: theme.colors.surface },
+          animatedBorder,
         ]}>
         <View style={[styles.circleInner, { backgroundColor: theme.colors.background }]}>
-          {health < 50 ? (
-            /* 🟢 NEW: If health is low, show ONLY GIF inside circle */
+          {gif && (
             <ExpoImage
-              source={require('../../../../assets/animations/sad_sprig.gif')}
-              style={styles.sadSprigCircle}
+              source={gif}
+              style={styles.sprigCircle}
               contentFit="contain"
             />
-          ) : (
-            /* 🟢 STANDARD: Otherwise show percentage as usual */
-            <>
-              <Text style={[styles.healthValue, { color: theme.colors.text }]}>
-                {health != null ? `${health}%` : '--'}
-              </Text>
-              <Text style={[styles.healthLabel, { color: theme.colors.greyedOut }]}>HEALTH</Text>
-            </>
           )}
         </View>
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -122,18 +130,7 @@ const styles = StyleSheet.create((theme) => ({
     borderRadius: 35,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-
-  healthValue: {
-    fontSize: 22,
-    fontFamily: theme.fonts.header,
-  },
-
-  healthLabel: {
-    fontSize: 10,
-    marginTop: 2,
-    letterSpacing: 0.7,
-    fontFamily: theme.fonts.regular,
+    overflow: 'hidden', // Clip GIF if needed
   },
 
   /* New Styles for Layout Shift */
@@ -144,8 +141,9 @@ const styles = StyleSheet.create((theme) => ({
     marginBottom: 0,
   },
 
-  sadSprigCircle: {
-    width: 120,
-    height: 120,
+  sprigCircle: {
+    width: 100,
+    height: 100,
+    // Adjust positioning to center the sprite perfectly if needed
   },
 }));
