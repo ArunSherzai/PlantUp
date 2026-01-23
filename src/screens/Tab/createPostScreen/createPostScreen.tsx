@@ -25,7 +25,8 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import * as VideoThumbnails from 'expo-video-thumbnails';
-import { Video } from 'react-native-compressor';
+import { Video as Compressor } from 'react-native-compressor';
+import Video from 'react-native-video';
 import DraggableBottomSheet from '~/components/DraggableBottomSheet';
 import SensorDisplayCard from '~/components/SensorDisplayCard';
 
@@ -33,7 +34,8 @@ import { db } from '../../../utils/supabase';
 import { useUserStore } from '../../../stores/UserStore';
 import { playSound } from '~/utils/SoundManager';
 
-const { height } = Dimensions.get('window');
+
+const { height, width } = Dimensions.get('window');
 
 // Limit: 50 MB (Damit auch Videos passen)
 const MAX_SIZE = 50 * 1024 * 1024;
@@ -66,6 +68,11 @@ export default function CreatePostScreen() {
     thumbnailUri?: string; // New field for thumbnail
   } | null>(null);
 
+  const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
+
+  // Video Playback State
+  const [isVideoPaused, setIsVideoPaused] = useState(true);
+
   // --- SENSOR SELECTION STATE ---
   const [showSensorSelection, setShowSensorSelection] = useState(false);
   const [selectionStep, setSelectionStep] = useState<'plants' | 'records'>('plants');
@@ -82,10 +89,10 @@ export default function CreatePostScreen() {
   const closeMenu = () => setShowAttachmentMenu(false);
 
   // --- FUNKTION: FOTO & VIDEO AUSWÄHLEN ---
-  const pickMedia = async () => {
+  const pickMedia = async (mediaType: ImagePicker.MediaTypeOptions = ImagePicker.MediaTypeOptions.All) => {
     closeMenu();
     const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.All,
+      mediaTypes: mediaType,
       quality: 0.7,
       videoMaxDuration: 60,
       allowsEditing: true,
@@ -99,11 +106,23 @@ export default function CreatePostScreen() {
         return;
       }
 
+      let thumbnailUri = undefined;
+      // If we picked a video, generate thumbnail (or if we picked 'All' and got a video)
+      if (asset.type === 'video') {
+        try {
+          const { uri } = await VideoThumbnails.getThumbnailAsync(asset.uri);
+          thumbnailUri = uri;
+        } catch (e) {
+          console.warn('Could not generate thumbnail', e);
+        }
+      }
+
       setMedia({
         uri: asset.uri,
         type: asset.type === 'video' ? 'video' : 'image',
         mimeType: asset.mimeType || (asset.type === 'video' ? 'video/mp4' : 'image/jpeg'),
         name: asset.fileName || `upload.${asset.type === 'video' ? 'mp4' : 'jpg'}`,
+        thumbnailUri,
       });
     }
   };
@@ -297,7 +316,7 @@ export default function CreatePostScreen() {
         if (media.type === 'video') {
           try {
             console.log('Compressing video...');
-            const compressedUri = await Video.compress(
+            const compressedUri = await Compressor.compress(
               media.uri,
               {
                 compressionMethod: 'auto',
@@ -521,47 +540,144 @@ export default function CreatePostScreen() {
             />
           </KeyboardAwareScrollView>
 
-          {/* 3. PREVIEW BAR */}
-          {media && (
-            <View style={styles.previewBar}>
-              {media.type === 'sensor' ? (
-                <View style={{ width: '100%', paddingVertical: 10 }}>
-                  <View style={[styles.previewContent, { marginBottom: 10 }]}>
-                    <FontAwesome6 name="leaf" size={16} color="#329D9C" />
-                    <Text style={styles.previewText} numberOfLines={1}>
-                      {media.name}
-                    </Text>
-                    <TouchableOpacity onPress={() => setMedia(null)} style={{ marginLeft: 'auto' }}>
-                      <FontAwesome6 name="xmark" size={16} color="#999" />
-                    </TouchableOpacity>
-                  </View>
-                  <SensorDisplayCard data={media.sensorData} />
+          {/* 3. PREVIEW AREA: MEDIA or THOUGHT */}
+          <View style={styles.previewWrapper}>
+            {media ? (
+              media.type === 'document' || media.type === 'sensor' ? (
+                // Document/Sensor Card Style (Keep Compact)
+                <View style={styles.previewBar}>
+                  {media.type === 'sensor' ? (
+                    <View style={{ width: '100%', paddingVertical: 10 }}>
+                      <View style={[styles.previewContent, { marginBottom: 10 }]}>
+                        <FontAwesome6 name="leaf" size={16} color="#329D9C" />
+                        <Text style={styles.previewText} numberOfLines={1}>
+                          {media.name}
+                        </Text>
+                        <TouchableOpacity onPress={() => setMedia(null)} style={{ marginLeft: 'auto' }}>
+                          <FontAwesome6 name="xmark" size={16} color="#999" />
+                        </TouchableOpacity>
+                      </View>
+                      <SensorDisplayCard data={media.sensorData} />
+                    </View>
+                  ) : (
+                    <View style={[styles.previewContent, { width: '100%' }]}>
+                      <FontAwesome6 name="file-lines" size={16} color={theme.colors.primary} />
+                      <Text style={styles.previewText} numberOfLines={1}>
+                        {media.name || media.type}
+                      </Text>
+                      <TouchableOpacity onPress={() => setMedia(null)} style={{ marginLeft: 'auto' }}>
+                        <FontAwesome6 name="xmark" size={16} color={theme.colors.greyedOut} />
+                      </TouchableOpacity>
+                    </View>
+                  )}
                 </View>
               ) : (
-                <>
-                  <View style={styles.previewContent}>
-                    <FontAwesome6
-                      name={
-                        media.type === 'image'
-                          ? 'image'
-                          : media.type === 'video'
-                            ? 'video'
-                            : 'file-lines'
-                      }
-                      size={16}
-                      color="#329D9C"
-                    />
-                    <Text style={styles.previewText} numberOfLines={1}>
-                      {media.name || media.type}
-                    </Text>
-                  </View>
-                  <TouchableOpacity onPress={() => setMedia(null)}>
-                    <FontAwesome6 name="xmark" size={16} color="#999" />
+                // Media Preview (Video/Image) - 9:16 Aspect Ratio
+                <View style={styles.feedPreviewContainer}>
+                  {media.type === 'video' ? (
+                    <View style={{ flex: 1, position: 'relative' }}>
+                      <Video
+                        source={{ uri: media.uri }}
+                        style={styles.feedMediaImage}
+                        resizeMode="contain"
+                        controls={false}
+                        paused={isVideoPaused}
+                        repeat={true}
+                      />
+                      <Pressable
+                        onPress={() => setIsVideoPaused(!isVideoPaused)}
+                        style={StyleSheet.absoluteFill}
+                      >
+                        {/* Centered Play Icon */}
+                        {isVideoPaused && (
+                          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                            <View style={styles.playIconContainer}>
+                              <FontAwesome6 name="play" size={40} color="rgba(255,255,255,0.8)" />
+                            </View>
+                          </View>
+                        )}
+                      </Pressable>
+                    </View>
+                  ) : (
+                    <TouchableOpacity onPress={() => setFullScreenImage(media.uri)} style={{ flex: 1 }}>
+                      <Image
+                        source={{ uri: media.uri }}
+                        style={styles.feedMediaImage}
+                        resizeMode="contain"
+                      />
+                    </TouchableOpacity>
+                  )}
+
+                  {/* Remove Button (Top Right) */}
+                  <TouchableOpacity
+                    style={styles.closeButtonOverlay}
+                    onPress={() => setMedia(null)}
+                  >
+                    <FontAwesome6 name="xmark" size={18} color="white" />
                   </TouchableOpacity>
-                </>
-              )}
-            </View>
-          )}
+                </View>
+              )
+            ) : caption.length > 0 ? (
+              // THOUGHT BUBBLE PREVIEW (If no media, but text exists)
+              <LinearGradient
+                colors={[
+                  theme.colors.surface,
+                  (theme.colors.surface.toUpperCase() === '#FFFFFF' || theme.colors.surface.toUpperCase() === '#FFF')
+                    ? '#F0F0F0'
+                    : '#2A2E32'
+                ]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[
+                  styles.imageContainer,
+                  { aspectRatio: 0.8 } // Default aspect ratio for preview
+                ]}
+              >
+                {/* Decorative Background Elements */}
+                <View style={styles.backgroundDecoration}>
+                  <FontAwesome6 name="leaf" size={80} color={theme.colors.primary} style={{ opacity: 0.03, transform: [{ rotate: '-20deg' }] }} />
+                </View>
+                <View style={{ position: 'absolute', top: height * 0.02, right: width * 0.04, opacity: 0.1 }}>
+                  <FontAwesome6 name="quote-right" size={30} color={theme.colors.primary} />
+                </View>
+
+                {/* Stylized Curved Accent */}
+                <View style={[styles.curvedAccent, { backgroundColor: theme.colors.primary }]} />
+
+                {/* Badge at top */}
+                <View style={styles.badgeContainer}>
+                  <View style={[styles.badge, { backgroundColor: theme.colors.primary + '20' }]}>
+                    <Text style={[styles.badgeText, { color: theme.colors.primary }]}>Thought</Text>
+                  </View>
+                </View>
+
+                {/* Main Content */}
+                <View style={{ paddingHorizontal: width * 0.04, flex: 1, justifyContent: 'center', zIndex: 1 }}>
+                  {(() => {
+                    const cleanCaption = caption ? caption.replace(/#\w+/g, '').trim() : "No content";
+                    const isShort = cleanCaption.length < 60;
+
+                    return (
+                      <Text
+                        style={[
+                          styles.textBody,
+                          {
+                            color: theme.colors.text,
+                            fontSize: isShort ? width * 0.045 : width * 0.035,
+                            fontWeight: isShort ? '700' : '500',
+                            lineHeight: isShort ? width * 0.06 : width * 0.05,
+                          }
+                        ]}
+                        numberOfLines={6}
+                      >
+                        {cleanCaption}
+                      </Text>
+                    );
+                  })()}
+                </View>
+              </LinearGradient>
+            ) : null}
+          </View>
 
           {/* 4. BUTTON UNTEN */}
           <View style={styles.toolbar}>
@@ -587,7 +703,19 @@ export default function CreatePostScreen() {
             <Text style={styles.modalTitle}>Add to your post</Text>
 
             <View style={styles.gridContainer}>
-              <AttachmentCard icon="image" color="#4A90E2" label="Media" onPress={pickMedia} />
+
+              <AttachmentCard
+                icon="image"
+                color="#4A90E2"
+                label="Photo"
+                onPress={() => pickMedia(ImagePicker.MediaTypeOptions.Images)}
+              />
+              <AttachmentCard
+                icon="video"
+                color="#E056FD"
+                label="Video"
+                onPress={() => pickMedia(ImagePicker.MediaTypeOptions.Videos)}
+              />
               {/* GIF Button Removed */}
               <AttachmentCard
                 icon="file-lines"
@@ -680,6 +808,30 @@ export default function CreatePostScreen() {
           </View>
         </Pressable>
       </Modal>
+
+      {/* 6. FULL SCREEN IMAGE MODAL */}
+      <Modal
+        visible={!!fullScreenImage}
+        transparent={true}
+        animationType="fade"
+        statusBarTranslucent={true}
+        onRequestClose={() => setFullScreenImage(null)}
+      >
+        <View style={styles.fullScreenContainer}>
+          <StatusBar hidden={true} />
+          <Image
+            source={{ uri: fullScreenImage || '' }}
+            style={styles.fullScreenImage}
+            resizeMode="contain"
+          />
+          <TouchableOpacity
+            style={styles.closeFullScreenButton}
+            onPress={() => setFullScreenImage(null)}
+          >
+            <FontAwesome6 name="xmark" size={24} color="white" />
+          </TouchableOpacity>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -702,7 +854,7 @@ function AttachmentCard({ icon, color, label, onPress, isGifIcon }: any) {
 }
 
 // --- STYLES ---
-const styles = StyleSheet.create((theme) => ({
+const styles = StyleSheet.create((theme: any) => ({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
@@ -720,7 +872,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.1)', // Transparenz bleibt statisch, da es über einem Bild liegt
+    backgroundColor: 'rgba(0,0,0,0.1)',
   },
 
   safeArea: {
@@ -736,13 +888,13 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: 'center',
   },
   cancelText: {
-    color: theme.colors.typography, // Weiß im Lightmode, Hellgrau im Darkmode
+    color: theme.colors.typography,
     fontSize: 18,
     marginLeft: 8,
     fontWeight: '600',
   },
 
-  // Content Container - Feste Position
+  // Content Container
   contentContainer: {
     flex: 1,
     marginTop: height * 0.15,
@@ -760,12 +912,11 @@ const styles = StyleSheet.create((theme) => ({
 
   whiteSheet: {
     flex: 1,
-    backgroundColor: theme.colors.surface, // Passt sich an (Weiß vs Dunkelgrau)
+    backgroundColor: theme.colors.surface,
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     paddingHorizontal: 24,
     paddingTop: 24,
-    // Kein Padding Bottom mehr - wird durch flex: 1 geregelt
   },
 
   userRow: {
@@ -789,7 +940,7 @@ const styles = StyleSheet.create((theme) => ({
   usernameText: {
     fontSize: 17,
     fontWeight: 'bold',
-    color: theme.colors.text,
+    color: theme.colors.typography,
     flexShrink: 1,
     maxWidth: 180,
   },
@@ -797,17 +948,15 @@ const styles = StyleSheet.create((theme) => ({
     paddingVertical: 8,
     paddingHorizontal: 20,
     borderRadius: 10,
-    // Falls der Button einen Hintergrund braucht, wäre hier theme.colors.primary sinnvoll
   },
   postButtonText: {
-    color: theme.colors.typography,
+    color: 'white',
     fontWeight: 'bold',
-    fontSize: 14,
+    fontSize: 16,
   },
 
-  // Input Container - Nur für den TextInput scrollable
   inputContainer: {
-    flex: 1, // Nimmt den verfügbaren Platz ein
+    flex: 1,
     marginBottom: 10,
   },
   inputContent: {
@@ -815,57 +964,153 @@ const styles = StyleSheet.create((theme) => ({
   },
   input: {
     fontSize: 18,
-    color: theme.colors.text,
-    textAlignVertical: 'top',
+    color: theme.colors.typography,
     minHeight: 120,
+    textAlignVertical: 'top',
   },
 
-  // Preview Leiste
+  // --- PREVIEW STYLES ---
+  previewWrapper: {
+    marginBottom: 20,
+  },
   previewBar: {
+    backgroundColor: theme.colors.background,
+    borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: theme.colors.background,
     padding: 12,
-    borderRadius: 12,
-    marginBottom: 10,
+    justifyContent: 'space-between',
     borderWidth: 1,
     borderColor: theme.colors.greyedOut,
   },
   previewContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
     flex: 1,
+    gap: 10,
   },
   previewText: {
+    color: theme.colors.typography,
     fontSize: 14,
-    color: theme.colors.text,
     fontWeight: '500',
-    flex: 1,
+    flexShrink: 1,
   },
 
-  // Toolbar - Fest am Boden
+  // --- FEED STYLE PREVIEW ---
+  feedPreviewContainer: {
+    width: '100%',
+    height: height * 0.5,
+    borderRadius: 20,
+    overflow: 'hidden',
+    backgroundColor: 'black',
+    position: 'relative',
+    marginBottom: 10,
+  },
+  feedMediaImage: {
+    width: '100%',
+    height: '100%',
+  },
+  closeButtonOverlay: {
+    position: 'absolute',
+    top: 15,
+    right: 15,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    padding: 10,
+    borderRadius: 20,
+    zIndex: 10,
+  },
+  playIconContainer: {
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderRadius: 40,
+    width: 70,
+    height: 70,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // --- THOUGHT BUBBLE STYLES ---
+  imageContainer: {
+    width: '100%',
+    borderRadius: 16,
+    overflow: 'hidden',
+    position: 'relative',
+    padding: 20,
+  },
+  backgroundDecoration: {
+    position: 'absolute',
+    bottom: -20,
+    right: -20,
+    zIndex: 0,
+  },
+  curvedAccent: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 40,
+    height: 40,
+    borderBottomRightRadius: 40,
+    opacity: 0.1,
+  },
+  badgeContainer: {
+    flexDirection: 'row',
+    marginBottom: 10,
+    zIndex: 5,
+  },
+  badge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  textBody: {
+    textAlign: 'center',
+  },
+
+  // --- FULL SCREEN ---
+  fullScreenContainer: {
+    flex: 1,
+    backgroundColor: 'black',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullScreenImage: {
+    width: '100%',
+    height: '100%',
+  },
+  closeFullScreenButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 20,
+    padding: 10,
+    zIndex: 20,
+  },
+
+  // Toolbar
   toolbar: {
-    marginTop: 'auto', // Wird nach unten geschoben
+    marginTop: 'auto',
     borderTopWidth: 1,
     borderTopColor: theme.colors.greyedOut,
     paddingTop: 15,
-    paddingBottom: 20, // Sicherheits-Padding
+    paddingBottom: 20,
   },
   addAttachmentButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: theme.colors.surface, // Fallback, da kein "lightSecondary" definiert ist
+    backgroundColor: theme.colors.surface,
     padding: 12,
     borderRadius: 12,
     alignSelf: 'flex-start',
     borderWidth: 1,
-    borderColor: theme.colors.accent, // Hinzugefügt für bessere Sichtbarkeit im Darkmode
+    borderColor: theme.colors.typography,
   },
   addAttachmentText: {
-    color: theme.colors.accent,
+    color: theme.colors.typography,
     fontWeight: '600',
     fontSize: 14,
   },
@@ -895,7 +1140,7 @@ const styles = StyleSheet.create((theme) => ({
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: theme.colors.text,
+    color: theme.colors.typography,
     marginBottom: 20,
   },
   gridContainer: {
@@ -906,7 +1151,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   attachmentCard: {
     width: '47%',
-    backgroundColor: theme.colors.background, // Kontrast zum Modal Surface
+    backgroundColor: theme.colors.background,
     borderRadius: 16,
     padding: 15,
     height: 100,
@@ -932,7 +1177,7 @@ const styles = StyleSheet.create((theme) => ({
   attachmentLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: theme.colors.text,
+    color: theme.colors.typography,
   },
   gifIcon: {
     borderWidth: 2,
@@ -941,9 +1186,10 @@ const styles = StyleSheet.create((theme) => ({
     height: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    borderColor: theme.colors.icon, // Annahme: Icon Border passt zur Icon Farbe
+    borderColor: theme.colors.typography,
   },
-  // Sensor Modal Specific Styles
+
+  // Sensor Modal
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -982,7 +1228,7 @@ const styles = StyleSheet.create((theme) => ({
   listItemTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: theme.colors.text,
+    color: theme.colors.typography,
   },
   recordsList: {
     backgroundColor: theme.colors.surface,
@@ -998,7 +1244,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   recordTime: {
     fontSize: 14,
-    color: theme.colors.text,
+    color: theme.colors.typography,
     flex: 1,
   },
   recordValues: {
@@ -1007,7 +1253,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   recordValueText: {
     fontSize: 13,
-    color: theme.colors.secondary,
+    color: theme.colors.typography,
     fontWeight: '500',
   },
   noRecordsText: {
