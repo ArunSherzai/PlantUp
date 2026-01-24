@@ -16,6 +16,7 @@ import { TapGestureHandler, LongPressGestureHandler, State, GestureHandlerRootVi
 import BottomSheet, { BottomSheetView, BottomSheetTextInput, BottomSheetScrollView, BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming, runOnJS } from 'react-native-reanimated';
 import SensorDisplayCard from '../../../components/SensorDisplayCard';
+import MentorBadge from '../../../components/MentorBadge';
 import { ScrollView } from 'react-native-gesture-handler';
 
 // We need the RouteProp to access params
@@ -629,9 +630,9 @@ export default function FeedPostDetailScreen() {
                 {/* Right Side Actions (Flex aligned to bottom-right) */}
                 {/* Right Side Actions (Flex aligned to bottom-right) */}
                 <Animated.View style={[
-                        styles.rightActionsContainer,
-                        { backgroundColor: 'transparent', paddingBottom: 10 },
-                    ]}>
+                    styles.rightActionsContainer,
+                    { backgroundColor: 'transparent', paddingBottom: 10 },
+                ]}>
                     <TouchableOpacity style={styles.rightActionItem} onPress={handleLike}>
                         <Animated.View style={animatedHeartStyle}>
                             <FontAwesome6
@@ -692,7 +693,14 @@ export default function FeedPostDetailScreen() {
                                             style={styles.avatar}
                                         />
                                         <View style={{ flex: 1 }}>
-                                            <Text style={[styles.username, { color: theme.colors.text }]}>{post?.Users?.username || 'Observer'}</Text>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                                <Text style={[styles.username, { color: theme.colors.text }]}>{post?.Users?.username || 'Observer'}</Text>
+                                                {(post?.Users as any)?.level >= 25 && (
+                                                    <View style={{ marginLeft: 6 }}>
+                                                        <MentorBadge size="small" />
+                                                    </View>
+                                                )}
+                                            </View>
                                             <Text style={[styles.caption, { color: theme.colors.text }]} numberOfLines={2}>
                                                 {isTextPost ? getHashtags(post?.caption) : (post?.caption || 'My Pink Princess #post #plslikeandfollow')}
                                             </Text>
@@ -750,7 +758,7 @@ export default function FeedPostDetailScreen() {
                     {/* Footer: Input (Always Visible) */}
                     <View style={[styles.inputContainer, { backgroundColor: theme.colors.surface, borderTopColor: '#f0f0f0' }]}>
                         <Image
-                            source={profile?.profile_image ? { uri: profile.profile_image } : require('../../../../assets/images/Profilbild.png')}
+                            source={profile?.profile_image ? { uri: profile.profile_image } : require('../../../../assets/images/Profilbild.jpg')}
                             style={styles.inputAvatar}
                         />
                         <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background }]}>

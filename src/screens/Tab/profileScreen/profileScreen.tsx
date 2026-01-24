@@ -26,6 +26,8 @@ import { FontAwesome5 } from '@expo/vector-icons';
 import RewardDetailsModal from '../../../components/RewardDetailsModal';
 import PlantPotPreview, { PlantMode } from '../../../components/PlantPotPreview';
 import { useMemo, memo } from 'react';
+import MentorBadge from '../../../components/MentorBadge';
+import { isMentor } from '../../../utils/mentorUtils';
 import { FlatList } from 'react-native';
 
 
@@ -402,6 +404,11 @@ export default function ProfileScreen() {
                   <Text style={[styles.userName, { color: theme.colors.text }]}>
                     {profile?.username || user?.email?.split('@')[0] || 'Gardener'}
                   </Text>
+                  {(profile?.level || 0) >= 25 && (
+                    <View style={{ marginLeft: 8 }}>
+                      <MentorBadge size="medium" />
+                    </View>
+                  )}
                 </View>
 
                 <TouchableOpacity

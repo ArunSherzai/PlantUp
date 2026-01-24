@@ -3,13 +3,16 @@ import { View, Text, StyleSheet, TextInput, FlatList, Image, TouchableOpacity, S
 import { useUnistyles } from 'react-native-unistyles';
 import { StackScreenProps } from '@react-navigation/stack';
 import { RootStackParamList } from '../../../navigation/Root';
-import FontAwesome6 from '@expo/vector-icons/FontAwesome6'; // Import FontAwesome6
+import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import DeveloperMenu from '../../../components/DeveloperMenu'; // Import DeveloperMenu
-import { useDMStore, Conversation } from '../../../stores/DMStore'; // Import DMStore
+import DeveloperMenu from '../../../components/DeveloperMenu';
+import { useDMStore, Conversation } from '../../../stores/DMStore';
 import { useUserStore } from '../../../stores/UserStore';
+import { useMentorStore, Mentor } from '../../../stores/MentorStore';
 import { db } from '../../../utils/supabase';
 import { playSound } from '~/utils/SoundManager';
+import { getAvatarSource } from '../../../utils/avatarUtils';
+import MentorBadge from '../../../components/MentorBadge';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -31,7 +34,8 @@ export default function DirectMessagesScreen() {
     const insets = useSafeAreaInsets();
     const [searchQuery, setSearchQuery] = useState('');
     const [sprigTip, setSprigTip] = useState<StoredTip | null>(null);
-    const [showDevMenu, setShowDevMenu] = useState(false); // State for dev menu
+    const [showDevMenu, setShowDevMenu] = useState(false);
+    const [activeTab, setActiveTab] = useState<'messages' | 'mentors'>('messages');
 
     // New Chat Modal State
     const [showNewChatModal, setShowNewChatModal] = useState(false);
@@ -42,6 +46,7 @@ export default function DirectMessagesScreen() {
     // Store hooks
     const { conversations, fetchConversations, loading, getOrCreateConversation, subscribeToInbox } = useDMStore();
     const { user } = useUserStore();
+    const { mentors, fetchMentors, sendRequest, outgoingRequests, fetchOutgoingRequests, getRequestStatus, loading: mentorLoading } = useMentorStore();
 
     useFocusEffect(
         React.useCallback(() => {
@@ -51,22 +56,22 @@ export default function DirectMessagesScreen() {
             };
             fetchTip();
 
-            // Fetch real conversations
             if (user) {
                 fetchConversations();
+                fetchMentors();
+                fetchOutgoingRequests();
             }
-
-            // Note: Subscription is handled globally in UserStore on login
-            // so we don't need to subscribe/unsubscribe here.
         }, [user])
     );
 
-    // Helper to resolve avatar URL
-    const getAvatarSource = (path: string | null) => {
-        if (!path) return require('../../../../assets/images/pfp2.webp');
-        if (path.startsWith('http')) return { uri: path };
-        const { data } = db.public.storage.from('avatar').getPublicUrl(path);
-        return { uri: data.publicUrl };
+    // Helper to handle mentor request
+    const handleMentorRequest = async (mentorId: string) => {
+        const success = await sendRequest(mentorId);
+        if (success) {
+            Alert.alert('Request Sent', 'Your mentorship request has been sent!');
+        } else {
+            Alert.alert('Request Failed', 'Unable to send request. You may have already sent one.');
+        }
     };
 
     // Search Users Effect
@@ -146,7 +151,7 @@ export default function DirectMessagesScreen() {
             const name = partner?.username || 'Unknown';
             // Avatar logic: standard object or default placeholder if missing
             // DMStore already resolves the full URL into avatar_path for us
-            const avatar = partner?.avatar_path ? { uri: partner.avatar_path } : require('../../../../assets/images/pfp2.webp'); // Fallback
+            const avatar = getAvatarSource(partner?.avatar_path);
 
             let timeStr = '';
             if (c.last_message) {
@@ -248,48 +253,139 @@ export default function DirectMessagesScreen() {
 
             {/* Content Section (White Card) */}
             <View style={[styles.contentContainer, { backgroundColor: theme.colors.background }]}>
-                <View style={styles.contentHeader}>
-                    <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Messages</Text>
-
-                    {/* Add New Chat Button */}
+                {/* Tab Switcher */}
+                <View style={styles.tabContainer}>
                     <TouchableOpacity
-                        style={[styles.newChatButton, { backgroundColor: theme.colors.primary }]}
-                        onPress={() => setShowNewChatModal(true)}
+                        style={[styles.tab, activeTab === 'messages' && styles.activeTab]}
+                        onPress={() => setActiveTab('messages')}
                     >
-                        <FontAwesome name="plus" size={20} color="#FFF" />
+                        <Text style={[styles.tabText, activeTab === 'messages' && styles.activeTabText]}>Messages</Text>
                     </TouchableOpacity>
-
+                    <TouchableOpacity
+                        style={[styles.tab, activeTab === 'mentors' && styles.activeTab]}
+                        onPress={() => setActiveTab('mentors')}
+                    >
+                        <Text style={[styles.tabText, activeTab === 'mentors' && styles.activeTabText]}>Mentors</Text>
+                        <FontAwesome6 name="seedling" size={14} color={activeTab === 'mentors' ? '#4CAF50' : '#999'} style={{ marginLeft: 4 }} />
+                    </TouchableOpacity>
                 </View>
 
-                {/* Search Bar */}
-                <View style={styles.searchContainer}>
-                    <TextInput
-                        style={[styles.searchInput, { backgroundColor: '#F0F0F0', color: '#000' }]}
-                        placeholder="Search messages..."
-                        placeholderTextColor="#999"
-                        value={searchQuery}
-                        onChangeText={setSearchQuery}
-                    />
-                </View>
-
-                {/* Message List */}
-                <FlatList
-                    data={filteredMessages}
-                    extraData={conversations} // added to ensure re-render on store update
-                    renderItem={renderItem}
-                    keyExtractor={(item) => item.id}
-                    contentContainerStyle={styles.listContent}
-                    refreshing={loading}
-                    onRefresh={async () => {
-                        await fetchConversations();
-                        playSound('reload');
-                    }}
-                    ListEmptyComponent={
-                        <View style={{ alignItems: 'center', marginTop: 50 }}>
-                            <Text style={{ color: theme.colors.greyedOut }}>No messages yet.</Text>
+                {activeTab === 'messages' ? (
+                    <>
+                        <View style={styles.contentHeader}>
+                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Messages</Text>
+                            <TouchableOpacity
+                                style={[styles.newChatButton, { backgroundColor: theme.colors.primary }]}
+                                onPress={() => setShowNewChatModal(true)}
+                            >
+                                <FontAwesome name="plus" size={20} color="#FFF" />
+                            </TouchableOpacity>
                         </View>
-                    }
-                />
+
+                        <View style={styles.searchContainer}>
+                            <TextInput
+                                style={[styles.searchInput, { backgroundColor: '#F0F0F0', color: '#000' }]}
+                                placeholder="Search messages..."
+                                placeholderTextColor="#999"
+                                value={searchQuery}
+                                onChangeText={setSearchQuery}
+                            />
+                        </View>
+
+                        <FlatList
+                            data={filteredMessages}
+                            extraData={conversations}
+                            renderItem={renderItem}
+                            keyExtractor={(item) => item.id}
+                            contentContainerStyle={styles.listContent}
+                            refreshing={loading}
+                            onRefresh={async () => {
+                                await fetchConversations();
+                                playSound('reload');
+                            }}
+                            ListEmptyComponent={
+                                <View style={{ alignItems: 'center', marginTop: 50 }}>
+                                    <Text style={{ color: theme.colors.greyedOut }}>No messages yet.</Text>
+                                </View>
+                            }
+                        />
+                    </>
+                ) : (
+                    <>
+                        <View style={styles.contentHeader}>
+                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Find a Mentor</Text>
+                        </View>
+
+                        <FlatList
+                            data={mentors}
+                            keyExtractor={(item) => item.id}
+                            contentContainerStyle={styles.listContent}
+                            refreshing={mentorLoading}
+                            onRefresh={async () => {
+                                await fetchMentors();
+                                await fetchOutgoingRequests();
+                                playSound('reload');
+                            }}
+                            renderItem={({ item }: { item: Mentor }) => {
+                                const status = getRequestStatus(item.id);
+                                return (
+                                    <View style={styles.mentorItem}>
+                                        <View style={styles.avatarContainer}>
+                                            <Image source={getAvatarSource(item.avatar_path)} style={styles.avatar} resizeMode="cover" />
+                                        </View>
+                                        <View style={styles.mentorContent}>
+                                            <View style={styles.mentorHeader}>
+                                                <Text style={[styles.name, { color: theme.colors.text }]}>{item.username}</Text>
+                                                <MentorBadge size="small" />
+                                            </View>
+                                            <Text style={[styles.mentorLevel, { color: theme.colors.greyedOut }]}>Level {item.level} • {item.post_count} posts</Text>
+                                        </View>
+                                        {status === 'none' ? (
+                                            <TouchableOpacity
+                                                style={[styles.requestButton, { backgroundColor: theme.colors.primary }]}
+                                                onPress={() => handleMentorRequest(item.id)}
+                                            >
+                                                <Text style={styles.requestButtonText}>Request</Text>
+                                            </TouchableOpacity>
+                                        ) : status === 'pending' ? (
+                                            <View style={[styles.requestButton, styles.pendingButton]}>
+                                                <Text style={styles.pendingButtonText}>Pending</Text>
+                                            </View>
+                                        ) : status === 'accepted' ? (
+                                            <TouchableOpacity
+                                                style={[styles.requestButton, styles.acceptedButton]}
+                                                onPress={async () => {
+                                                    const convId = await getOrCreateConversation(item.id);
+                                                    if (convId) {
+                                                        navigation.navigate('MessageDetail', {
+                                                            id: convId,
+                                                            name: item.username,
+                                                            avatar: getAvatarSource(item.avatar_path),
+                                                        });
+                                                    }
+                                                }}
+                                            >
+                                                <Text style={styles.acceptedButtonText}>Chat</Text>
+                                            </TouchableOpacity>
+                                        ) : (
+                                            <View style={[styles.requestButton, styles.rejectedButton]}>
+                                                <Text style={styles.rejectedButtonText}>Declined</Text>
+                                            </View>
+                                        )}
+                                    </View>
+                                );
+                            }}
+                            ListEmptyComponent={
+                                <View style={{ alignItems: 'center', marginTop: 50 }}>
+                                    <Text style={{ color: theme.colors.greyedOut }}>No mentors available yet.</Text>
+                                    <Text style={[{ color: theme.colors.greyedOut, marginTop: 8, textAlign: 'center', paddingHorizontal: 20 }]}>
+                                        Mentors are users with level 25+ and 5+ posts.
+                                    </Text>
+                                </View>
+                            }
+                        />
+                    </>
+                )}
             </View>
 
             {/* New Chat Modal */}
@@ -527,5 +623,91 @@ const styles = StyleSheet.create({
         color: '#FFF',
         fontSize: vw * 2.8,
         fontWeight: 'bold',
+    },
+    // Tab Switcher Styles
+    tabContainer: {
+        flexDirection: 'row',
+        marginBottom: vh * 2,
+        backgroundColor: '#F0F0F0',
+        borderRadius: vw * 6,
+        padding: 4,
+    },
+    tab: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: vh * 1.2,
+        borderRadius: vw * 5,
+    },
+    activeTab: {
+        backgroundColor: '#FFF',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 2,
+    },
+    tabText: {
+        fontSize: vw * 3.8,
+        fontWeight: '500',
+        color: '#999',
+    },
+    activeTabText: {
+        color: '#333',
+        fontWeight: '600',
+    },
+    // Mentor List Styles
+    mentorItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: vh * 2,
+        paddingVertical: vh * 1,
+    },
+    mentorContent: {
+        flex: 1,
+    },
+    mentorHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 2,
+    },
+    mentorLevel: {
+        fontSize: vw * 3.2,
+    },
+    requestButton: {
+        paddingHorizontal: vw * 4,
+        paddingVertical: vh * 1,
+        borderRadius: vw * 4,
+        marginLeft: vw * 2,
+    },
+    requestButtonText: {
+        color: '#FFF',
+        fontWeight: '600',
+        fontSize: vw * 3.2,
+    },
+    pendingButton: {
+        backgroundColor: '#FFC107',
+    },
+    pendingButtonText: {
+        color: '#333',
+        fontWeight: '600',
+        fontSize: vw * 3.2,
+    },
+    acceptedButton: {
+        backgroundColor: '#4CAF50',
+    },
+    acceptedButtonText: {
+        color: '#FFF',
+        fontWeight: '600',
+        fontSize: vw * 3.2,
+    },
+    rejectedButton: {
+        backgroundColor: '#E0E0E0',
+    },
+    rejectedButtonText: {
+        color: '#666',
+        fontWeight: '500',
+        fontSize: vw * 3.2,
     },
 });

@@ -30,10 +30,10 @@ export function useUserProfile(userId: string | undefined) {
             try {
                 // 1. Fetch Gamification Stats
                 const statsPromise = db.gamification
-                    .from('player_stats')
+                    .from('Player_stats')
                     .select('xp, level')
                     .eq('user_id', userId)
-                    .single();
+                    .maybeSingle();
 
                 // 2. Fetch User Data
                 const userPromise = db.user
@@ -59,6 +59,9 @@ export function useUserProfile(userId: string | undefined) {
                     .maybeSingle();
 
                 const [statsResult, userResult, titleResult, borderResult] = await Promise.all([statsPromise, userPromise, titlePromise, borderPromise]);
+
+                // Debug logging
+                console.log('[useUserProfile] Stats result for', userId, ':', statsResult.data, statsResult.error);
 
                 const statsData = statsResult.data;
                 const userData = userResult.data;
