@@ -80,6 +80,9 @@ export default function FeedPostDetailScreen() {
     // Animation State
     const heartScale = useSharedValue(1);
     const [showHeartBreak, setShowHeartBreak] = useState(false);
+    const [showHeartOverlay, setShowHeartOverlay] = useState(false);
+    const heartOverlayScale = useSharedValue(0);
+    const heartOverlayOpacity = useSharedValue(0);
     const progress = useSharedValue(0); // Video Progress
     const durationRef = useRef(0);
 
@@ -256,10 +259,19 @@ export default function FeedPostDetailScreen() {
     };
 
     const animateLike = () => {
+        // Sidebar heart animation
         heartScale.value = withSequence(
             withSpring(1.5, { damping: 10, stiffness: 200 }),
             withSpring(1, { damping: 10, stiffness: 200 })
         );
+        // Large heart overlay animation
+        setShowHeartOverlay(true);
+        heartOverlayScale.value = 0;
+        heartOverlayOpacity.value = 1;
+        heartOverlayScale.value = withSpring(1, { damping: 8, stiffness: 150 });
+        heartOverlayOpacity.value = withTiming(0, { duration: 800 }, () => {
+            runOnJS(setShowHeartOverlay)(false);
+        });
     };
 
     const animateDislike = () => {
@@ -324,9 +336,15 @@ export default function FeedPostDetailScreen() {
         };
     });
 
+    const animatedHeartOverlayStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: heartOverlayScale.value }],
+        opacity: heartOverlayOpacity.value,
+    }));
+
     const animatedProgressStyle = useAnimatedStyle(() => ({
         width: `${progress.value * 100}%`,
     }));
+
 
     const onVideoLoad = useCallback((data: any) => {
         setIsVideoReady(true);
@@ -435,7 +453,10 @@ export default function FeedPostDetailScreen() {
     // Gestures
     const onSingleTap = (event: any) => {
         if (event.nativeEvent.state === State.ACTIVE) {
-            setPaused(prev => !prev);
+            // Only toggle pause/play for video posts
+            if (isVideo) {
+                setPaused(prev => !prev);
+            }
         }
     };
 
@@ -443,6 +464,23 @@ export default function FeedPostDetailScreen() {
         if (event.nativeEvent.state === State.ACTIVE) {
             if (!isLiked) handleLike();
             else animateLike(); // Re-animate if already liked
+        }
+    };
+
+    // Hold-to-mute indicator state
+    const [showMuteIndicator, setShowMuteIndicator] = useState(false);
+
+    const onLongPress = (event: any) => {
+        if (event.nativeEvent.state === State.ACTIVE) {
+            // For videos: toggle mute
+            if (isVideo) {
+                setMuted(prev => !prev);
+                setShowMuteIndicator(true);
+                setTimeout(() => setShowMuteIndicator(false), 1000);
+            } else {
+                // For non-videos: open menu
+                setMenuStage('initial');
+            }
         }
     };
 
@@ -485,12 +523,9 @@ export default function FeedPostDetailScreen() {
                     numberOfTaps={2}
                 >
                     <LongPressGestureHandler
-                        onHandlerStateChange={({ nativeEvent }) => {
-                            if (nativeEvent.state === State.ACTIVE) {
-                                setMenuStage('initial');
-                            }
-                        }}
+                        onHandlerStateChange={onLongPress}
                         minDurationMs={500}
+
                     >
                         <View style={styles.backgroundContainer}>
                             {isBlocked ? (
@@ -591,7 +626,24 @@ export default function FeedPostDetailScreen() {
                                     <FontAwesome6 name="play" size={50} color="white" style={{ opacity: 0.8 }} />
                                 </View>
                             )}
+
+                            {/* Heart Like Overlay (shown on double-tap to like) */}
+                            {showHeartOverlay && (
+                                <Animated.View style={[styles.heartOverlay, animatedHeartOverlayStyle]} pointerEvents="none">
+                                    <FontAwesome6 name="heart" size={100} color="#FF3B30" solid />
+                                </Animated.View>
+                            )}
+
+                            {/* Mute Indicator Overlay (shown on long-press to toggle mute) */}
+                            {showMuteIndicator && isVideo && (
+                                <View style={styles.muteIndicatorOverlay}>
+                                    <View style={styles.muteIndicatorBg}>
+                                        <FontAwesome6 name={muted ? "volume-xmark" : "volume-high"} size={40} color="white" />
+                                    </View>
+                                </View>
+                            )}
                         </View>
+
                     </LongPressGestureHandler>
                 </TapGestureHandler>
             </TapGestureHandler>
@@ -629,9 +681,9 @@ export default function FeedPostDetailScreen() {
                 {/* Right Side Actions (Flex aligned to bottom-right) */}
                 {/* Right Side Actions (Flex aligned to bottom-right) */}
                 <Animated.View style={[
-                        styles.rightActionsContainer,
-                        { backgroundColor: 'transparent', paddingBottom: 10 },
-                    ]}>
+                    styles.rightActionsContainer,
+                    { backgroundColor: 'transparent', paddingBottom: 10 },
+                ]}>
                     <TouchableOpacity style={styles.rightActionItem} onPress={handleLike}>
                         <Animated.View style={animatedHeartStyle}>
                             <FontAwesome6
@@ -925,9 +977,39 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
+    heartOverlay: {
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        marginLeft: -50,
+        marginTop: -50,
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 100,
+    },
+    muteIndicatorOverlay: {
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        marginLeft: -40,
+        marginTop: -40,
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 100,
+    },
+    muteIndicatorBg: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
     // Removed headerSafeArea style as it is now inline or overlay
+
     // Bottom Sheet Styles
     bottomSheetContainer: {
+
         flex: 1,
         paddingHorizontal: 16,
     },
