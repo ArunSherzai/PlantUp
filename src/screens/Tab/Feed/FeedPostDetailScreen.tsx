@@ -17,6 +17,7 @@ import BottomSheet, { BottomSheetView, BottomSheetTextInput, BottomSheetScrollVi
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming, runOnJS } from 'react-native-reanimated';
 import SensorDisplayCard from '../../../components/SensorDisplayCard';
 import { ScrollView } from 'react-native-gesture-handler';
+import { logViewEvent, logLikeEvent, logCommentEvent, logSaveEvent, logFollowEvent, logReportEvent } from '../../../utils/interactionLogger';
 
 // We need the RouteProp to access params
 type FeedPostDetailRouteProp = RouteProp<RootStackParamList, 'FeedPostDetail'>;
@@ -132,6 +133,10 @@ export default function FeedPostDetailScreen() {
         if (post?.id) {
             checkInteractions();
             fetchComments();
+            // FYP: Log view event
+            if (user?.id) {
+                logViewEvent(user.id, post.id, 'detail');
+            }
         }
     }, [post?.id, user?.id]);
 
@@ -301,6 +306,7 @@ export default function FeedPostDetailScreen() {
 
         if (newLiked) {
             await db.social.from('post_interactions').insert({ user_id: user.id, post_id: post.id, interaction_type: 'like' });
+            logLikeEvent(user.id, post.id);
         } else {
             await db.social.from('post_interactions').delete().eq('user_id', user.id).eq('post_id', post.id).eq('interaction_type', 'like');
         }
@@ -313,6 +319,7 @@ export default function FeedPostDetailScreen() {
 
         if (newSaved) {
             await db.social.from('post_interactions').insert({ user_id: user.id, post_id: post.id, interaction_type: 'save' });
+            logSaveEvent(user.id, post.id);
         } else {
             await db.social.from('post_interactions').delete().eq('user_id', user.id).eq('post_id', post.id).eq('interaction_type', 'save');
         }
@@ -325,6 +332,7 @@ export default function FeedPostDetailScreen() {
 
         if (newFollowing) {
             await db.social.from('follows').insert({ follower_id: user.id, following_id: post.user_id });
+            logFollowEvent(user.id, post.id, post.user_id);
         } else {
             await db.social.from('follows').delete().eq('follower_id', user.id).eq('following_id', post.user_id);
         }
@@ -370,6 +378,7 @@ export default function FeedPostDetailScreen() {
 
             setMenuStage('none');
             setIsBlocked(true); // Auto-block locally after report
+            logReportEvent(user.id, post.id, reason);
             Alert.alert("Report Submitted", "Thank you for reporting this post. We will review it shortly.");
         } catch (err: any) {
             console.error(err);
@@ -430,6 +439,7 @@ export default function FeedPostDetailScreen() {
             post_id: post.id,
             description: text
         });
+        logCommentEvent(user.id, post.id);
     };
 
     // Input Ref
