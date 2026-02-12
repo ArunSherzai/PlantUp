@@ -17,7 +17,7 @@ import BottomSheet, { BottomSheetView, BottomSheetTextInput, BottomSheetScrollVi
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming, runOnJS } from 'react-native-reanimated';
 import SensorDisplayCard from '../../../components/SensorDisplayCard';
 import { ScrollView } from 'react-native-gesture-handler';
-import { logViewEvent, logLikeEvent, logCommentEvent, logSaveEvent, logFollowEvent, logReportEvent } from '../../../utils/interactionLogger';
+import { logViewEvent, logDwellEvent, logLikeEvent, logUnlikeEvent, logCommentEvent, logSaveEvent, logUnsaveEvent, logFollowEvent, logReportEvent } from '../../../utils/interactionLogger';
 
 // We need the RouteProp to access params
 type FeedPostDetailRouteProp = RouteProp<RootStackParamList, 'FeedPostDetail'>;
@@ -138,6 +138,17 @@ export default function FeedPostDetailScreen() {
                 logViewEvent(user.id, post.id, 'detail');
             }
         }
+    }, [post?.id, user?.id]);
+
+    // FYP: Dwell-time tracking — log how long the user viewed this post
+    useEffect(() => {
+        const enterTime = Date.now();
+        return () => {
+            if (user?.id && post?.id) {
+                const dwellMs = Date.now() - enterTime;
+                logDwellEvent(user.id, post.id, dwellMs);
+            }
+        };
     }, [post?.id, user?.id]);
 
     // Reset video state when post changes
@@ -309,6 +320,7 @@ export default function FeedPostDetailScreen() {
             logLikeEvent(user.id, post.id);
         } else {
             await db.social.from('post_interactions').delete().eq('user_id', user.id).eq('post_id', post.id).eq('interaction_type', 'like');
+            logUnlikeEvent(user.id, post.id);
         }
     };
 
@@ -322,6 +334,7 @@ export default function FeedPostDetailScreen() {
             logSaveEvent(user.id, post.id);
         } else {
             await db.social.from('post_interactions').delete().eq('user_id', user.id).eq('post_id', post.id).eq('interaction_type', 'save');
+            logUnsaveEvent(user.id, post.id);
         }
     };
 

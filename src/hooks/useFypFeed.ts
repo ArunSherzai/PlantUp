@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { db } from '../utils/supabase';
 import { getPublicPostUrl } from '../utils/media';
 import { useUserStore } from '../stores/UserStore';
@@ -25,9 +25,13 @@ export interface FypPost {
 export type FeedMode = 'fyp' | 'chronological';
 
 /**
- * useFypFeed — Simple feed hook with FYP/chronological toggle.
+ * useFypFeed — Feed hook with FYP/chronological toggle.
  *
- * Closely mirrors the original usePosts pattern to avoid issues.
+ * Features:
+ * - Calls get_fyp_feed RPC for personalized recommendations
+ * - Falls back to chronological if RPC unavailable
+ * - Triggers background score refresh on each fetch
+ * - Tracks seen posts to avoid reshowing within a session
  */
 export function useFypFeed(initialMode: FeedMode = 'fyp') {
     const { user } = useUserStore();
@@ -35,9 +39,25 @@ export function useFypFeed(initialMode: FeedMode = 'fyp') {
     const [loading, setLoading] = useState(true);
     const [feedMode, setFeedMode] = useState<FeedMode>(initialMode);
 
+    // Track posts already seen this session to avoid duplicates
+    const seenPostIds = useRef<Set<string>>(new Set());
+
+    // Fire-and-forget: refresh FYP scores in the background
+    const refreshScores = useCallback(async () => {
+        if (!user?.id) return;
+        try {
+            await db.social.rpc('refresh_fyp_scores', { p_user_id: user.id });
+        } catch {
+            // Non-critical — scores will still work with incremental trigger updates
+        }
+    }, [user?.id]);
+
     const fetchPosts = useCallback(async (mode: FeedMode) => {
         try {
             setLoading(true);
+
+            // Kick off score refresh in the background (non-blocking)
+            refreshScores();
 
             // 1. Fetch blocked post IDs
             let blockedPostIds = new Set<string>();
@@ -84,7 +104,7 @@ export function useFypFeed(initialMode: FeedMode = 'fyp') {
 
             // Fetch liked post IDs to exclude from FYP
             let likedPostIds = new Set<string>();
-            if (user?.id && feedMode === 'fyp') {
+            if (user?.id && mode === 'fyp') {
                 const { data: likedData } = await db.social
                     .from('post_interactions')
                     .select('post_id')
@@ -101,16 +121,21 @@ export function useFypFeed(initialMode: FeedMode = 'fyp') {
                 return;
             }
 
-            // Filter out liked posts (for FYP mode)
-            if (likedPostIds.size > 0) {
-                postsData = postsData.filter((p: any) => !likedPostIds.has(p.id));
-            }
+            // Filter out liked posts (for FYP mode) and already-seen posts
+            postsData = postsData.filter((p: any) => {
+                if (likedPostIds.has(p.id)) return false;
+                if (mode === 'fyp' && seenPostIds.current.has(p.id)) return false;
+                return true;
+            });
 
             if (postsData.length === 0) {
                 setPosts([]);
                 setLoading(false);
                 return;
             }
+
+            // Mark these posts as seen
+            postsData.forEach((p: any) => seenPostIds.current.add(p.id));
 
             // 3. Fetch user data
             const userIds = [...new Set(postsData.map((p: any) => p.user_id))];
@@ -157,7 +182,7 @@ export function useFypFeed(initialMode: FeedMode = 'fyp') {
         } finally {
             setLoading(false);
         }
-    }, [user?.id]);
+    }, [user?.id, refreshScores]);
 
     // Fetch on mount, when user changes, or when mode changes
     useEffect(() => {
@@ -165,10 +190,14 @@ export function useFypFeed(initialMode: FeedMode = 'fyp') {
     }, [fetchPosts, feedMode]);
 
     const refreshFeed = useCallback(() => {
+        // Clear seen posts on explicit refresh so user gets fresh content
+        seenPostIds.current.clear();
         return fetchPosts(feedMode);
     }, [fetchPosts, feedMode]);
 
     const switchMode = useCallback((mode: FeedMode) => {
+        // Clear seen posts when switching modes
+        seenPostIds.current.clear();
         setFeedMode(mode);
     }, []);
 

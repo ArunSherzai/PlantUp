@@ -12,7 +12,8 @@
 ALTER TABLE social_media_schema."Posts"
   ADD COLUMN IF NOT EXISTS trending_score FLOAT DEFAULT 0,
   ADD COLUMN IF NOT EXISTS engagement_score FLOAT DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS hashtags TEXT[] DEFAULT '{}';
+  ADD COLUMN IF NOT EXISTS hashtags TEXT[] DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS views_count INT DEFAULT 0;
 
 CREATE INDEX IF NOT EXISTS idx_posts_trending
   ON social_media_schema."Posts" (trending_score DESC);
@@ -196,10 +197,10 @@ BEGIN
 END;
 $$;
 
--- Create trigger (only on INSERT to avoid re-processing)
+-- Create trigger (BEFORE INSERT so NEW.hashtags is set on the row)
 DROP TRIGGER IF EXISTS trg_extract_hashtags ON social_media_schema."Posts";
 CREATE TRIGGER trg_extract_hashtags
-  AFTER INSERT ON social_media_schema."Posts"
+  BEFORE INSERT ON social_media_schema."Posts"
   FOR EACH ROW
   EXECUTE FUNCTION social_media_schema.extract_post_hashtags();
 
@@ -261,6 +262,10 @@ BEGIN
         SELECT pi.post_id FROM social_media_schema."post_interactions" pi
         WHERE pi.user_id = p_user_id AND pi.interaction_type = 'like'
       )
+      AND p.id NOT IN (
+        SELECT ie.post_id FROM social_media_schema."Interaction_events" ie
+        WHERE ie.user_id = p_user_id AND ie.event_type = 'view'
+      )
     ORDER BY p.created_at DESC
     LIMIT v_follow_limit
   )
@@ -283,6 +288,10 @@ BEGIN
         SELECT pi.post_id FROM social_media_schema."post_interactions" pi
         WHERE pi.user_id = p_user_id AND pi.interaction_type = 'like'
       )
+      AND p.id NOT IN (
+        SELECT ie.post_id FROM social_media_schema."Interaction_events" ie
+        WHERE ie.user_id = p_user_id AND ie.event_type = 'view'
+      )
     ORDER BY ui.affinity_score DESC, p.created_at DESC
     LIMIT v_topic_limit
   )
@@ -304,6 +313,10 @@ BEGIN
         SELECT pi.post_id FROM social_media_schema."post_interactions" pi
         WHERE pi.user_id = p_user_id AND pi.interaction_type = 'like'
       )
+      AND p.id NOT IN (
+        SELECT ie.post_id FROM social_media_schema."Interaction_events" ie
+        WHERE ie.user_id = p_user_id AND ie.event_type = 'view'
+      )
     ORDER BY ca.affinity_score DESC, p.created_at DESC
     LIMIT v_creator_limit
   )
@@ -322,6 +335,10 @@ BEGIN
       AND p.id NOT IN (
         SELECT pi.post_id FROM social_media_schema."post_interactions" pi
         WHERE pi.user_id = p_user_id AND pi.interaction_type = 'like'
+      )
+      AND p.id NOT IN (
+        SELECT ie.post_id FROM social_media_schema."Interaction_events" ie
+        WHERE ie.user_id = p_user_id AND ie.event_type = 'view'
       )
     ORDER BY p.trending_score DESC
     LIMIT v_trending_limit
@@ -342,6 +359,10 @@ BEGIN
       AND p.id NOT IN (
         SELECT pi.post_id FROM social_media_schema."post_interactions" pi
         WHERE pi.user_id = p_user_id AND pi.interaction_type = 'like'
+      )
+      AND p.id NOT IN (
+        SELECT ie.post_id FROM social_media_schema."Interaction_events" ie
+        WHERE ie.user_id = p_user_id AND ie.event_type = 'view'
       )
     ORDER BY random()
     LIMIT v_explore_limit
@@ -407,6 +428,10 @@ BEGIN
         AND p.id NOT IN (
           SELECT pi.post_id FROM social_media_schema."post_interactions" pi
           WHERE pi.user_id = p_user_id AND pi.interaction_type = 'like'
+        )
+        AND p.id NOT IN (
+          SELECT ie.post_id FROM social_media_schema."Interaction_events" ie
+          WHERE ie.user_id = p_user_id AND ie.event_type = 'view'
         )
         AND (p_cursor IS NULL OR p.created_at < p_cursor)
       ORDER BY
@@ -605,7 +630,62 @@ END;
 $$;
 
 -- ============================================================
--- 15. OPTIONAL: Schedule background jobs with pg_cron
+-- 15. AUTO-UPDATE TRIGGER: Increment scores on interaction events
+-- ============================================================
+CREATE OR REPLACE FUNCTION social_media_schema.on_interaction_event_insert()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+  -- Increment views_count on view events
+  IF NEW.event_type = 'view' THEN
+    UPDATE social_media_schema."Posts"
+    SET views_count = views_count + 1
+    WHERE id = NEW.post_id;
+  END IF;
+
+  -- Update engagement_score (lightweight incremental bump)
+  UPDATE social_media_schema."Posts"
+  SET engagement_score = engagement_score + (
+    CASE NEW.event_type
+      WHEN 'like' THEN 5.0
+      WHEN 'comment' THEN 8.0
+      WHEN 'save' THEN 7.0
+      WHEN 'share' THEN 6.0
+      WHEN 'view' THEN 1.0
+      WHEN 'dwell' THEN 2.0
+      WHEN 'follow' THEN 10.0
+      WHEN 'skip' THEN -2.0
+      WHEN 'report' THEN -20.0
+      WHEN 'unlike' THEN -5.0
+      WHEN 'unsave' THEN -7.0
+      ELSE 0
+    END
+  )
+  WHERE id = NEW.post_id;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_on_interaction ON social_media_schema."Interaction_events";
+CREATE TRIGGER trg_on_interaction
+  AFTER INSERT ON social_media_schema."Interaction_events"
+  FOR EACH ROW
+  EXECUTE FUNCTION social_media_schema.on_interaction_event_insert();
+
+-- ============================================================
+-- 16. ON-DEMAND SCORE REFRESH RPC
+-- ============================================================
+CREATE OR REPLACE FUNCTION social_media_schema.refresh_fyp_scores(p_user_id UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+  PERFORM social_media_schema.update_trending_scores();
+  PERFORM social_media_schema.update_user_interests();
+  PERFORM social_media_schema.update_creator_affinity();
+END;
+$$;
+
+-- ============================================================
+-- 17. OPTIONAL: Schedule background jobs with pg_cron
 --     (Uncomment if pg_cron extension is available)
 -- ============================================================
 -- SELECT cron.schedule('update-trending', '*/15 * * * *',
@@ -614,4 +694,3 @@ $$;
 --   'SELECT social_media_schema.update_user_interests()');
 -- SELECT cron.schedule('update-creator-affinity', '0 * * * *',
 --   'SELECT social_media_schema.update_creator_affinity()');
-    

@@ -152,3 +152,17 @@ export function logReportEvent(userId: string, postId: string, reason: string) {
         metadata: { reason },
     });
 }
+
+/**
+ * Log an unlike event (user removed their like).
+ */
+export function logUnlikeEvent(userId: string, postId: string) {
+    logInteractionEvent({ userId, postId, eventType: 'unlike' });
+}
+
+/**
+ * Log an unsave event (user removed their save/bookmark).
+ */
+export function logUnsaveEvent(userId: string, postId: string) {
+    logInteractionEvent({ userId, postId, eventType: 'unsave' });
+}
