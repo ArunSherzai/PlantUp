@@ -6,7 +6,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { RootStackParamList } from '../../../navigation/Root';
 import MasonryFeedGrid from '../../../components/MasonryFeedGrid';
-import { useFeed } from '../../../hooks/useFeed';
+import { useFypFeed } from '../../../hooks/useFypFeed';
 import { db } from '../../../utils/supabase';
 import { useUserStore } from '../../../stores/UserStore';
 import { getDisplayMedia } from '../../../utils/media';
@@ -505,13 +505,13 @@ export default function FeedPostDetailScreen() {
         }
     };
 
-    // Related Posts Grid
-    const { posts: relatedPosts } = useFeed();
+    // Recommended Posts Grid — powered by FYP algorithm
+    const { posts: recommendedPosts } = useFypFeed('fyp');
 
-    // MEMOIZATION: Prevent re-calculation on every render
+    // MEMOIZATION: Filter out current post and blocked posts
     const displayPosts = useMemo(() => {
-        return relatedPosts.filter(p => p.id !== post?.id && !p.is_blocked).slice(0, 8);
-    }, [relatedPosts, post?.id]);
+        return recommendedPosts.filter(p => p.id !== post?.id && !p.is_blocked).slice(0, 8);
+    }, [recommendedPosts, post?.id]);
 
     const handlePostPress = useCallback((item: any) => {
         navigation.push('FeedPostDetail', { post: item });
