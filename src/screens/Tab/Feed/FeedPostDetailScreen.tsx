@@ -13,7 +13,8 @@ import { getDisplayMedia } from '../../../utils/media';
 import Video from 'react-native-video';
 import { formatNumber } from '../../../utils/formatNumber';
 import { TapGestureHandler, LongPressGestureHandler, State, GestureHandlerRootView } from 'react-native-gesture-handler';
-import BottomSheet, { BottomSheetView, BottomSheetTextInput, BottomSheetScrollView, BottomSheetModalProvider } from '@gorhom/bottom-sheet';
+import FeedBottomSheet, { FeedBottomSheetRef } from '../../../components/FeedBottomSheet';
+import CommentsBottomSheet, { CommentsBottomSheetRef } from '../../../components/CommentsBottomSheet';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming, runOnJS } from 'react-native-reanimated';
 import SensorDisplayCard from '../../../components/SensorDisplayCard';
 import { ScrollView } from 'react-native-gesture-handler';
@@ -86,18 +87,17 @@ export default function FeedPostDetailScreen() {
     const progress = useSharedValue(0); // Video Progress
     const durationRef = useRef(0);
 
-    // Sheet State
-    const [sheetMode, setSheetMode] = useState<SheetMode>('related');
-
     // Video State
     const [paused, setPaused] = useState(false);
     const [muted, setMuted] = useState(false);
     const [isVideoReady, setIsVideoReady] = useState(false);
 
-    // BottomSheet Ref
-    const bottomSheetRef = useRef<BottomSheet>(null);
-    // Snap points: 15% (User Info + Input), 90% (Full screen)
-    const snapPoints = useMemo(() => ['15%', '90%'], []);
+    // BottomSheet Refs
+    const detailsSheetRef = useRef<FeedBottomSheetRef>(null);
+    const commentsSheetRef = useRef<CommentsBottomSheetRef>(null);
+
+    // Snap points
+    const detailsSnapPoints = useMemo(() => ['12%', '90%'], []);
 
     // Logic to fix URL extension if needed (User logic preservation)
     // For sensorData: ALWAYS use post.media_url directly (it contains JSON)
@@ -436,17 +436,15 @@ export default function FeedPostDetailScreen() {
     const inputRef = useRef<any>(null);
 
     const openComments = () => {
-        setSheetMode('comments');
-        bottomSheetRef.current?.snapToIndex(1); // Open to 90%
+        commentsSheetRef.current?.snapToIndex(1); // Open to 100%
         // Auto-focus input after a slight delay to allow mounting
         setTimeout(() => {
             inputRef.current?.focus();
-        }, 300);
+        }, 500);
     };
 
-    const handleBackToRelated = () => {
-        setSheetMode('related');
-        bottomSheetRef.current?.snapToIndex(0); // Back to 25%
+    const closeComments = () => {
+        commentsSheetRef.current?.snapToIndex(0); // Close to 0%
         Keyboard.dismiss();
     };
 
@@ -718,95 +716,82 @@ export default function FeedPostDetailScreen() {
                 </Animated.View>
             </SafeAreaView >
 
-            {/* Dynamic Bottom Sheet */}
-            < BottomSheet
-                ref={bottomSheetRef}
-                index={0} // Open to first snap point (25%)
-                snapPoints={snapPoints}
-                // animatedIndex={sheetIndex} // This line was not in the original, adding it based on the instruction snippet
-                enablePanDownToClose={false}
-                backgroundStyle={{ backgroundColor: theme.colors.surface }
-                }
-                handleIndicatorStyle={{ backgroundColor: theme.colors.greyedOut }}
-                onChange={(index: number) => {
-                    // Slight logic to ensure mode feels correct, mostly handled by explicit state
-                }}
+            {/* DETAILS BOTTOM SHEET */}
+            <FeedBottomSheet
+                ref={detailsSheetRef}
+                snapPoints={detailsSnapPoints}
+                initialSnapIndex={0}
             >
                 <View style={styles.bottomSheetContainer}>
-                    <View style={{ flex: 1 }}>
-                        {sheetMode === 'related' ? (
-                            <>
-                                {/* Header: User Info & Caption */}
-                                <View style={styles.userInfoHeader}>
-                                    <View style={styles.userRow}>
-                                        <Image
-                                            source={post?.Users?.profile_image ? { uri: post.Users.profile_image } : require('../../../../assets/images/Profilbild.jpg')}
-                                            style={styles.avatar}
-                                        />
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={[styles.username, { color: theme.colors.text }]}>{post?.Users?.username || 'Observer'}</Text>
-                                            <Text style={[styles.caption, { color: theme.colors.text }]} numberOfLines={2}>
-                                                {isTextPost ? getHashtags(post?.caption) : (post?.caption || 'My Pink Princess #post #plslikeandfollow')}
-                                            </Text>
-                                        </View>
-                                        <TouchableOpacity
-                                            style={[styles.followButton, { backgroundColor: isFollowing ? theme.colors.surface : '#4CA771', borderWidth: isFollowing ? 1 : 0, borderColor: theme.colors.greyedOut }]}
-                                            onPress={handleFollow}
-                                        >
-                                            <Text style={[styles.followButtonText, { color: isFollowing ? theme.colors.text : 'white' }]}>
-                                                {isFollowing ? 'Following' : 'Follow'}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                    <View style={styles.divider} />
-                                    <View style={styles.scrollHint}>
-                                        <Text style={[styles.scrollHintText, { color: theme.colors.greyedOut }]}>Scroll for related posts</Text>
-                                        <FontAwesome6 name="chevron-down" size={12} color={theme.colors.greyedOut} />
-                                    </View>
-                                </View>
-
-                                {/* Scrollable: Grid */}
-                                <BottomSheetScrollView contentContainerStyle={styles.gridContent}>
-                                    <MasonryFeedGrid
-                                        posts={displayPosts}
-                                        onPostPress={handlePostPress}
-                                    />
-                                    <View style={{ height: 20 }} />
-                                </BottomSheetScrollView>
-                            </>
-                        ) : (
-                            <>
-                                {/* Header: Comments */}
-                                <View style={styles.commentsHeader}>
-                                    <TouchableOpacity onPress={handleBackToRelated} style={styles.backButton}>
-                                        <FontAwesome6 name="arrow-left" size={20} color={theme.colors.text} />
-                                    </TouchableOpacity>
-                                    <Text style={[styles.bottomSheetTitle, { color: theme.colors.text }]}>Comments ({comments.length})</Text>
-                                    <View style={{ width: 20 }} />
-                                </View>
-                                <View style={styles.divider} />
-
-                                {/* Scrollable: Comments List */}
-                                <BottomSheetScrollView contentContainerStyle={styles.commentsList}>
-                                    {comments.length === 0 ? (
-                                        <Text style={{ textAlign: 'center', color: '#999', marginTop: 20 }}>No comments yet. Be the first!</Text>
-                                    ) : (
-                                        comments.map(renderCommentFn)
-                                    )}
-                                    <View style={{ height: 20 }} />
-                                </BottomSheetScrollView>
-                            </>
-                        )}
+                    <View style={styles.userInfoHeader}>
+                        <View style={styles.userRow}>
+                            <Image
+                                source={post?.Users?.profile_image ? { uri: post.Users.profile_image } : require('../../../../assets/images/Profilbild.jpg')}
+                                style={styles.avatar}
+                            />
+                            <View style={{ flex: 1 }}>
+                                <Text style={[styles.username, { color: theme.colors.text }]}>{post?.Users?.username || 'Observer'}</Text>
+                                <Text style={[styles.caption, { color: theme.colors.text }]} numberOfLines={2}>
+                                    {isTextPost ? getHashtags(post?.caption) : (post?.caption || 'My Pink Princess #post #plslikeandfollow')}
+                                </Text>
+                            </View>
+                            <TouchableOpacity
+                                style={[styles.followButton, { backgroundColor: isFollowing ? theme.colors.surface : '#4CA771', borderWidth: isFollowing ? 1 : 0, borderColor: theme.colors.greyedOut }]}
+                                onPress={handleFollow}
+                            >
+                                <Text style={[styles.followButtonText, { color: isFollowing ? theme.colors.text : 'white' }]}>
+                                    {isFollowing ? 'Following' : 'Follow'}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                        <View style={styles.divider} />
+                        <View style={styles.scrollHint}>
+                            <Text style={[styles.scrollHintText, { color: theme.colors.greyedOut }]}>Scroll for related posts</Text>
+                            <FontAwesome6 name="chevron-down" size={12} color={theme.colors.greyedOut} />
+                        </View>
                     </View>
 
-                    {/* Footer: Input (Always Visible) */}
+                    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.gridContent}>
+                        <MasonryFeedGrid
+                            posts={displayPosts}
+                            onPostPress={handlePostPress}
+                        />
+                        <View style={{ height: 100 }} />
+                    </ScrollView>
+                </View>
+            </FeedBottomSheet>
+
+            {/* COMMENTS BOTTOM SHEET */}
+            <CommentsBottomSheet
+                ref={commentsSheetRef}
+                onClose={() => Keyboard.dismiss()}
+            >
+                <View style={[styles.bottomSheetContainer, { backgroundColor: theme.colors.surface }]}>
+                    <View style={styles.commentsHeader}>
+                        <TouchableOpacity onPress={closeComments} style={styles.backButton}>
+                            <FontAwesome6 name="xmark" size={20} color={theme.colors.text} />
+                        </TouchableOpacity>
+                        <Text style={[styles.bottomSheetTitle, { color: theme.colors.text }]}>Comments ({comments.length})</Text>
+                        <View style={{ width: 20 }} />
+                    </View>
+                    <View style={styles.divider} />
+
+                    <ScrollView contentContainerStyle={styles.commentsList}>
+                        {comments.length === 0 ? (
+                            <Text style={{ textAlign: 'center', color: '#999', marginTop: 20 }}>No comments yet. Be the first!</Text>
+                        ) : (
+                            comments.map(renderCommentFn)
+                        )}
+                        <View style={{ height: 20 }} />
+                    </ScrollView>
+
                     <View style={[styles.inputContainer, { backgroundColor: theme.colors.surface, borderTopColor: '#f0f0f0' }]}>
                         <Image
                             source={profile?.profile_image ? { uri: profile.profile_image } : require('../../../../assets/images/Profilbild.png')}
                             style={styles.inputAvatar}
                         />
                         <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background }]}>
-                            <BottomSheetTextInput
+                            <TextInput
                                 ref={inputRef}
                                 placeholder="Add a comment..."
                                 placeholderTextColor="#999"
@@ -814,9 +799,6 @@ export default function FeedPostDetailScreen() {
                                 value={commentText}
                                 onChangeText={setCommentText}
                                 onSubmitEditing={handleComment}
-                                onFocus={() => {
-                                    if (sheetMode === 'related') openComments();
-                                }}
                             />
                             <TouchableOpacity onPress={handleComment}>
                                 <FontAwesome6 name="paper-plane" size={16} color="#4CA771" />
@@ -824,7 +806,7 @@ export default function FeedPostDetailScreen() {
                         </View>
                     </View>
                 </View>
-            </BottomSheet >
+            </CommentsBottomSheet>
 
             {/* Report/Block Menu Overlay */}
             {
@@ -1079,7 +1061,7 @@ const styles = StyleSheet.create({
         marginBottom: 10,
     },
     commentsList: {
-        paddingBottom: 20,
+
     },
     commentItem: {
         flexDirection: 'row',
@@ -1126,7 +1108,7 @@ const styles = StyleSheet.create({
     },
     input: {
         flex: 1,
-        height: 40,
+        height: 40
     },
     spacer: {
         flex: 1,
