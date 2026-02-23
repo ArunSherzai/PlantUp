@@ -4,6 +4,7 @@ import { getTriggeredTip, getRandomGeneralTip, PlantDataInput, TipObject } from 
 import { saveTip } from '../utils/tipHistory';
 import { useTipStore } from '../stores/TipStore';
 import { useUserStore } from '../stores/UserStore';
+import { useTutorialStore } from '../stores/TutorialStore';
 
 export function usePlantTipSystem() {
     const {
@@ -40,6 +41,18 @@ export function usePlantTipSystem() {
             console.log("Sprig is paused. Queuing tip:", tip.message);
             addToQueue(tip);
             return;
+        }
+
+        // --- TUTORIAL TRIGGER INTERCEPTION ---
+        // If this is the VERY FIRST tip the user receives, interrupt it with the notifications tutorial
+        if (tip) {
+            const profile = useUserStore.getState().profile;
+            const tutorialProgress = profile?.tutorial_progress || {};
+            if (profile && !tutorialProgress['notifications_tutorial']) {
+                // Don't show the actual tip, show the tutorial instead
+                useTutorialStore.getState().startTutorial('notifications_tutorial');
+                return;
+            }
         }
 
         setActiveTip(tip);

@@ -18,6 +18,7 @@ export type RootStackParamList = {
   Appearance: undefined;
   Notifications: undefined;
   Account: undefined;
+  TutorialSettings: undefined;
   CreatePost: undefined;
   FeedPostDetail: { post: any }; // Using any to match Post interface roughly for now, or import it
   UserPlants: { userId?: string };
@@ -75,7 +76,9 @@ import ShowPlantStats from '~/screens/Tab/plantStats/ShowPlantStats';
 import AppearanceScreen from '~/screens/Tab/SettingsScreen/AppearanceScreen';
 import NotificationsScreen from '~/screens/Tab/SettingsScreen/NotificationsScreen';
 import AccountScreen from '~/screens/Tab/SettingsScreen/AccountScreen';
+import TutorialSettingsScreen from '~/screens/Tab/SettingsScreen/TutorialSettingsScreen';
 import Plant3DTestScreen from '~/screens/Tab/Plant3DTestScreen/Plant3DTestScreen';
+import TutorialDialog from '~/components/TutorialDialog'; // ALLES: added TutorialDialog
 
 import { StatusBar } from 'expo-status-bar';
 
@@ -125,6 +128,11 @@ export default function RootStack() {
             <Stack.Screen
               name="Account"
               component={AccountScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="TutorialSettings"
+              component={TutorialSettingsScreen}
               options={{ headerShown: false }}
             />
             <Stack.Screen
@@ -238,6 +246,7 @@ export default function RootStack() {
 
         </Stack.Navigator>
         <SpriteComponent />
+        <TutorialDialog />
       </View>
     </NavigationContainer>
   );

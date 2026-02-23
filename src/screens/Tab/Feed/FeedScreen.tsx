@@ -14,6 +14,8 @@ import { useUserSearch } from '../../../features/social/hooks/useUserSearch';
 import { useConnections } from '../../../features/social/hooks/useConnections';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { playSound } from '~/utils/SoundManager';
+import { useTutorialStore } from '../../../stores/TutorialStore';
+import { useUserStore } from '../../../stores/UserStore';
 
 const { width, height } = Dimensions.get('window');
 const vh = height / 100;
@@ -43,11 +45,23 @@ export default function FeedScreen() {
     const { searchResults, loading: searchLoading, searchUsers, clearSearch } = useUserSearch();
     const { following, followers, followUser, unfollowUser } = useConnections();
 
+    const { profile } = useUserStore();
+    const { startTutorial } = useTutorialStore();
+
     // Reload when screen is focused
     useFocusEffect(
         useCallback(() => {
             refreshFeed();
-        }, [refreshFeed])
+
+            // --- TUTORIAL TRIGGER ---
+            if (profile && profile.tutorial_progress) {
+                setTimeout(() => {
+                    if (!profile.tutorial_progress['app_onboarding']) {
+                        startTutorial('app_onboarding');
+                    }
+                }, 500);
+            }
+        }, [refreshFeed, profile?.tutorial_progress, startTutorial])
     );
 
     // Pull to refresh handler

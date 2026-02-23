@@ -133,6 +133,17 @@ export default function SettingsScreen() {
                         <FontAwesome6 name="chevron-right" size={16} color={theme.colors.greyedOut} />
                     </TouchableOpacity>
 
+                    {/* Tutorials */}
+                    <TouchableOpacity style={styles.menuItem} onPress={() => navigateTo('TutorialSettings')}>
+                        <View style={styles.menuItemLeft}>
+                            <View style={[styles.iconContainer, { backgroundColor: theme.colors.surface }]}>
+                                <FontAwesome6 name="graduation-cap" size={18} color={theme.colors.text} />
+                            </View>
+                            <Text style={styles.menuItemText}>Tutorials</Text>
+                        </View>
+                        <FontAwesome6 name="chevron-right" size={16} color={theme.colors.greyedOut} />
+                    </TouchableOpacity>
+
                     {/* Sign Out */}
                     <TouchableOpacity style={styles.dangerButton} onPress={handleSignOut}>
                         <FontAwesome6 name="arrow-right-from-bracket" color="#fff" size={18} style={{ marginRight: 8 }} />

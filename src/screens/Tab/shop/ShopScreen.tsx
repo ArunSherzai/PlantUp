@@ -5,6 +5,7 @@ import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useUserStore } from '~/stores/UserStore';
+import { useTutorialStore } from '~/stores/TutorialStore';
 
 // --- Placeholder Data ---
 const MOCK_ITEMS = [
@@ -54,6 +55,19 @@ export default function ShopScreen() {
             setActiveTab(route.params.initialTab);
         }
     }, [route.params]);
+
+    // --- TUTORIAL TRIGGER ---
+    const startTutorial = useTutorialStore(state => state.startTutorial);
+    
+    React.useEffect(() => {
+        if (profile && profile.tutorial_progress) {
+            setTimeout(() => {
+                if (!profile.tutorial_progress['shop_inventory_tutorial']) {
+                    startTutorial('shop_inventory_tutorial');
+                }
+            }, 600);
+        }
+    }, [profile, startTutorial]);
 
     const handlePurchase = async (item: typeof MOCK_ITEMS[0]) => {
         if (loadingId) return;
