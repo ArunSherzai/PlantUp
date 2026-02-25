@@ -32,6 +32,7 @@ type UserProfile = {
   followers_count: number;
   following_count: number;
   equipped_border?: Border | null;
+  tutorial_progress: Record<string, boolean>;
 };
 
 type InventoryItem = {
@@ -96,6 +97,10 @@ type State = {
   blockUser: (userId: string) => Promise<void>;
   unblockUser: (userId: string) => Promise<void>;
   isBlocked: (userId: string) => boolean;
+
+  // Tutorials
+  markTutorialComplete: (tutorialId: string) => Promise<void>;
+  resetTutorialProgress: (tutorialId: string) => Promise<void>;
 };
 
 export const useUserStore = create<State>((set, get) => ({
@@ -168,6 +173,56 @@ export const useUserStore = create<State>((set, get) => ({
     }
   },
   setProfile: (profile) => set({ profile }),
+
+  markTutorialComplete: async (tutorialId: string) => {
+    const { user, profile } = get();
+    if (!user || !profile) return;
+
+    const currentProgress = profile.tutorial_progress || {};
+    if (currentProgress[tutorialId]) return; // Already completed
+
+    const newProgress = { ...currentProgress, [tutorialId]: true };
+
+    // Optimistic UI update
+    set({ profile: { ...profile, tutorial_progress: newProgress } });
+
+    // Database update
+    const { error } = await db.user
+      .from('Users')
+      .update({ tutorial_progress: newProgress })
+      .eq('id', user.id);
+
+    if (error) {
+      console.error('Failed to update tutorial progress:', error);
+      // Revert optimism on failure
+      set({ profile: { ...profile, tutorial_progress: currentProgress } });
+    }
+  },
+
+  resetTutorialProgress: async (tutorialId: string) => {
+    const { user, profile } = get();
+    if (!user || !profile) return;
+
+    const currentProgress = profile.tutorial_progress || {};
+    if (currentProgress[tutorialId] === false) return; // Already reset
+
+    const newProgress = { ...currentProgress, [tutorialId]: false };
+
+    // Optimistic UI update
+    set({ profile: { ...profile, tutorial_progress: newProgress } });
+
+    // Database update
+    const { error } = await db.user
+      .from('Users')
+      .update({ tutorial_progress: newProgress })
+      .eq('id', user.id);
+
+    if (error) {
+      console.error('Failed to reset tutorial progress:', error);
+      // Revert optimism on failure
+      set({ profile: { ...profile, tutorial_progress: currentProgress } });
+    }
+  },
 
   addPlantCoins: async (coins: number) => {
     const { user } = get();
@@ -284,10 +339,10 @@ export const useUserStore = create<State>((set, get) => ({
       .eq('user_id', user.id)
       .maybeSingle();
 
-    // 2. Fetch Username
+    // 2. Fetch Username & Tutorials
     const userPromise = db.user
       .from('Users')
-      .select('username, plant_coins, avatar_path, bio')
+      .select('username, plant_coins, avatar_path, bio, tutorial_progress')
       .eq('id', user.id)
       .single();
 
@@ -334,6 +389,7 @@ export const useUserStore = create<State>((set, get) => ({
       equipped_border: currentProfile?.equipped_border,
       title: currentProfile?.title,
       titlecolor: currentProfile?.titlecolor,
+      tutorial_progress: userData?.tutorial_progress || {},
     };
 
     if (statsData) {

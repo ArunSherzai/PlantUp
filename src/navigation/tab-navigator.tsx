@@ -25,6 +25,7 @@ export default function TabLayout({ navigation }: Props) {
 
   return (
     <Tab.Navigator
+      initialRouteName="Feed"
       screenOptions={{
         headerShown: false,
         headerTitleStyle: {

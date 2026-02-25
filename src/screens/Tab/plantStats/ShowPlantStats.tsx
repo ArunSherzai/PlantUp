@@ -6,8 +6,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { db } from '../../../utils/supabase';
+import { useUserStore } from '~/stores/UserStore';
+import { useTutorialStore } from '~/stores/TutorialStore';
 import { GestureHandlerRootView, ScrollView } from 'react-native-gesture-handler';
 import DraggableBottomSheet from '~/components/DraggableBottomSheet';
+import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 
 // --- COMPONENTS ---
 import Header from '~/features/plantstats/components/Header';
@@ -136,6 +139,19 @@ export default function ShowPlantStats() {
   const [timeRange, setTimeRange] = useState<TimeRangeKey>('Last 1 Hour (5 Recs)');
   const [barColor, setBarColor] = useState('#fdae11');
   const [debugHealth, setDebugHealth] = useState<number | null>(null);
+
+  const profile = useUserStore(state => state.profile);
+  const startTutorial = useTutorialStore(state => state.startTutorial);
+
+  useEffect(() => {
+    if (profile && profile.tutorial_progress) {
+      setTimeout(() => {
+        if (!profile.tutorial_progress['plant_stats_tutorial']) {
+          startTutorial('plant_stats_tutorial');
+        }
+      }, 700);
+    }
+  }, [profile, startTutorial]);
 
   const isDataFreshRef = useRef(false);
 
@@ -417,7 +433,15 @@ export default function ShowPlantStats() {
             </View>
 
             <OverviewCard latest={latest} health={debugHealth !== null ? debugHealth : health} />
+
             <SnapshotBoxes latest={latest} />
+            
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', paddingTop: vh * 0.2, paddingRight: vw * 4 }}>
+               <TouchableOpacity onPress={() => startTutorial('sensor_info_tutorial')} style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <FontAwesome6 name="circle-info" size={12} color={theme.colors.greyedOut} />
+                  <Text style={{ fontSize: 12, marginLeft: 5, color: theme.colors.greyedOut }}>What do these mean?</Text>
+               </TouchableOpacity>
+            </View>
 
             {/* Status Indicators */}
             <View style={{ flexDirection: 'row', justifyContent: 'center', gap: vw * 2.5, marginTop: vh * 1.5 }}>

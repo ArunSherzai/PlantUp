@@ -15,6 +15,7 @@ const vw = width / 100;
 const vh = height / 100;
 
 import { useUserStore } from '../../../stores/UserStore';
+import { useTutorialStore } from '../../../stores/TutorialStore';
 import DraggableBottomSheet from '../../../components/DraggableBottomSheet';
 import GradientIcon from '../../../components/GradientIcon';
 import GradientText from '../../../components/GradientText';
@@ -66,6 +67,7 @@ export default function ProfileScreen() {
   const claimReward = useUserStore(state => state.claimReward);
   const rewardsMap = useUserStore(state => state.rewardsMap);
   const fetchRewardsMap = useUserStore(state => state.fetchRewardsMap);
+  const startTutorial = useTutorialStore(state => state.startTutorial);
 
   const [activeTab, setActiveTab] = useState('leveling');
   const [isBioExpanded, setIsBioExpanded] = useState(false);
@@ -88,6 +90,15 @@ export default function ProfileScreen() {
         }
       }
 
+      // --- TUTORIAL TRIGGER (Profile Basics) ---
+      if (profile && profile.tutorial_progress) {
+        setTimeout(() => {
+          if (!profile.tutorial_progress['profile_tutorial']) {
+            startTutorial('profile_tutorial');
+          }
+        }, 500);
+      }
+
       // Defer plant rendering significantly more to ensure startup interactions are priority
       let timer: NodeJS.Timeout;
       const task = InteractionManager.runAfterInteractions(() => {
@@ -100,7 +111,7 @@ export default function ProfileScreen() {
         task.cancel();
         if (timer) clearTimeout(timer);
       };
-    }, [user, profile, fetchProfile, fetchUnclaimedRewards])
+    }, [user, profile, fetchProfile, fetchUnclaimedRewards, startTutorial])
   );
 
   // Derived Values - moved before useMemo because they are used as dependencies

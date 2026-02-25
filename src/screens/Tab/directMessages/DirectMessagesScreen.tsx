@@ -8,6 +8,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import DeveloperMenu from '../../../components/DeveloperMenu'; // Import DeveloperMenu
 import { useDMStore, Conversation } from '../../../stores/DMStore'; // Import DMStore
 import { useUserStore } from '../../../stores/UserStore';
+import { useTutorialStore } from '../../../stores/TutorialStore';
 import { db } from '../../../utils/supabase';
 import { playSound } from '~/utils/SoundManager';
 
@@ -41,7 +42,8 @@ export default function DirectMessagesScreen() {
 
     // Store hooks
     const { conversations, fetchConversations, loading, getOrCreateConversation, subscribeToInbox } = useDMStore();
-    const { user } = useUserStore();
+    const { user, profile } = useUserStore();
+    const { startTutorial } = useTutorialStore();
 
     useFocusEffect(
         React.useCallback(() => {
@@ -56,9 +58,18 @@ export default function DirectMessagesScreen() {
                 fetchConversations();
             }
 
+            // --- TUTORIAL TRIGGER ---
+            if (profile && profile.tutorial_progress) {
+                setTimeout(() => {
+                    if (!profile.tutorial_progress['chat_tutorial']) {
+                        startTutorial('chat_tutorial');
+                    }
+                }, 500);
+            }
+
             // Note: Subscription is handled globally in UserStore on login
             // so we don't need to subscribe/unsubscribe here.
-        }, [user])
+        }, [user, profile, startTutorial])
     );
 
     // Helper to resolve avatar URL
