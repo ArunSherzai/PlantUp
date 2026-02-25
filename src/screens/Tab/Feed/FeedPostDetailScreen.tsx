@@ -6,7 +6,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { RootStackParamList } from '../../../navigation/Root';
 import MasonryFeedGrid from '../../../components/MasonryFeedGrid';
-import { useFeed } from '../../../hooks/useFeed';
+import { useFypFeed } from '../../../hooks/useFypFeed';
 import { db } from '../../../utils/supabase';
 import { useUserStore } from '../../../stores/UserStore';
 import { getDisplayMedia } from '../../../utils/media';
@@ -18,6 +18,7 @@ import CommentsBottomSheet, { CommentsBottomSheetRef } from '../../../components
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming, runOnJS } from 'react-native-reanimated';
 import SensorDisplayCard from '../../../components/SensorDisplayCard';
 import { ScrollView } from 'react-native-gesture-handler';
+import { logViewEvent, logDwellEvent, logLikeEvent, logUnlikeEvent, logCommentEvent, logSaveEvent, logUnsaveEvent, logFollowEvent, logReportEvent } from '../../../utils/interactionLogger';
 
 // We need the RouteProp to access params
 type FeedPostDetailRouteProp = RouteProp<RootStackParamList, 'FeedPostDetail'>;
@@ -132,7 +133,22 @@ export default function FeedPostDetailScreen() {
         if (post?.id) {
             checkInteractions();
             fetchComments();
+            // FYP: Log view event
+            if (user?.id) {
+                logViewEvent(user.id, post.id, 'detail');
+            }
         }
+    }, [post?.id, user?.id]);
+
+    // FYP: Dwell-time tracking — log how long the user viewed this post
+    useEffect(() => {
+        const enterTime = Date.now();
+        return () => {
+            if (user?.id && post?.id) {
+                const dwellMs = Date.now() - enterTime;
+                logDwellEvent(user.id, post.id, dwellMs);
+            }
+        };
     }, [post?.id, user?.id]);
 
     // Reset video state when post changes
@@ -301,8 +317,10 @@ export default function FeedPostDetailScreen() {
 
         if (newLiked) {
             await db.social.from('post_interactions').insert({ user_id: user.id, post_id: post.id, interaction_type: 'like' });
+            logLikeEvent(user.id, post.id);
         } else {
             await db.social.from('post_interactions').delete().eq('user_id', user.id).eq('post_id', post.id).eq('interaction_type', 'like');
+            logUnlikeEvent(user.id, post.id);
         }
     };
 
@@ -313,8 +331,10 @@ export default function FeedPostDetailScreen() {
 
         if (newSaved) {
             await db.social.from('post_interactions').insert({ user_id: user.id, post_id: post.id, interaction_type: 'save' });
+            logSaveEvent(user.id, post.id);
         } else {
             await db.social.from('post_interactions').delete().eq('user_id', user.id).eq('post_id', post.id).eq('interaction_type', 'save');
+            logUnsaveEvent(user.id, post.id);
         }
     };
 
@@ -325,6 +345,7 @@ export default function FeedPostDetailScreen() {
 
         if (newFollowing) {
             await db.social.from('follows').insert({ follower_id: user.id, following_id: post.user_id });
+            logFollowEvent(user.id, post.id, post.user_id);
         } else {
             await db.social.from('follows').delete().eq('follower_id', user.id).eq('following_id', post.user_id);
         }
@@ -370,6 +391,7 @@ export default function FeedPostDetailScreen() {
 
             setMenuStage('none');
             setIsBlocked(true); // Auto-block locally after report
+            logReportEvent(user.id, post.id, reason);
             Alert.alert("Report Submitted", "Thank you for reporting this post. We will review it shortly.");
         } catch (err: any) {
             console.error(err);
@@ -430,6 +452,7 @@ export default function FeedPostDetailScreen() {
             post_id: post.id,
             description: text
         });
+        logCommentEvent(user.id, post.id);
     };
 
     // Input Ref
@@ -482,13 +505,13 @@ export default function FeedPostDetailScreen() {
         }
     };
 
-    // Related Posts Grid
-    const { posts: relatedPosts } = useFeed();
+    // Recommended Posts Grid — powered by FYP algorithm
+    const { posts: recommendedPosts } = useFypFeed('fyp');
 
-    // MEMOIZATION: Prevent re-calculation on every render
+    // MEMOIZATION: Filter out current post and blocked posts
     const displayPosts = useMemo(() => {
-        return relatedPosts.filter(p => p.id !== post?.id && !p.is_blocked).slice(0, 8);
-    }, [relatedPosts, post?.id]);
+        return recommendedPosts.filter(p => p.id !== post?.id && !p.is_blocked).slice(0, 8);
+    }, [recommendedPosts, post?.id]);
 
     const handlePostPress = useCallback((item: any) => {
         navigation.push('FeedPostDetail', { post: item });
