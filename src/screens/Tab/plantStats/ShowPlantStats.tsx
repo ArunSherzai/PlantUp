@@ -22,6 +22,9 @@ import { vw, vh } from '~/features/plantlist/styles/plantStyles'; // Import exis
 // --- API HELPERS ---
 import { calculateAverages, lastXdays } from '~/features/plantstats/api/history';
 import { calculateHealth } from '~/features/plantstats/api/healthScore';
+import { calculateHealthFull } from '~/features/plantstats/api/healthScore';
+import DailyMentorCard from '~/features/mentor/components/DailyMentorCard';
+import type { HealthResult } from '~/features/mentor';
 
 // --- CONSTANTS ---
 const CACHE_KEY_PREFIX = 'plant_history_';
@@ -368,6 +371,13 @@ export default function ShowPlantStats() {
 
   const health = latest ? calculateHealth(latest) : null;
 
+  // Full HealthResult for the Mentor card (includes deviations, trends)
+  const fullHealth: HealthResult | null = latest
+    ? calculateHealthFull(latest as unknown as Record<string, number | null>, undefined, {
+        history: historyData as unknown as Array<Record<string, any>>,
+      })
+    : null;
+
   if (loading) return <LoadingScreen />;
 
   return (
@@ -418,6 +428,14 @@ export default function ShowPlantStats() {
 
             <OverviewCard latest={latest} health={debugHealth !== null ? debugHealth : health} />
             <SnapshotBoxes latest={latest} />
+
+            {/* Daily Mentor Card */}
+            {selectedPlant?.id && (
+              <DailyMentorCard
+                plantId={selectedPlant.id}
+                health={fullHealth}
+              />
+            )}
 
             {/* Status Indicators */}
             <View style={{ flexDirection: 'row', justifyContent: 'center', gap: vw * 2.5, marginTop: vh * 1.5 }}>
