@@ -1,25 +1,28 @@
+// ============================================================
+// BACKWARD COMPAT — now powered by the Mentor scoring engine
+// ============================================================
+// The original calculateHealth(r) signature (returns number)
+// is preserved for all existing callers.
+// New code should import from '~/features/mentor' directly.
+// ============================================================
+
+import {
+  calculateHealth as calculateHealthFull,
+  calculateHealthLegacy,
+} from '~/features/mentor';
+
+export type { HealthResult } from '~/features/mentor';
+
+/**
+ * Legacy API — returns a number 0..100.
+ * All existing callers (ShowPlantStats, etc.) continue to work.
+ */
 export function calculateHealth(r: any): number {
-  if (!r) return 0;
-
-  const ranges = {
-    temperature: { min: 18, max: 30 },
-    humidity: { min: 40, max: 70 },
-    soil_moisture: { min: 30, max: 70 },
-    light: { min: 500, max: 20000 },
-    electrical_conductivity: { min: 0.5, max: 3 },
-  };
-
-  let score = 100;
-  const apply = (v: any, key: keyof typeof ranges, weight = 15) => {
-    if (v == null) return;
-    if (v < ranges[key].min || v > ranges[key].max) score -= weight;
-  };
-
-  apply(r.temperature, 'temperature');
-  apply(r.humidity, 'humidity');
-  apply(r.soil_moisture, 'soil_moisture');
-  apply(r.light, 'light');
-  apply(r.electrical_conductivity, 'electrical_conductivity', 20);
-
-  return Math.max(0, Math.min(score, 100));
+  return calculateHealthLegacy(r);
 }
+
+/**
+ * NEW API — returns the full HealthResult with deviations,
+ * subscores, and trends.
+ */
+export { calculateHealthFull };
