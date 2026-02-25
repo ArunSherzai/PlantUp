@@ -419,64 +419,161 @@ export default function RootStack() {
 
 ---
 
-## 9. Reusable Components
+#### 3D Plant View
 
-### List
+**File Path**: `src/screens/Tab/Plant3DTestScreen/Plant3DTestScreen.tsx`
 
-- **Button**: `src/components/Button.tsx`
-- **Card**: `src/components/FeedCard.tsx`
+**Purpose**: Provides an interactive 3D view of a plant, allowing users to customize its appearance, pot type, and growth parameters.
+
+#### Key Functionalities
+
+1. **State Management**:
+
+   - **State Variables**:
+     - `seed`: Determines the procedural generation of the plant.
+     - `growth`: Controls the growth stage of the plant (0-100 scale).
+     - `lsystemConfig`: Stores the L-System configuration for procedural generation.
+     - `potType`: Tracks the selected pot type.
+     - `cameraY`, `cameraDistance`: Manage the camera position for the 3D view.
+
+2. **Data Fetching**:
+
+   - **Hooks**:
+     - `useVirtualPlant`: Fetches plant data from the database and provides methods for creating and updating plants.
+   - **Database Interactions**:
+     - Automatically creates a plant if none exists.
+     - Updates the seed and pot type in the database when modified locally.
+
+3. **UI Components**:
+
+   - **PlantPotPreview**: Renders the 3D view of the plant.
+   - **Slider**: Allows users to adjust growth and camera parameters.
+   - **TouchableOpacity**: Enables toggling of the settings menu.
+
+4. **Procedural Generation**:
+   - Uses L-System configurations to generate plant structures dynamically.
+   - Supports presets for quick customization.
+
+#### Interactions with Other Parts
+
+1. **Components**:
+
+   - **ProceduralPlant**: Handles the procedural generation of plant structures.
+   - **PotModel**: Renders the selected pot type.
+
+2. **API**:
+
+   - **Supabase**:
+     - Fetches and updates plant data in the database.
+
+3. **Navigation**:
+   - Accessible via the `TabNavigator`.
+
+#### Code Flow
+
+1. **Initialization**:
+
+   - Fetches plant data using `useVirtualPlant`.
+   - Initializes state variables for procedural generation and camera settings.
+
+2. **Rendering**:
+
+   - Displays the 3D plant view using `PlantPotPreview`.
+   - Renders sliders for adjusting growth and camera parameters.
+
+3. **User Interaction**:
+   - Allows users to toggle the settings menu and apply presets.
+   - Updates the database when the seed or pot type is modified.
+
+#### Potential Improvements
+
+1. **Error Handling**:
+
+   - Add user-friendly error messages for database interactions.
+
+2. **Performance**:
+
+   - Optimize the rendering of complex plant structures.
+
+3. **UI Enhancements**:
+   - Add animations for smoother transitions between presets.
 
 ---
 
-## 10. Styling and Theming
+#### Social Feed
 
-### Approach
+**File Path**: `src/screens/Tab/Feed/FeedPostDetailScreen.tsx`
 
-- **Custom Theming**: Defined in `theme.ts`.
+**Purpose**: Displays detailed information about a specific feed post, including media, captions, and user interactions.
 
----
+#### Key Functionalities
 
-## 11. Permissions and Notifications
+1. **State Management**:
 
-### Permissions
+   - **State Variables**:
+     - `isLiked`, `isSaved`, `isFollowing`: Track user interactions with the post.
+     - `likesCount`, `comments`: Manage the number of likes and comments.
+     - `paused`, `muted`: Control video playback state.
 
-- **Camera**: Used for plant scanning.
+2. **Data Fetching**:
 
----
+   - **Hooks**:
+     - `useFeed`: Fetches feed data and manages pagination.
+   - **Database Interactions**:
+     - Retrieves post details and comments from the database.
 
-## 12. Testing
+3. **UI Components**:
 
-### Tools
+   - **MasonryFeedGrid**: Displays related posts in a grid layout.
+   - **FeedBottomSheet**: Provides additional options for interacting with the post.
+   - **CommentsBottomSheet**: Displays the comments section.
 
-- **Jest**: Unit testing framework.
+4. **Media Handling**:
+   - Supports both images and videos.
+   - Uses `react-native-video` for video playback.
 
----
+#### Interactions with Other Parts
 
-## 13. Build and Release
+1. **Components**:
 
-### iOS
+   - **SensorDisplayCard**: Displays sensor data embedded in the post caption.
 
-- **CocoaPods**: Used for dependency management.
+2. **API**:
 
-### Android
+   - **Supabase**:
+     - Fetches post details and comments.
 
-- **Gradle**: Used for builds.
+3. **Navigation**:
+   - Accessible via the `TabNavigator`.
 
----
+#### Code Flow
 
-## 14. Common Engineering Tasks
+1. **Initialization**:
 
-### Add a New Screen
+   - Fetches post details using `useFeed`.
+   - Initializes state variables for user interactions and media playback.
 
-1. Create a new file in `src/screens/`.
-2. Add the screen to the appropriate navigator.
+2. **Rendering**:
 
----
+   - Displays the post media and caption.
+   - Renders related posts and comments in bottom sheets.
 
-## 15. Known Issues and TODOs
+3. **User Interaction**:
+   - Allows users to like, save, and comment on the post.
+   - Provides options for reporting or blocking the post.
 
-- **TODO**: Verify API endpoints in `src/features/`.
-- **TODO**: Check unused components in `newFiles/`.
+#### Potential Improvements
+
+1. **Error Handling**:
+
+   - Add fallback UI for failed media loading.
+
+2. **Performance**:
+
+   - Optimize video playback for low-end devices.
+
+3. **UI Enhancements**:
+   - Add transitions for opening and closing bottom sheets.
 
 ---
 
