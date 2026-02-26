@@ -32,10 +32,10 @@ import type { HealthResult } from '~/features/mentor';
 // --- CONSTANTS ---
 const CACHE_KEY_PREFIX = 'plant_history_';
 const TIME_RANGES = {
-  'Last 1 Hour (5 Recs)': 5,
-  'Last 24 Hours (50 Recs)': 50,
-  'Last Week (300 Recs)': 300,
-  'All Time (Max 1000 Recs)': 1000,
+  'Last 1 Hour': { limit: 50, hours: 1 },
+  'Last 24 Hours': { limit: 200, hours: 24 },
+  'Last Week': { limit: 500, hours: 168 },
+  'All Time': { limit: 1000, hours: null },
 };
 
 type TimeRangeKey = keyof typeof TIME_RANGES;
@@ -85,30 +85,53 @@ async function fetchLatestController(plantId: string): Promise<PlantController |
   return data as PlantController;
 }
 
-const TimeRangePicker = ({ selectedRange, setSelectedRange }: any) => {
+const RANGE_LABELS: Record<TimeRangeKey, string> = {
+  'Last 1 Hour': '1H',
+  'Last 24 Hours': '24H',
+  'Last Week': '7D',
+  'All Time': 'All',
+};
+
+const TimeRangePicker = ({ selectedRange, setSelectedRange }: { selectedRange: TimeRangeKey; setSelectedRange: (key: TimeRangeKey) => void }) => {
   const { theme } = useUnistyles();
+  const keys = Object.keys(TIME_RANGES) as TimeRangeKey[];
+
   return (
-    <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginVertical: vh * 1.5 }}>
-      {Object.keys(TIME_RANGES).map((key) => (
-        <TouchableOpacity
-          key={key}
-          onPress={() => setSelectedRange(key as TimeRangeKey)}
-          style={{
-            padding: vw * 2, // Responsive padding
-            borderRadius: vw * 1.5,
-            backgroundColor: selectedRange === key ? theme.colors.primary : theme.colors.background,
-            borderWidth: selectedRange === key ? 1 : 0,
-            borderColor: selectedRange === key ? theme.colors.primary : 'transparent',
-          }}>
-          <Text
+    <View style={{
+      flexDirection: 'row',
+      backgroundColor: theme.colors.surface,
+      borderRadius: vw * 3,
+      padding: vw * 0.8,
+      marginVertical: vh * 1.5,
+      alignSelf: 'center',
+    }}>
+      {keys.map((key) => {
+        const isSelected = selectedRange === key;
+        return (
+          <TouchableOpacity
+            key={key}
+            onPress={() => setSelectedRange(key)}
             style={{
-              color: selectedRange === key ? theme.colors.text : theme.colors.secondary,
-              fontSize: vw * 3, // Responsive font
+              flex: 1,
+              paddingVertical: vh * 1,
+              paddingHorizontal: vw * 3,
+              borderRadius: vw * 2.5,
+              backgroundColor: isSelected ? theme.colors.primary : 'transparent',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}>
-            {key.split('(')[0].trim()}
-          </Text>
-        </TouchableOpacity>
-      ))}
+            <Text
+              style={{
+                color: isSelected ? '#fff' : theme.colors.secondary,
+                fontSize: vw * 3.5,
+                fontWeight: isSelected ? '700' : '500',
+                fontFamily: theme.fonts.regular,
+              }}>
+              {RANGE_LABELS[key]}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
     </View>
   );
 };
@@ -139,7 +162,7 @@ export default function ShowPlantStats() {
   const [selectedOptionLabel, setSelectedOptionLabel] = useState<
     'Temperature' | 'Humidity' | 'Soil Moisture' | 'Light' | 'EC'
   >('Temperature');
-  const [timeRange, setTimeRange] = useState<TimeRangeKey>('Last 1 Hour (5 Recs)');
+  const [timeRange, setTimeRange] = useState<TimeRangeKey>('Last 1 Hour');
   const [barColor, setBarColor] = useState('#fdae11');
   const [debugHealth, setDebugHealth] = useState<number | null>(null);
 
@@ -278,54 +301,43 @@ export default function ShowPlantStats() {
     setLoadingHistory(true);
 
     try {
-      // Step A: Load Cache immediately to show something
       const cacheKey = CACHE_KEY_PREFIX + plantId;
-      const cached = await getCache(cacheKey);
 
-      let latestTimestamp = null;
-
-      if (cached && cached.data) {
-        setHistoryData(cached.data);
-        // If we don't have a "Latest" yet, use the cache's first item
-        setLatest((prev) => prev || cached.data[0]);
-        latestTimestamp = cached.timestamp;
-      }
-
-      // Step B: Get current server latest (Fast - 1 row)
+      // Step A: Get current server latest (Fast - 1 row)
       const serverLatest = await fetchLatestController(plantId);
 
       if (serverLatest) {
         setLatest(serverLatest);
 
-        // Determine if we need to fetch full history
-        // 1. If no cache
-        // 2. If server data is newer than cache
-        // 3. If user changed time range (we might need more data than what is cached)
-        const isServerNewer =
-          !latestTimestamp || new Date(serverLatest.created_at) > new Date(latestTimestamp);
+        // Step B: Always fetch with proper time filtering
+        const { limit, hours } = TIME_RANGES[range];
+        
+        let query = db.micro
+          .from('Controllers')
+          .select('id, temperature, humidity, soil_moisture, light, electrical_conductivity, created_at')
+          .eq('plant_id', plantId);
 
-        if (isServerNewer || range !== 'Last 1 Hour (5 Recs)') {
-          const limit = TIME_RANGES[range];
-          const { data: newData } = await db.micro
-            .from('Controllers')
-            .select(
-              'id, temperature, humidity, soil_moisture, light, electrical_conductivity, created_at'
-            )
-            .eq('plant_id', plantId)
-            .order('created_at', { ascending: false })
-            .limit(limit);
+        // Apply time-based filter BEFORE ordering and limiting
+        if (hours !== null) {
+          const cutoff = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+          query = query.gte('created_at', cutoff);
+        }
 
-          if (newData && newData.length > 0) {
-            setHistoryData(newData as PlantController[]);
-            isDataFreshRef.current = true;
+        query = query.order('created_at', { ascending: false }).limit(limit);
 
-            // Only cache large datasets to save IO operations
-            if (limit >= 50) {
-              await setCache(cacheKey, { timestamp: serverLatest.created_at, data: newData });
-            }
+        const { data: newData } = await query;
+
+        if (newData && newData.length > 0) {
+          setHistoryData(newData as PlantController[]);
+          isDataFreshRef.current = true;
+
+          // Cache the result for quick loading next time
+          if (limit >= 50) {
+            await setCache(cacheKey, { timestamp: serverLatest.created_at, data: newData, range });
           }
         } else {
-          isDataFreshRef.current = false;
+          setHistoryData([]);
+          isDataFreshRef.current = true;
         }
       }
     } catch (err) {
@@ -380,7 +392,7 @@ export default function ShowPlantStats() {
 
   // Handle Time Range Change specifically
   useEffect(() => {
-    if (selectedPlant?.id && !loading) {
+    if (selectedPlant?.id) {
       fetchPlantData(selectedPlant.id, timeRange);
     }
   }, [timeRange]);
