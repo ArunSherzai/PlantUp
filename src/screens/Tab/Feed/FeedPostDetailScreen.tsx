@@ -747,77 +747,6 @@ export default function FeedPostDetailScreen() {
                 initialSnapIndex={0}
             >
                 <View style={styles.bottomSheetContainer}>
-                    <View style={{ flex: 1 }}>
-                        {sheetMode === 'related' ? (
-                            <>
-                                {/* Header: User Info & Caption */}
-                                <View style={styles.userInfoHeader}>
-                                    <View style={styles.userRow}>
-                                        <Image
-                                            source={post?.Users?.profile_image ? { uri: post.Users.profile_image } : require('../../../../assets/images/Profilbild.jpg')}
-                                            style={styles.avatar}
-                                        />
-                                        <View style={{ flex: 1 }}>
-                                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                                <Text style={[styles.username, { color: theme.colors.text }]}>{post?.Users?.username || 'Observer'}</Text>
-                                                {(post?.Users as any)?.level >= 25 && (
-                                                    <View style={{ marginLeft: 6 }}>
-                                                        <MentorBadge size="small" />
-                                                    </View>
-                                                )}
-                                            </View>
-                                            <Text style={[styles.caption, { color: theme.colors.text }]} numberOfLines={2}>
-                                                {isTextPost ? getHashtags(post?.caption) : (post?.caption || 'My Pink Princess #post #plslikeandfollow')}
-                                            </Text>
-                                        </View>
-                                        <TouchableOpacity
-                                            style={[styles.followButton, { backgroundColor: isFollowing ? theme.colors.surface : '#4CA771', borderWidth: isFollowing ? 1 : 0, borderColor: theme.colors.greyedOut }]}
-                                            onPress={handleFollow}
-                                        >
-                                            <Text style={[styles.followButtonText, { color: isFollowing ? theme.colors.text : 'white' }]}>
-                                                {isFollowing ? 'Following' : 'Follow'}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                    <View style={styles.divider} />
-                                    <View style={styles.scrollHint}>
-                                        <Text style={[styles.scrollHintText, { color: theme.colors.greyedOut }]}>Scroll for related posts</Text>
-                                        <FontAwesome6 name="chevron-down" size={12} color={theme.colors.greyedOut} />
-                                    </View>
-                                </View>
-
-                                {/* Scrollable: Grid */}
-                                <BottomSheetScrollView contentContainerStyle={styles.gridContent}>
-                                    <MasonryFeedGrid
-                                        posts={displayPosts}
-                                        onPostPress={handlePostPress}
-                                    />
-                                    <View style={{ height: 20 }} />
-                                </BottomSheetScrollView>
-                            </>
-                        ) : (
-                            <>
-                                {/* Header: Comments */}
-                                <View style={styles.commentsHeader}>
-                                    <TouchableOpacity onPress={handleBackToRelated} style={styles.backButton}>
-                                        <FontAwesome6 name="arrow-left" size={20} color={theme.colors.text} />
-                                    </TouchableOpacity>
-                                    <Text style={[styles.bottomSheetTitle, { color: theme.colors.text }]}>Comments ({comments.length})</Text>
-                                    <View style={{ width: 20 }} />
-                                </View>
-                                <View style={styles.divider} />
-
-                                {/* Scrollable: Comments List */}
-                                <BottomSheetScrollView contentContainerStyle={styles.commentsList}>
-                                    {comments.length === 0 ? (
-                                        <Text style={{ textAlign: 'center', color: '#999', marginTop: 20 }}>No comments yet. Be the first!</Text>
-                                    ) : (
-                                        comments.map(renderCommentFn)
-                                    )}
-                                    <View style={{ height: 20 }} />
-                                </BottomSheetScrollView>
-                            </>
-                        )}
                     <View style={styles.userInfoHeader}>
                         <View style={styles.userRow}>
                             <Image
@@ -825,7 +754,14 @@ export default function FeedPostDetailScreen() {
                                 style={styles.avatar}
                             />
                             <View style={{ flex: 1 }}>
-                                <Text style={[styles.username, { color: theme.colors.text }]}>{post?.Users?.username || 'Observer'}</Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                    <Text style={[styles.username, { color: theme.colors.text }]}>{post?.Users?.username || 'Observer'}</Text>
+                                    {(post?.Users as any)?.level >= 25 && (
+                                        <View style={{ marginLeft: 6 }}>
+                                            <MentorBadge size="small" />
+                                        </View>
+                                    )}
+                                </View>
                                 <Text style={[styles.caption, { color: theme.colors.text }]} numberOfLines={2}>
                                     {isTextPost ? getHashtags(post?.caption) : (post?.caption || 'My Pink Princess #post #plslikeandfollow')}
                                 </Text>
