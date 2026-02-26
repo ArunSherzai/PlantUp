@@ -3,14 +3,13 @@ import { View, Text, Image, TouchableOpacity } from 'react-native';
 import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import { useUnistyles, StyleSheet } from 'react-native-unistyles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { db } from '../../../utils/supabase';
 import { useUserStore } from '~/stores/UserStore';
 import { useTutorialStore } from '~/stores/TutorialStore';
 import { GestureHandlerRootView, ScrollView } from 'react-native-gesture-handler';
 import DraggableBottomSheet from '~/components/DraggableBottomSheet';
-import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
+import { FontAwesome6 } from '@expo/vector-icons';
 
 // --- COMPONENTS ---
 import Header from '~/features/plantstats/components/Header';
@@ -26,7 +25,6 @@ import { vw, vh } from '~/features/plantlist/styles/plantStyles'; // Import exis
 import { calculateAverages, lastXdays } from '~/features/plantstats/api/history';
 import { calculateHealth } from '~/features/plantstats/api/healthScore';
 import { calculateHealthFull } from '~/features/plantstats/api/healthScore';
-import DailyMentorCard from '~/features/mentor/components/DailyMentorCard';
 import type { HealthResult } from '~/features/mentor';
 
 // --- CONSTANTS ---
@@ -92,19 +90,26 @@ const RANGE_LABELS: Record<TimeRangeKey, string> = {
   'All Time': 'All',
 };
 
-const TimeRangePicker = ({ selectedRange, setSelectedRange }: { selectedRange: TimeRangeKey; setSelectedRange: (key: TimeRangeKey) => void }) => {
+const TimeRangePicker = ({
+  selectedRange,
+  setSelectedRange,
+}: {
+  selectedRange: TimeRangeKey;
+  setSelectedRange: (key: TimeRangeKey) => void;
+}) => {
   const { theme } = useUnistyles();
   const keys = Object.keys(TIME_RANGES) as TimeRangeKey[];
 
   return (
-    <View style={{
-      flexDirection: 'row',
-      backgroundColor: theme.colors.surface,
-      borderRadius: vw * 3,
-      padding: vw * 0.8,
-      marginVertical: vh * 1.5,
-      alignSelf: 'center',
-    }}>
+    <View
+      style={{
+        flexDirection: 'row',
+        backgroundColor: theme.colors.surface,
+        borderRadius: vw * 3,
+        padding: vw * 0.8,
+        marginVertical: vh * 1.5,
+        alignSelf: 'center',
+      }}>
       {keys.map((key) => {
         const isSelected = selectedRange === key;
         return (
@@ -147,8 +152,6 @@ export default function ShowPlantStats() {
   // State
   const [userId, setUserId] = useState<string | null>(null);
   const [name, setName] = useState('--');
-  const [temperature, setTemperature] = useState('—'); // Weather
-  const [humidity, setHumidity] = useState('—'); // Weather
   const [selectedPlant, setSelectedPlant] = useState<any>(null);
 
   // Data State
@@ -166,8 +169,8 @@ export default function ShowPlantStats() {
   const [barColor, setBarColor] = useState('#fdae11');
   const [debugHealth, setDebugHealth] = useState<number | null>(null);
 
-  const profile = useUserStore(state => state.profile);
-  const startTutorial = useTutorialStore(state => state.startTutorial);
+  const profile = useUserStore((state) => state.profile);
+  const startTutorial = useTutorialStore((state) => state.startTutorial);
 
   useEffect(() => {
     if (profile && profile.tutorial_progress) {
@@ -275,27 +278,6 @@ export default function ShowPlantStats() {
     }
   };
 
-  // 🟢 3. WEATHER FETCHER: Separated from critical path
-  const fetchWeather = async () => {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
-
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }); // Balanced is faster
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${loc.coords.latitude}&longitude=${loc.coords.longitude}&current_weather=true&hourly=relative_humidity_2m`;
-
-      const res = await fetch(url);
-      const data = await res.json();
-
-      if (data?.current_weather?.temperature != null)
-        setTemperature(`${data.current_weather.temperature.toFixed(1)}°`);
-      if (data?.hourly?.relative_humidity_2m?.[0] != null)
-        setHumidity(`${data.hourly.relative_humidity_2m[0]}%`);
-    } catch (e) {
-      console.log('Weather fetch silent fail');
-    }
-  };
-
   // 🟢 4. CORE DATA LOGIC
   const fetchPlantData = useCallback(async (plantId: string, range: TimeRangeKey) => {
     setLoadingHistory(true);
@@ -311,10 +293,12 @@ export default function ShowPlantStats() {
 
         // Step B: Always fetch with proper time filtering
         const { limit, hours } = TIME_RANGES[range];
-        
+
         let query = db.micro
           .from('Controllers')
-          .select('id, temperature, humidity, soil_moisture, light, electrical_conductivity, created_at')
+          .select(
+            'id, temperature, humidity, soil_moisture, light, electrical_conductivity, created_at'
+          )
           .eq('plant_id', plantId);
 
         // Apply time-based filter BEFORE ordering and limiting
@@ -369,10 +353,9 @@ export default function ShowPlantStats() {
         setSelectedPlant(targetPlant);
         setName(targetPlant.nickname);
 
-        // 2. PARALLEL EXECUTION: Fire all 3 tasks at once
+        // 2. PARALLEL EXECUTION: Fire all tasks at once
         await Promise.allSettled([
           fetchPlantData(targetPlant.id, timeRange), // Main Data
-          fetchWeather(), // External API (don't await strictly)
           runQuestCheck(user.id), // Background Task
         ]);
       } else {
@@ -384,11 +367,9 @@ export default function ShowPlantStats() {
     }
   }, [initialPlantId, fetchPlantData]); // Removed timeRange dependency to prevent loop
 
-  useFocusEffect(
-    useCallback(() => {
-      initializeScreen();
-    }, [initializeScreen])
-  );
+  useEffect(() => {
+    initializeScreen();
+  }, [initializeScreen]);
 
   // Handle Time Range Change specifically
   useEffect(() => {
@@ -428,28 +409,42 @@ export default function ShowPlantStats() {
         </View>
 
         {/* Draggable Bottom Sheet */}
-        <DraggableBottomSheet initialHeight={0.70} maxHeight={0.9}>
+        <DraggableBottomSheet initialHeight={0.7} maxHeight={0.9}>
           <ScrollView
             overScrollMode="never"
-            contentContainerStyle={{ paddingBottom: vh * 25, paddingHorizontal: vw * 5, paddingTop: vh * 1.5 }}
+            contentContainerStyle={{
+              paddingBottom: vh * 25,
+              paddingHorizontal: vw * 5,
+              paddingTop: vh * 1.5,
+            }}
             showsVerticalScrollIndicator={false}
-            style={[styles.sheet, { backgroundColor: "transparent" }]}>
-            
+            style={[styles.sheet, { backgroundColor: 'transparent' }]}>
             {/* Debug Controls */}
-            <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 5 }}>
-              {[10, 20, 50, 100].map(val => (
-                <TouchableOpacity 
-                  key={val} 
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'center',
+                marginBottom: 10,
+                flexWrap: 'wrap',
+                gap: 5,
+              }}>
+              {[10, 20, 50, 100].map((val) => (
+                <TouchableOpacity
+                  key={val}
                   onPress={() => setDebugHealth(val)}
-                  style={{ backgroundColor: theme.colors.surface, padding: 5, borderRadius: 5, borderWidth: 1, borderColor: theme.colors.greyedOut }}
-                >
+                  style={{
+                    backgroundColor: theme.colors.surface,
+                    padding: 5,
+                    borderRadius: 5,
+                    borderWidth: 1,
+                    borderColor: theme.colors.greyedOut,
+                  }}>
                   <Text style={{ fontSize: 10, color: theme.colors.text }}>{val}%</Text>
                 </TouchableOpacity>
               ))}
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={() => setDebugHealth(null)}
-                style={{ backgroundColor: '#ef4444', padding: 5, borderRadius: 5 }}
-              >
+                style={{ backgroundColor: '#ef4444', padding: 5, borderRadius: 5 }}>
                 <Text style={{ fontSize: 10, color: 'white' }}>Reset</Text>
               </TouchableOpacity>
             </View>
@@ -457,24 +452,69 @@ export default function ShowPlantStats() {
             <OverviewCard latest={latest} health={debugHealth !== null ? debugHealth : health} />
 
             <SnapshotBoxes latest={latest} />
-            
-            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', paddingTop: vh * 0.2, paddingRight: vw * 4 }}>
-               <TouchableOpacity onPress={() => startTutorial('sensor_info_tutorial')} style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <FontAwesome6 name="circle-info" size={12} color={theme.colors.greyedOut} />
-                  <Text style={{ fontSize: 12, marginLeft: 5, color: theme.colors.greyedOut }}>What do these mean?</Text>
-               </TouchableOpacity>
+
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'flex-end',
+                paddingTop: vh * 0.2,
+                paddingRight: vw * 4,
+              }}>
+              <TouchableOpacity
+                onPress={() => startTutorial('sensor_info_tutorial')}
+                style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <FontAwesome6 name="circle-info" size={12} color={theme.colors.greyedOut} />
+                <Text style={{ fontSize: 12, marginLeft: 5, color: theme.colors.greyedOut }}>
+                  What do these mean?
+                </Text>
+              </TouchableOpacity>
             </View>
 
-            {/* Daily Mentor Card */}
+            {/* Daily Mentor Trigger Button */}
             {selectedPlant?.id && (
-              <DailyMentorCard
-                plantId={selectedPlant.id}
-                health={fullHealth}
-              />
+              <TouchableOpacity
+                onPress={() =>
+                  navigation.navigate('DailyMentor', {
+                    plantId: selectedPlant.id,
+                    health: fullHealth,
+                  })
+                }
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: theme.colors.primary,
+                  paddingVertical: 12,
+                  borderRadius: 12,
+                  marginTop: 16,
+                  marginHorizontal: 4,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 4,
+                  elevation: 2,
+                }}>
+                <FontAwesome6 name={'wand-magic-sparkles'} size={16} color="white" />
+                <Text
+                  style={{
+                    color: 'white',
+                    fontFamily: theme.fonts.header,
+                    fontSize: 14,
+                    marginLeft: 8,
+                  }}>
+                  View Daily Mentor Advice
+                </Text>
+              </TouchableOpacity>
             )}
 
             {/* Status Indicators */}
-            <View style={{ flexDirection: 'row', justifyContent: 'center', gap: vw * 2.5, marginTop: vh * 1.5 }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'center',
+                gap: vw * 2.5,
+                marginTop: vh * 1.5,
+              }}>
               <Text
                 style={[
                   styles.statusText,
@@ -483,7 +523,9 @@ export default function ShowPlantStats() {
                 {isDataFreshRef.current ? 'Live Data' : 'Cached Data'}
               </Text>
               {loadingHistory && (
-                <Text style={[styles.statusText, { color: theme.colors.greyedOut }]}>Updating...</Text>
+                <Text style={[styles.statusText, { color: theme.colors.greyedOut }]}>
+                  Updating...
+                </Text>
               )}
             </View>
 

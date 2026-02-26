@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import Feather from '@expo/vector-icons/Feather';
+import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -36,6 +37,7 @@ import type { HealthResult, MentorAdvice } from '../types/mentor.types';
 interface Props {
   plantId: string;
   health: HealthResult | null;
+  onClose?: () => void;
 }
 
 // ---- sub-components ----
@@ -89,7 +91,7 @@ function BulletList({ items, icon, color }: { items: string[]; icon: string; col
 
 // ---- main component ----
 
-export default function DailyMentorCard({ plantId, health }: Props) {
+export default function DailyMentorCard({ plantId, health, onClose }: Props) {
   const { theme } = useUnistyles();
 
   const [advice, setAdvice] = useState<MentorAdvice | null>(null);
@@ -158,11 +160,11 @@ export default function DailyMentorCard({ plantId, health }: Props) {
   const canRefresh = !alreadyFetched || shouldFetchMentor(health, false);
 
   return (
-    <Animated.View
-      entering={FadeInDown.duration(400).delay(200)}
-      style={[animatedCard]}
-    >
-      <View style={[styles.card, { backgroundColor: theme.colors.background }]}>
+    <View style={styles.containerWrap}>
+      <Animated.View
+        entering={FadeInDown.duration(400).delay(200)}
+        style={[animatedCard, styles.card, { backgroundColor: theme.colors.background }]}
+      >
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
@@ -179,10 +181,15 @@ export default function DailyMentorCard({ plantId, health }: Props) {
             </View>
           </View>
 
-          {advice?.confidence && <ConfidenceBadge confidence={advice.confidence} />}
+          <View style={styles.headerRight}>
+            {advice?.confidence && <ConfidenceBadge confidence={advice.confidence} />}
+            {onClose && (
+              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                <Feather name="x" size={20} color={theme.colors.text} />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
-
-        {/* Content */}
         {advice ? (
           <View>
             {/* Headline */}
@@ -215,21 +222,30 @@ export default function DailyMentorCard({ plantId, health }: Props) {
               <Animated.View entering={FadeIn.duration(250)}>
                 {advice.risks.length > 0 && (
                   <View style={styles.section}>
-                    <Text style={[styles.sectionTitle, { color: '#ef4444' }]}>⚠️ Risks</Text>
+                    <View style={styles.sectionHeader}>
+                      <FontAwesome5 name="exclamation-triangle" size={12} color="#ef4444" />
+                      <Text style={[styles.sectionTitle, { color: '#ef4444' }]}>Risks</Text>
+                    </View>
                     <BulletList items={advice.risks} icon="alert-triangle" color="#ef4444" />
                   </View>
                 )}
 
                 {advice.next_actions.length > 0 && (
                   <View style={styles.section}>
-                    <Text style={[styles.sectionTitle, { color: '#22c55e' }]}>✅ Next Actions</Text>
+                    <View style={styles.sectionHeader}>
+                      <FontAwesome5 name="check-circle" size={12} color="#22c55e" />
+                      <Text style={[styles.sectionTitle, { color: '#22c55e' }]}>Next Actions</Text>
+                    </View>
                     <BulletList items={advice.next_actions} icon="check-circle" color="#22c55e" />
                   </View>
                 )}
 
                 {advice.watch_out_for.length > 0 && (
                   <View style={styles.section}>
-                    <Text style={[styles.sectionTitle, { color: '#eab308' }]}>👀 Watch Out For</Text>
+                    <View style={styles.sectionHeader}>
+                      <FontAwesome5 name="eye" size={12} color="#eab308" />
+                      <Text style={[styles.sectionTitle, { color: '#eab308' }]}>Watch Out For</Text>
+                    </View>
                     <BulletList items={advice.watch_out_for} icon="eye" color="#eab308" />
                   </View>
                 )}
@@ -303,24 +319,29 @@ export default function DailyMentorCard({ plantId, health }: Props) {
             </View>
           )}
         </TouchableOpacity>
-      </View>
-    </Animated.View>
+      </Animated.View>
+    </View>
   );
 }
 
 // ---- styles ----
 
 const styles = StyleSheet.create((theme) => ({
-  card: {
-    borderRadius: 20,
-    padding: 18,
-    marginBottom: 22,
+  containerWrap: {
+    flex: 1,
+    padding: 24,
+    justifyContent: 'center',
+  },
 
+  card: {
+    borderRadius: 24,
+    padding: 24,
+    paddingBottom: 40,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.1,
     shadowRadius: 12,
-    elevation: 5,
+    elevation: 10,
   },
 
   header: {
@@ -334,6 +355,16 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+  },
+
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+
+  closeButton: {
+    padding: 4,
   },
 
   iconCircle: {
@@ -388,10 +419,16 @@ const styles = StyleSheet.create((theme) => ({
     borderTopColor: theme.colors.greyedOut + '20',
   },
 
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+
   sectionTitle: {
     fontSize: 13,
     fontFamily: theme.fonts.header,
-    marginBottom: 4,
   },
 
   emptyState: {

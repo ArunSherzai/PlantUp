@@ -32,6 +32,7 @@ export type RootStackParamList = {
   PlantStats: { plantId: string; onlyShowSelected?: boolean };
   Plant3DTest: undefined;
   Shop: { initialTab?: 'shop' | 'inventory' };
+  DailyMentor: { plantId: string; health: any };
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -79,6 +80,7 @@ import AccountScreen from '~/screens/Tab/SettingsScreen/AccountScreen';
 import TutorialSettingsScreen from '~/screens/Tab/SettingsScreen/TutorialSettingsScreen';
 import Plant3DTestScreen from '~/screens/Tab/Plant3DTestScreen/Plant3DTestScreen';
 import TutorialDialog from '~/components/TutorialDialog'; // ALLES: added TutorialDialog
+import DailyMentorScreen from '~/screens/Tab/plantStats/DailyMentorScreen';
 
 import { StatusBar } from 'expo-status-bar';
 
@@ -214,6 +216,11 @@ export default function RootStack() {
             <Stack.Screen
               name="Plant3DTest"
               component={Plant3DTestScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="DailyMentor"
+              component={DailyMentorScreen}
               options={{ headerShown: false }}
             />
           </Stack.Group>
