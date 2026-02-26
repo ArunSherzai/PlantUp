@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator, RefreshControl, TextInput, Keyboard } from 'react-native';
+import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator, RefreshControl, TextInput, Keyboard, Linking } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useUnistyles } from 'react-native-unistyles';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -174,12 +174,20 @@ export default function FeedScreen() {
                             </View>
                         ) : (
                             <>
-                                <TouchableOpacity
-                                    style={{ position: 'absolute', right: vw * 5, top: vw * 5, zIndex: 10, padding: 5 }}
-                                    onPress={() => setIsSearching(true)}
-                                >
-                                    <FontAwesome6 name="magnifying-glass" size={vw * 6} color="white" />
-                                </TouchableOpacity>
+                                <View style={{ position: 'absolute', right: vw * 5, top: vw * 5, zIndex: 10, flexDirection: 'row', alignItems: 'center' }}>
+                                    <TouchableOpacity
+                                        style={{ padding: 5, marginRight: 15 }}
+                                        onPress={() => Linking.openURL('https://plantup-3519.myshopify.com')}
+                                    >
+                                        <FontAwesome6 name="store" size={vw * 6} color="white" />
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={{ padding: 5 }}
+                                        onPress={() => setIsSearching(true)}
+                                    >
+                                        <FontAwesome6 name="magnifying-glass" size={vw * 6} color="white" />
+                                    </TouchableOpacity>
+                                </View>
 
                                 <MaskedView
                                     style={{ height: vh * 15, width: '100%', marginTop: vh * 10 }}
