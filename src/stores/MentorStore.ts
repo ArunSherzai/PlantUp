@@ -163,16 +163,46 @@ export const useMentorStore = create<MentorState>((set, get) => ({
     },
 
     acceptRequest: async (requestId: string) => {
+        const user = useUserStore.getState().user;
+        if (!user) return false;
+
         try {
-            const { error } = await db.social
+            // Fetch request details to get the sender_id
+            const { data: requestData, error: fetchError } = await db.social
+                .from('mentor_requests')
+                .select('*')
+                .eq('id', requestId)
+                .single();
+
+            if (fetchError || !requestData) {
+                console.error('[MentorStore] Error fetching request:', fetchError);
+                return false;
+            }
+
+            const { error: updateError } = await db.social
                 .from('mentor_requests')
                 .update({ status: 'accepted', updated_at: new Date().toISOString() })
                 .eq('id', requestId);
 
-            if (error) {
-                console.error('[MentorStore] Error accepting request:', error);
+            if (updateError) {
+                console.error('[MentorStore] Error accepting request:', updateError);
                 return false;
             }
+
+            // Create mutual follows so they immediately become mutuals
+            // Sender follows Mentor
+            const { error: followError1 } = await db.social.from('follows').insert({
+                follower_id: requestData.sender_id,
+                following_id: requestData.mentor_id
+            });
+            if (followError1) console.warn('Follow insert 1 failed', followError1);
+
+            // Mentor follows Sender
+            const { error: followError2 } = await db.social.from('follows').insert({
+                follower_id: requestData.mentor_id,
+                following_id: requestData.sender_id
+            });
+            if (followError2) console.warn('Follow insert 2 failed', followError2);
 
             // Refresh incoming requests
             await get().fetchIncomingRequests();

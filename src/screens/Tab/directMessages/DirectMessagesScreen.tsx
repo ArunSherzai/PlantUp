@@ -33,6 +33,7 @@ export default function DirectMessagesScreen() {
     const { theme } = useUnistyles();
     const insets = useSafeAreaInsets();
     const [searchQuery, setSearchQuery] = useState('');
+    const [mentorSearchQuery, setMentorSearchQuery] = useState('');
     const [sprigTip, setSprigTip] = useState<StoredTip | null>(null);
     const [showDevMenu, setShowDevMenu] = useState(false);
     const [activeTab, setActiveTab] = useState<'messages' | 'mentors'>('messages');
@@ -46,7 +47,7 @@ export default function DirectMessagesScreen() {
     // Store hooks
     const { conversations, fetchConversations, loading, getOrCreateConversation, subscribeToInbox } = useDMStore();
     const { user } = useUserStore();
-    const { mentors, fetchMentors, sendRequest, outgoingRequests, fetchOutgoingRequests, getRequestStatus, loading: mentorLoading } = useMentorStore();
+    const { mentors, fetchMentors, sendRequest, outgoingRequests, incomingRequests, fetchIncomingRequests, fetchOutgoingRequests, getRequestStatus, loading: mentorLoading, acceptRequest, rejectRequest } = useMentorStore();
 
     useFocusEffect(
         React.useCallback(() => {
@@ -60,6 +61,7 @@ export default function DirectMessagesScreen() {
                 fetchConversations();
                 fetchMentors();
                 fetchOutgoingRequests();
+                fetchIncomingRequests();
             }
         }, [user])
     );
@@ -183,6 +185,10 @@ export default function DirectMessagesScreen() {
     const filteredMessages = mergedData.filter(msg =>
         msg.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         msg.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    const filteredMentors = mentors.filter(mentor =>
+        mentor.username.toLowerCase().includes(mentorSearchQuery.toLowerCase())
     );
 
     const renderItem = ({ item }: { item: any }) => (
@@ -313,19 +319,65 @@ export default function DirectMessagesScreen() {
                 ) : (
                     <>
                         <View style={styles.contentHeader}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Find a Mentor</Text>
+                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Mentors</Text>
+                        </View>
+
+                        <View style={styles.searchContainer}>
+                            <TextInput
+                                style={[styles.searchInput, { backgroundColor: '#F0F0F0', color: '#000' }]}
+                                placeholder="Search mentors..."
+                                placeholderTextColor="#999"
+                                value={mentorSearchQuery}
+                                onChangeText={setMentorSearchQuery}
+                            />
                         </View>
 
                         <FlatList
-                            data={mentors}
+                            data={filteredMentors}
                             keyExtractor={(item) => item.id}
                             contentContainerStyle={styles.listContent}
                             refreshing={mentorLoading}
                             onRefresh={async () => {
                                 await fetchMentors();
                                 await fetchOutgoingRequests();
+                                await fetchIncomingRequests();
                                 playSound('reload');
                             }}
+                            ListHeaderComponent={
+                                incomingRequests && incomingRequests.some(r => r.status === 'pending') ? (
+                                    <View style={{ marginBottom: 20 }}>
+                                        <Text style={[styles.subsectionTitle, { color: theme.colors.text, marginBottom: 10 }]}>Pending Requests</Text>
+                                        {incomingRequests.filter(r => r.status === 'pending').map(request => (
+                                            <View key={request.id} style={styles.mentorItem}>
+                                                <View style={styles.avatarContainer}>
+                                                    <Image source={getAvatarSource(request.sender_avatar_path)} style={styles.avatar} resizeMode="cover" />
+                                                </View>
+                                                <View style={styles.mentorContent}>
+                                                    <Text style={[styles.name, { color: theme.colors.text }]}>{request.sender_username || 'A User'}</Text>
+                                                    <Text style={[styles.mentorLevel, { color: theme.colors.greyedOut }]}>wants you as a mentor</Text>
+                                                </View>
+                                                <TouchableOpacity
+                                                    style={[styles.requestButton, styles.acceptedButton, { marginRight: 8 }]}
+                                                    onPress={async () => {
+                                                        const success = await acceptRequest(request.id);
+                                                        if (success) {
+                                                            Alert.alert('Accepted', 'You are now mutual followers!');
+                                                        }
+                                                    }}
+                                                >
+                                                    <Text style={styles.acceptedButtonText}>Accept</Text>
+                                                </TouchableOpacity>
+                                                <TouchableOpacity
+                                                    style={[styles.requestButton, styles.rejectedButton]}
+                                                    onPress={() => rejectRequest(request.id)}
+                                                >
+                                                    <Text style={styles.rejectedButtonText}>Decline</Text>
+                                                </TouchableOpacity>
+                                            </View>
+                                        ))}
+                                    </View>
+                                ) : null
+                            }
                             renderItem={({ item }: { item: Mentor }) => {
                                 const status = getRequestStatus(item.id);
                                 return (
@@ -500,6 +552,10 @@ const styles = StyleSheet.create({
     },
     sectionTitle: {
         fontSize: vw * 6,
+        fontWeight: 'bold',
+    },
+    subsectionTitle: {
+        fontSize: vw * 4.5,
         fontWeight: 'bold',
     },
     subtitle: {
