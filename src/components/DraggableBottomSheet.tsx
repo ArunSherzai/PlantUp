@@ -26,7 +26,7 @@ export default function DraggableBottomSheet({
     // eslint-disable-next-line react-hooks/rules-of-hooks
     tabBarHeight = useBottomTabBarHeight();
   } catch (error) {
-    tabBarHeight = 0;
+    tabBarHeight = 80;
   }
   // BERECHNUNG DER GRENZEN (Prozentual)
   const START_Y = -SCREEN_HEIGHT * initialHeight;
@@ -66,7 +66,7 @@ export default function DraggableBottomSheet({
   });
 
   return (
-    <Animated.View style={[styles.bottomSheetContainer, rBottomSheetStyle, { marginBottom: tabBarHeight }]}>
+    <Animated.View style={[styles.bottomSheetContainer, rBottomSheetStyle, { paddingBottom: tabBarHeight }]}>
       {/* 1. Der Griff (GestureDetector) */}
       <GestureDetector gesture={gesture}>
         <View style={styles.lineWrapper}>
@@ -75,7 +75,7 @@ export default function DraggableBottomSheet({
       </GestureDetector>
 
       {/* 2. Der Inhalt (Frei für ScrollView) */}
-      <View style={styles.contentContainer}>{children}</View>
+      <View style={[styles.contentContainer, { marginBottom: tabBarHeight }]}>{children}</View>
     </Animated.View>
   );
 }
@@ -94,6 +94,7 @@ const styles = StyleSheet.create((theme) => ({
     shadowRadius: 5,
     elevation: 10,
 
+
   },
   lineWrapper: {
     width: '100%',
@@ -110,5 +111,6 @@ const styles = StyleSheet.create((theme) => ({
   },
   contentContainer: {
     flex: 1,
+
   },
 }));

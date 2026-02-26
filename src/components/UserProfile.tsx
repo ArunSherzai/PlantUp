@@ -247,7 +247,7 @@ export default function UserProfile({ userId, isOwner }: Props) {
                     <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                         <FontAwesome6 name="chevron-left" size={20} color={theme.colors.textDark} />
                     </TouchableOpacity>
-                    <Text 
+                    <Text
                         style={styles.headerTitle}
                         adjustsFontSizeToFit
                         numberOfLines={3}
@@ -282,10 +282,10 @@ export default function UserProfile({ userId, isOwner }: Props) {
                                     style={{
                                         // 🟢 RESPONSIVE SIZING RELATIVE TO AVATAR (80px)
                                         position: 'absolute',
-                                        width: profile.equipped_border.media_url.includes('.gif') ? '262%' : '168%',
-                                        height: profile.equipped_border.media_url.includes('.gif') ? '262%' : '168%',
-                                        top: profile.equipped_border.media_url.includes('.gif') ? '-81%' : '-34%',
-                                        left: profile.equipped_border.media_url.includes('.gif') ? '-81%' : '-34%',
+                                        width: profile.equipped_border.media_url.includes('.gif') ? '240%' : '152%',
+                                        height: profile.equipped_border.media_url.includes('.gif') ? '240%' : '152%',
+                                        top: profile.equipped_border.media_url.includes('.gif') ? '-70%' : '-26%',
+                                        left: profile.equipped_border.media_url.includes('.gif') ? '-70%' : '-26%',
                                         zIndex: 1,
                                     }}
                                     pointerEvents="none"
@@ -419,9 +419,9 @@ const styles = StyleSheet.create((theme) => ({
         marginRight: 20,
     },
     avatar: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
+        width: 100,
+        height: 100,
+        borderRadius: 50,
         backgroundColor: theme.colors.greyedOut,
     },
     userInfo: {

@@ -8,12 +8,14 @@ import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import FeedCard from '../../../components/FeedCard';
 import DraggableBottomSheet from '../../../components/DraggableBottomSheet';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { usePosts } from '../../../hooks/usePosts';
+import { useFypFeed, FeedMode } from '../../../hooks/useFypFeed';
 import MasonryFeedGrid from '../../../components/MasonryFeedGrid';
 import { useUserSearch } from '../../../features/social/hooks/useUserSearch';
 import { useConnections } from '../../../features/social/hooks/useConnections';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { playSound } from '~/utils/SoundManager';
+import { useTutorialStore } from '../../../stores/TutorialStore';
+import { useUserStore } from '../../../stores/UserStore';
 
 const { width, height } = Dimensions.get('window');
 const vh = height / 100;
@@ -31,11 +33,11 @@ export default function FeedScreen() {
     const { theme } = useUnistyles();
     const navigation = useNavigation<any>();
     const insets = useSafeAreaInsets();
-    const { posts: allPosts, loading: postsLoading, refreshPosts: refreshFeed } = usePosts();
+    const { posts: allPosts, loading: postsLoading, refreshFeed, feedMode, switchMode } = useFypFeed();
     const [refreshing, setRefreshing] = useState(false);
 
     // Filter out blocked posts
-    const posts = allPosts.filter(p => !p.is_blocked);
+    const posts = allPosts.filter((p: any) => !p.is_blocked);
 
     // Search State
     const [isSearching, setIsSearching] = useState(false);
@@ -43,11 +45,23 @@ export default function FeedScreen() {
     const { searchResults, loading: searchLoading, searchUsers, clearSearch } = useUserSearch();
     const { following, followers, followUser, unfollowUser } = useConnections();
 
+    const { profile } = useUserStore();
+    const { startTutorial } = useTutorialStore();
+
     // Reload when screen is focused
     useFocusEffect(
         useCallback(() => {
             refreshFeed();
-        }, [refreshFeed])
+
+            // --- TUTORIAL TRIGGER ---
+            if (profile && profile.tutorial_progress) {
+                setTimeout(() => {
+                    if (!profile.tutorial_progress['app_onboarding']) {
+                        startTutorial('app_onboarding');
+                    }
+                }, 500);
+            }
+        }, [refreshFeed, profile?.tutorial_progress, startTutorial])
     );
 
     // Pull to refresh handler
@@ -221,7 +235,31 @@ export default function FeedScreen() {
                         </ScrollView>
                     </View>
                 ) : (
-                    <DraggableBottomSheet initialHeight={0.70} maxHeight={0.9}>
+                    <DraggableBottomSheet initialHeight={0.70} maxHeight={0.95}>
+                        {/* FYP / Latest Toggle */}
+                        <View style={styles.feedToggleContainer}>
+                            <TouchableOpacity
+                                style={[
+                                    styles.feedToggleButton,
+                                    feedMode === 'fyp' && styles.feedToggleButtonActive,
+                                ]}
+                                onPress={() => switchMode('fyp')}
+                            >
+                                <FontAwesome6 name="wand-magic-sparkles" size={vw * 3} color={feedMode === 'fyp' ? '#fff' : '#888'} />
+                                <Text style={[styles.feedToggleText, feedMode === 'fyp' && styles.feedToggleTextActive]}>For You</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[
+                                    styles.feedToggleButton,
+                                    feedMode === 'chronological' && styles.feedToggleButtonActive,
+                                ]}
+                                onPress={() => switchMode('chronological')}
+                            >
+                                <FontAwesome6 name="clock" size={vw * 3} color={feedMode === 'chronological' ? '#fff' : '#888'} />
+                                <Text style={[styles.feedToggleText, feedMode === 'chronological' && styles.feedToggleTextActive]}>Latest</Text>
+                            </TouchableOpacity>
+                        </View>
+
                         {postsLoading && posts.length === 0 ? (
                             <View style={{ padding: 20 }}>
                                 <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -387,7 +425,7 @@ const styles = StyleSheet.create({
     scrollContent: {
         paddingHorizontal: vw * 4,
         paddingTop: vh * 2,
-        paddingBottom: vh * 15, // Space for bottom tab bar
+        paddingBottom: vh * 25, // Space for FAB + bottom tab bar
     },
     masonryContainer: {
         flexDirection: 'row',
@@ -409,5 +447,32 @@ const styles = StyleSheet.create({
         shadowRadius: 4.65,
         elevation: 8,
         zIndex: 100,
-    }
+    },
+    feedToggleContainer: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        gap: vw * 2,
+        paddingVertical: vh * 1,
+        paddingHorizontal: vw * 4,
+    },
+    feedToggleButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: vw * 1.5,
+        paddingHorizontal: vw * 5,
+        paddingVertical: vh * 0.8,
+        borderRadius: vw * 5,
+        backgroundColor: 'rgba(0,0,0,0.06)',
+    },
+    feedToggleButtonActive: {
+        backgroundColor: '#329D9C',
+    },
+    feedToggleText: {
+        fontSize: vw * 3.2,
+        fontWeight: '600',
+        color: '#888',
+    },
+    feedToggleTextActive: {
+        color: '#fff',
+    },
 });

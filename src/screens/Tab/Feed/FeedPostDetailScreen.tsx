@@ -6,18 +6,20 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { RootStackParamList } from '../../../navigation/Root';
 import MasonryFeedGrid from '../../../components/MasonryFeedGrid';
-import { useFeed } from '../../../hooks/useFeed';
+import { useFypFeed } from '../../../hooks/useFypFeed';
 import { db } from '../../../utils/supabase';
 import { useUserStore } from '../../../stores/UserStore';
 import { getDisplayMedia } from '../../../utils/media';
 import Video from 'react-native-video';
 import { formatNumber } from '../../../utils/formatNumber';
 import { TapGestureHandler, LongPressGestureHandler, State, GestureHandlerRootView } from 'react-native-gesture-handler';
-import BottomSheet, { BottomSheetView, BottomSheetTextInput, BottomSheetScrollView, BottomSheetModalProvider } from '@gorhom/bottom-sheet';
+import FeedBottomSheet, { FeedBottomSheetRef } from '../../../components/FeedBottomSheet';
+import CommentsBottomSheet, { CommentsBottomSheetRef } from '../../../components/CommentsBottomSheet';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming, runOnJS } from 'react-native-reanimated';
 import SensorDisplayCard from '../../../components/SensorDisplayCard';
 import MentorBadge from '../../../components/MentorBadge';
 import { ScrollView } from 'react-native-gesture-handler';
+import { logViewEvent, logDwellEvent, logLikeEvent, logUnlikeEvent, logCommentEvent, logSaveEvent, logUnsaveEvent, logFollowEvent, logReportEvent } from '../../../utils/interactionLogger';
 
 // We need the RouteProp to access params
 type FeedPostDetailRouteProp = RouteProp<RootStackParamList, 'FeedPostDetail'>;
@@ -81,21 +83,23 @@ export default function FeedPostDetailScreen() {
     // Animation State
     const heartScale = useSharedValue(1);
     const [showHeartBreak, setShowHeartBreak] = useState(false);
+    const [showHeartOverlay, setShowHeartOverlay] = useState(false);
+    const heartOverlayScale = useSharedValue(0);
+    const heartOverlayOpacity = useSharedValue(0);
     const progress = useSharedValue(0); // Video Progress
     const durationRef = useRef(0);
-
-    // Sheet State
-    const [sheetMode, setSheetMode] = useState<SheetMode>('related');
 
     // Video State
     const [paused, setPaused] = useState(false);
     const [muted, setMuted] = useState(false);
     const [isVideoReady, setIsVideoReady] = useState(false);
 
-    // BottomSheet Ref
-    const bottomSheetRef = useRef<BottomSheet>(null);
-    // Snap points: 15% (User Info + Input), 90% (Full screen)
-    const snapPoints = useMemo(() => ['15%', '90%'], []);
+    // BottomSheet Refs
+    const detailsSheetRef = useRef<FeedBottomSheetRef>(null);
+    const commentsSheetRef = useRef<CommentsBottomSheetRef>(null);
+
+    // Snap points
+    const detailsSnapPoints = useMemo(() => ['12%', '90%'], []);
 
     // Logic to fix URL extension if needed (User logic preservation)
     // For sensorData: ALWAYS use post.media_url directly (it contains JSON)
@@ -130,7 +134,22 @@ export default function FeedPostDetailScreen() {
         if (post?.id) {
             checkInteractions();
             fetchComments();
+            // FYP: Log view event
+            if (user?.id) {
+                logViewEvent(user.id, post.id, 'detail');
+            }
         }
+    }, [post?.id, user?.id]);
+
+    // FYP: Dwell-time tracking — log how long the user viewed this post
+    useEffect(() => {
+        const enterTime = Date.now();
+        return () => {
+            if (user?.id && post?.id) {
+                const dwellMs = Date.now() - enterTime;
+                logDwellEvent(user.id, post.id, dwellMs);
+            }
+        };
     }, [post?.id, user?.id]);
 
     // Reset video state when post changes
@@ -257,10 +276,19 @@ export default function FeedPostDetailScreen() {
     };
 
     const animateLike = () => {
+        // Sidebar heart animation
         heartScale.value = withSequence(
             withSpring(1.5, { damping: 10, stiffness: 200 }),
             withSpring(1, { damping: 10, stiffness: 200 })
         );
+        // Large heart overlay animation
+        setShowHeartOverlay(true);
+        heartOverlayScale.value = 0;
+        heartOverlayOpacity.value = 1;
+        heartOverlayScale.value = withSpring(1, { damping: 8, stiffness: 150 });
+        heartOverlayOpacity.value = withTiming(0, { duration: 800 }, () => {
+            runOnJS(setShowHeartOverlay)(false);
+        });
     };
 
     const animateDislike = () => {
@@ -290,8 +318,10 @@ export default function FeedPostDetailScreen() {
 
         if (newLiked) {
             await db.social.from('post_interactions').insert({ user_id: user.id, post_id: post.id, interaction_type: 'like' });
+            logLikeEvent(user.id, post.id);
         } else {
             await db.social.from('post_interactions').delete().eq('user_id', user.id).eq('post_id', post.id).eq('interaction_type', 'like');
+            logUnlikeEvent(user.id, post.id);
         }
     };
 
@@ -302,8 +332,10 @@ export default function FeedPostDetailScreen() {
 
         if (newSaved) {
             await db.social.from('post_interactions').insert({ user_id: user.id, post_id: post.id, interaction_type: 'save' });
+            logSaveEvent(user.id, post.id);
         } else {
             await db.social.from('post_interactions').delete().eq('user_id', user.id).eq('post_id', post.id).eq('interaction_type', 'save');
+            logUnsaveEvent(user.id, post.id);
         }
     };
 
@@ -314,6 +346,7 @@ export default function FeedPostDetailScreen() {
 
         if (newFollowing) {
             await db.social.from('follows').insert({ follower_id: user.id, following_id: post.user_id });
+            logFollowEvent(user.id, post.id, post.user_id);
         } else {
             await db.social.from('follows').delete().eq('follower_id', user.id).eq('following_id', post.user_id);
         }
@@ -325,9 +358,15 @@ export default function FeedPostDetailScreen() {
         };
     });
 
+    const animatedHeartOverlayStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: heartOverlayScale.value }],
+        opacity: heartOverlayOpacity.value,
+    }));
+
     const animatedProgressStyle = useAnimatedStyle(() => ({
         width: `${progress.value * 100}%`,
     }));
+
 
     const onVideoLoad = useCallback((data: any) => {
         setIsVideoReady(true);
@@ -353,6 +392,7 @@ export default function FeedPostDetailScreen() {
 
             setMenuStage('none');
             setIsBlocked(true); // Auto-block locally after report
+            logReportEvent(user.id, post.id, reason);
             Alert.alert("Report Submitted", "Thank you for reporting this post. We will review it shortly.");
         } catch (err: any) {
             console.error(err);
@@ -413,30 +453,32 @@ export default function FeedPostDetailScreen() {
             post_id: post.id,
             description: text
         });
+        logCommentEvent(user.id, post.id);
     };
 
     // Input Ref
     const inputRef = useRef<any>(null);
 
     const openComments = () => {
-        setSheetMode('comments');
-        bottomSheetRef.current?.snapToIndex(1); // Open to 90%
+        commentsSheetRef.current?.snapToIndex(1); // Open to 100%
         // Auto-focus input after a slight delay to allow mounting
         setTimeout(() => {
             inputRef.current?.focus();
-        }, 300);
+        }, 500);
     };
 
-    const handleBackToRelated = () => {
-        setSheetMode('related');
-        bottomSheetRef.current?.snapToIndex(0); // Back to 25%
+    const closeComments = () => {
+        commentsSheetRef.current?.snapToIndex(0); // Close to 0%
         Keyboard.dismiss();
     };
 
     // Gestures
     const onSingleTap = (event: any) => {
         if (event.nativeEvent.state === State.ACTIVE) {
-            setPaused(prev => !prev);
+            // Only toggle pause/play for video posts
+            if (isVideo) {
+                setPaused(prev => !prev);
+            }
         }
     };
 
@@ -447,13 +489,30 @@ export default function FeedPostDetailScreen() {
         }
     };
 
-    // Related Posts Grid
-    const { posts: relatedPosts } = useFeed();
+    // Hold-to-mute indicator state
+    const [showMuteIndicator, setShowMuteIndicator] = useState(false);
 
-    // MEMOIZATION: Prevent re-calculation on every render
+    const onLongPress = (event: any) => {
+        if (event.nativeEvent.state === State.ACTIVE) {
+            // For videos: toggle mute
+            if (isVideo) {
+                setMuted(prev => !prev);
+                setShowMuteIndicator(true);
+                setTimeout(() => setShowMuteIndicator(false), 1000);
+            } else {
+                // For non-videos: open menu
+                setMenuStage('initial');
+            }
+        }
+    };
+
+    // Recommended Posts Grid — powered by FYP algorithm
+    const { posts: recommendedPosts } = useFypFeed('fyp');
+
+    // MEMOIZATION: Filter out current post and blocked posts
     const displayPosts = useMemo(() => {
-        return relatedPosts.filter(p => p.id !== post?.id && !p.is_blocked).slice(0, 8);
-    }, [relatedPosts, post?.id]);
+        return recommendedPosts.filter(p => p.id !== post?.id && !p.is_blocked).slice(0, 8);
+    }, [recommendedPosts, post?.id]);
 
     const handlePostPress = useCallback((item: any) => {
         navigation.push('FeedPostDetail', { post: item });
@@ -486,12 +545,9 @@ export default function FeedPostDetailScreen() {
                     numberOfTaps={2}
                 >
                     <LongPressGestureHandler
-                        onHandlerStateChange={({ nativeEvent }) => {
-                            if (nativeEvent.state === State.ACTIVE) {
-                                setMenuStage('initial');
-                            }
-                        }}
+                        onHandlerStateChange={onLongPress}
                         minDurationMs={500}
+
                     >
                         <View style={styles.backgroundContainer}>
                             {isBlocked ? (
@@ -592,7 +648,24 @@ export default function FeedPostDetailScreen() {
                                     <FontAwesome6 name="play" size={50} color="white" style={{ opacity: 0.8 }} />
                                 </View>
                             )}
+
+                            {/* Heart Like Overlay (shown on double-tap to like) */}
+                            {showHeartOverlay && (
+                                <Animated.View style={[styles.heartOverlay, animatedHeartOverlayStyle]} pointerEvents="none">
+                                    <FontAwesome6 name="heart" size={100} color="#FF3B30" solid />
+                                </Animated.View>
+                            )}
+
+                            {/* Mute Indicator Overlay (shown on long-press to toggle mute) */}
+                            {showMuteIndicator && isVideo && (
+                                <View style={styles.muteIndicatorOverlay}>
+                                    <View style={styles.muteIndicatorBg}>
+                                        <FontAwesome6 name={muted ? "volume-xmark" : "volume-high"} size={40} color="white" />
+                                    </View>
+                                </View>
+                            )}
                         </View>
+
                     </LongPressGestureHandler>
                 </TapGestureHandler>
             </TapGestureHandler>
@@ -667,19 +740,11 @@ export default function FeedPostDetailScreen() {
                 </Animated.View>
             </SafeAreaView >
 
-            {/* Dynamic Bottom Sheet */}
-            < BottomSheet
-                ref={bottomSheetRef}
-                index={0} // Open to first snap point (25%)
-                snapPoints={snapPoints}
-                // animatedIndex={sheetIndex} // This line was not in the original, adding it based on the instruction snippet
-                enablePanDownToClose={false}
-                backgroundStyle={{ backgroundColor: theme.colors.surface }
-                }
-                handleIndicatorStyle={{ backgroundColor: theme.colors.greyedOut }}
-                onChange={(index: number) => {
-                    // Slight logic to ensure mode feels correct, mostly handled by explicit state
-                }}
+            {/* DETAILS BOTTOM SHEET */}
+            <FeedBottomSheet
+                ref={detailsSheetRef}
+                snapPoints={detailsSnapPoints}
+                initialSnapIndex={0}
             >
                 <View style={styles.bottomSheetContainer}>
                     <View style={{ flex: 1 }}>
@@ -753,16 +818,75 @@ export default function FeedPostDetailScreen() {
                                 </BottomSheetScrollView>
                             </>
                         )}
+                    <View style={styles.userInfoHeader}>
+                        <View style={styles.userRow}>
+                            <Image
+                                source={post?.Users?.profile_image ? { uri: post.Users.profile_image } : require('../../../../assets/images/Profilbild.jpg')}
+                                style={styles.avatar}
+                            />
+                            <View style={{ flex: 1 }}>
+                                <Text style={[styles.username, { color: theme.colors.text }]}>{post?.Users?.username || 'Observer'}</Text>
+                                <Text style={[styles.caption, { color: theme.colors.text }]} numberOfLines={2}>
+                                    {isTextPost ? getHashtags(post?.caption) : (post?.caption || 'My Pink Princess #post #plslikeandfollow')}
+                                </Text>
+                            </View>
+                            <TouchableOpacity
+                                style={[styles.followButton, { backgroundColor: isFollowing ? theme.colors.surface : '#4CA771', borderWidth: isFollowing ? 1 : 0, borderColor: theme.colors.greyedOut }]}
+                                onPress={handleFollow}
+                            >
+                                <Text style={[styles.followButtonText, { color: isFollowing ? theme.colors.text : 'white' }]}>
+                                    {isFollowing ? 'Following' : 'Follow'}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                        <View style={styles.divider} />
+                        <View style={styles.scrollHint}>
+                            <Text style={[styles.scrollHintText, { color: theme.colors.greyedOut }]}>Scroll for related posts</Text>
+                            <FontAwesome6 name="chevron-down" size={12} color={theme.colors.greyedOut} />
+                        </View>
                     </View>
 
-                    {/* Footer: Input (Always Visible) */}
+                    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.gridContent}>
+                        <MasonryFeedGrid
+                            posts={displayPosts}
+                            onPostPress={handlePostPress}
+                        />
+                        <View style={{ height: 100 }} />
+                    </ScrollView>
+                </View>
+            </FeedBottomSheet>
+
+            {/* COMMENTS BOTTOM SHEET */}
+            <CommentsBottomSheet
+                ref={commentsSheetRef}
+                onClose={() => Keyboard.dismiss()}
+            >
+                <View style={[styles.bottomSheetContainer, { backgroundColor: theme.colors.surface }]}>
+                    <View style={styles.commentsHeader}>
+                        <TouchableOpacity onPress={closeComments} style={styles.backButton}>
+                            <FontAwesome6 name="xmark" size={20} color={theme.colors.text} />
+                        </TouchableOpacity>
+                        <Text style={[styles.bottomSheetTitle, { color: theme.colors.text }]}>Comments ({comments.length})</Text>
+                        <View style={{ width: 20 }} />
+                    </View>
+                    <View style={styles.divider} />
+
+                    <ScrollView contentContainerStyle={styles.commentsList}>
+                        {comments.length === 0 ? (
+                            <Text style={{ textAlign: 'center', color: '#999', marginTop: 20 }}>No comments yet. Be the first!</Text>
+                        ) : (
+                            comments.map(renderCommentFn)
+                        )}
+                        <View style={{ height: 20 }} />
+                    </ScrollView>
+
                     <View style={[styles.inputContainer, { backgroundColor: theme.colors.surface, borderTopColor: '#f0f0f0' }]}>
                         <Image
                             source={profile?.profile_image ? { uri: profile.profile_image } : require('../../../../assets/images/Profilbild.jpg')}
                             style={styles.inputAvatar}
                         />
                         <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background }]}>
-                            <BottomSheetTextInput
+                            <TextInput
                                 ref={inputRef}
                                 placeholder="Add a comment..."
                                 placeholderTextColor="#999"
@@ -770,9 +894,6 @@ export default function FeedPostDetailScreen() {
                                 value={commentText}
                                 onChangeText={setCommentText}
                                 onSubmitEditing={handleComment}
-                                onFocus={() => {
-                                    if (sheetMode === 'related') openComments();
-                                }}
                             />
                             <TouchableOpacity onPress={handleComment}>
                                 <FontAwesome6 name="paper-plane" size={16} color="#4CA771" />
@@ -780,7 +901,7 @@ export default function FeedPostDetailScreen() {
                         </View>
                     </View>
                 </View>
-            </BottomSheet >
+            </CommentsBottomSheet>
 
             {/* Report/Block Menu Overlay */}
             {
@@ -933,9 +1054,39 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
+    heartOverlay: {
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        marginLeft: -50,
+        marginTop: -50,
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 100,
+    },
+    muteIndicatorOverlay: {
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        marginLeft: -40,
+        marginTop: -40,
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 100,
+    },
+    muteIndicatorBg: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
     // Removed headerSafeArea style as it is now inline or overlay
+
     // Bottom Sheet Styles
     bottomSheetContainer: {
+
         flex: 1,
         paddingHorizontal: 16,
     },
@@ -1005,7 +1156,7 @@ const styles = StyleSheet.create({
         marginBottom: 10,
     },
     commentsList: {
-        paddingBottom: 20,
+
     },
     commentItem: {
         flexDirection: 'row',
@@ -1052,7 +1203,7 @@ const styles = StyleSheet.create({
     },
     input: {
         flex: 1,
-        height: 40,
+        height: 40
     },
     spacer: {
         flex: 1,

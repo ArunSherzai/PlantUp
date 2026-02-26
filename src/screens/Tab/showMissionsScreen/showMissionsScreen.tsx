@@ -29,6 +29,7 @@ import StreakSavedOverlay from '../../../components/StreakSavedOverlay';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RewardDetailsModal from '../../../components/RewardDetailsModal';
 import { playSound } from '~/utils/SoundManager';
+import { useTutorialStore } from '../../../stores/TutorialStore';
 
 
 const { height, width } = Dimensions.get('window');
@@ -78,6 +79,7 @@ export default function ShowMissionsScreen() {
   const [recentlyClaimedQuest, setRecentlyClaimedQuest] = useState<UserQuest | null>(null);
 
   const { addXP, updateStreak, profile, fetchProfile, fetchInventory } = useUserStore();
+  const { startTutorial } = useTutorialStore();
 
   // --- FETCH DATA ---
   const fetchQuests = useCallback(async () => {
@@ -133,6 +135,18 @@ export default function ShowMissionsScreen() {
     };
     initData();
   }, [fetchQuests]);
+
+  // --- TUTORIAL TRIGGER ---
+  useEffect(() => {
+    if (profile && profile.tutorial_progress) {
+      // Small timeout to ensure rendering is stable and other modals aren't fighting
+      setTimeout(() => {
+        if (!profile.tutorial_progress['missions_tutorial']) {
+          startTutorial('missions_tutorial');
+        }
+      }, 500);
+    }
+  }, [profile?.tutorial_progress, startTutorial]);
 
   // Alert for Rescued Streak
   const [showRescueOverlay, setShowRescueOverlay] = useState(false);

@@ -3,6 +3,7 @@ import '../../unistyles';
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import RootStack from '~/navigation/Root';
 import { useLoadFonts } from '~/utils/loadFonts';
@@ -40,12 +41,14 @@ export default function App() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <View onLayout={onLayoutRootView} style={{ flex: 1 }}>
-        <SystemBars hidden />
-        <RootStack />
-      </View>
-    </GestureHandlerRootView>
+    <SafeAreaProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <View onLayout={onLayoutRootView} style={{ flex: 1 }}>
+          <SystemBars hidden />
+          <RootStack />
+        </View>
+      </GestureHandlerRootView>
+    </SafeAreaProvider>
   );
 }
 

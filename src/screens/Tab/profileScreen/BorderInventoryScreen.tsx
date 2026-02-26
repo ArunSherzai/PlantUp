@@ -66,14 +66,14 @@ export default function BorderInventoryScreen() {
             <Text style={[styles.emptySubText, { color: theme.colors.greyedOut }]}>
               Visit the shop to get Lootboxes!
             </Text>
-            <TouchableOpacity 
-                style={[styles.equipButton, { backgroundColor: theme.colors.primary, marginTop: 20 }]}
-                onPress={() => {
-                    playSound('click');
-                    navigation.navigate('Shop' as never);
-                }}
+            <TouchableOpacity
+              style={[styles.equipButton, { backgroundColor: theme.colors.primary, marginTop: 20 }]}
+              onPress={() => {
+                playSound('click');
+                navigation.navigate('Shop' as never);
+              }}
             >
-                <Text style={styles.equipButtonText}>Go to Shop</Text>
+              <Text style={styles.equipButtonText}>Go to Shop</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -138,10 +138,10 @@ export default function BorderInventoryScreen() {
                       style={[
                         styles.borderPreview,
                         border.media_url.includes('.gif') && {
-                          width: '158%', // 🟢 Scale up ONLY for GIFs
-                          height: '158%',
-                          top: '-29%',
-                          left: '-29%',
+                          width: '144%', // 🟢 Scale up ONLY for GIFs
+                          height: '144%',
+                          top: '-22%',
+                          left: '-22%',
                         }
                       ]}
                       contentFit="contain"
@@ -252,10 +252,10 @@ const styles = StyleSheet.create({
   },
   borderPreview: {
     position: 'absolute',
-    width: '100%', // 🟢 PNGs should strictly fit the container (which is ~1.6x avatar)
-    height: '100%',
-    top: 0,
-    left: 0,
+    width: '91%', // 🟢 PNGs should strictly fit the container (which is ~1.6x avatar)
+    height: '91%',
+    top: '4.5%',
+    left: '4.5%',
     pointerEvents: 'none',
   },
   borderName: {
