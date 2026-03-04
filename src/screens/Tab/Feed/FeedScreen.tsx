@@ -11,6 +11,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useFypFeed, FeedMode } from '../../../hooks/useFypFeed';
 import MasonryFeedGrid from '../../../components/MasonryFeedGrid';
 import { useUserSearch } from '../../../features/social/hooks/useUserSearch';
+import { usePostSearch, SearchPost } from '../../../features/social/hooks/usePostSearch';
 import { useConnections } from '../../../features/social/hooks/useConnections';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { playSound } from '~/utils/SoundManager';
@@ -42,7 +43,9 @@ export default function FeedScreen() {
     // Search State
     const [isSearching, setIsSearching] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [searchTab, setSearchTab] = useState<'posts' | 'users'>('posts');
     const { searchResults, loading: searchLoading, searchUsers, clearSearch } = useUserSearch();
+    const { postSearchResults, postLoading, searchPosts, clearPostSearch } = usePostSearch();
     const { following, followers, followUser, unfollowUser } = useConnections();
 
     const { profile } = useUserStore();
@@ -76,8 +79,10 @@ export default function FeedScreen() {
         setSearchQuery(text);
         if (text.length > 1) {
             searchUsers(text);
+            searchPosts(text);
         } else {
             clearSearch();
+            clearPostSearch();
         }
     };
 
@@ -85,6 +90,7 @@ export default function FeedScreen() {
         setIsSearching(false);
         setSearchQuery('');
         clearSearch();
+        clearPostSearch();
         Keyboard.dismiss();
     };
 
@@ -178,7 +184,7 @@ export default function FeedScreen() {
                                 </TouchableOpacity>
                                 <TextInput
                                     style={styles.searchInput}
-                                    placeholder="Search users..."
+                                    placeholder="Search users and posts..."
                                     placeholderTextColor="#666"
                                     value={searchQuery}
                                     onChangeText={handleSearch}
@@ -220,19 +226,57 @@ export default function FeedScreen() {
 
                 {isSearching ? (
                     <View style={[styles.searchResultsContainer, { top: insets.top + vh * 15 }]}>
-                        <ScrollView
-                            contentContainerStyle={{ padding: vw * 5 }}
-                            keyboardShouldPersistTaps="handled"
-                        >
-                            {searchResults.map(user => (
-                                <View key={user.id}>
-                                    {renderSearchResult({ item: user })}
-                                </View>
-                            ))}
-                            {searchResults.length === 0 && searchQuery.length > 1 && !searchLoading && (
-                                <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>No users found.</Text>
-                            )}
-                        </ScrollView>
+                        {/* Search Tabs */}
+                        <View style={styles.searchTabsContainer}>
+                            <TouchableOpacity
+                                style={[styles.searchTabButton, searchTab === 'posts' && styles.searchTabButtonActive]}
+                                onPress={() => setSearchTab('posts')}
+                            >
+                                <Text style={[styles.searchTabText, searchTab === 'posts' && styles.searchTabTextActive]}>Posts</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.searchTabButton, searchTab === 'users' && styles.searchTabButtonActive]}
+                                onPress={() => setSearchTab('users')}
+                            >
+                                <Text style={[styles.searchTabText, searchTab === 'users' && styles.searchTabTextActive]}>Users</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        {searchTab === 'users' ? (
+                            <ScrollView
+                                contentContainerStyle={{ padding: vw * 5 }}
+                                keyboardShouldPersistTaps="handled"
+                            >
+                                {searchResults.map(user => (
+                                    <View key={user.id}>
+                                        {renderSearchResult({ item: user })}
+                                    </View>
+                                ))}
+                                {searchResults.length === 0 && searchQuery.length > 1 && !searchLoading && (
+                                    <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>No users found.</Text>
+                                )}
+                            </ScrollView>
+                        ) : (
+                            <ScrollView
+                                contentContainerStyle={[styles.scrollContent, { paddingBottom: vh * 10 }]}
+                                showsVerticalScrollIndicator={false}
+                                keyboardShouldPersistTaps="handled"
+                            >
+                                {postLoading ? (
+                                    <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginTop: 20 }} />
+                                ) : (
+                                    <>
+                                        <MasonryFeedGrid
+                                            posts={postSearchResults as any}
+                                            onPostPress={(item) => navigation.navigate('FeedPostDetail', { post: item })}
+                                        />
+                                        {postSearchResults.length === 0 && searchQuery.length > 1 && (
+                                            <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>No posts found.</Text>
+                                        )}
+                                    </>
+                                )}
+                            </ScrollView>
+                        )}
                     </View>
                 ) : (
                     <DraggableBottomSheet initialHeight={0.70} maxHeight={0.95}>
@@ -347,7 +391,31 @@ const styles = StyleSheet.create({
         backgroundColor: '#F5F5F7',
         borderTopLeftRadius: vw * 8,
         borderTopRightRadius: vw * 8,
-        paddingTop: vh * 2,
+        paddingTop: vh * 1,
+    },
+    searchTabsContainer: {
+        flexDirection: 'row',
+        paddingHorizontal: vw * 5,
+        marginBottom: vh * 1,
+        borderBottomWidth: 1,
+        borderBottomColor: '#E0E0E0',
+    },
+    searchTabButton: {
+        flex: 1,
+        paddingVertical: vh * 1.5,
+        alignItems: 'center',
+    },
+    searchTabButtonActive: {
+        borderBottomWidth: 3,
+        borderBottomColor: '#329D9C',
+    },
+    searchTabText: {
+        fontSize: vw * 4,
+        fontWeight: '600',
+        color: '#888',
+    },
+    searchTabTextActive: {
+        color: '#329D9C',
     },
     resultItem: {
         flexDirection: 'row',
