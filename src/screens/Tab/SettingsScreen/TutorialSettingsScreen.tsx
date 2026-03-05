@@ -8,35 +8,33 @@ import { useUserStore } from '../../../stores/UserStore';
 import { TUTORIALS } from '../../../config/TutorialsConfig';
 
 const TUTORIAL_NAMES: Record<string, string> = {
-  app_onboarding: 'Feed Tutorial',
-  missions_tutorial: 'Missions Tutorial',
-  chat_tutorial: 'Chat Tutorial',
-  profile_tutorial: 'Profile Tutorial',
-  shop_inventory_tutorial: 'Shop & Inventory Tutorial',
-  notifications_tutorial: 'Notifications Tutorial',
-  plant_stats_tutorial: 'Plant Stats Tutorial',
-  plant_setup: 'Plant Setup Tutorial',
+    app_onboarding: 'Feed Tutorial',
+    missions_tutorial: 'Missions Tutorial',
+    chat_tutorial: 'Chat Tutorial',
+    profile_tutorial: 'Profile Tutorial',
+    shop_inventory_tutorial: 'Shop & Inventory Tutorial',
+    notifications_tutorial: 'Notifications Tutorial',
+    plant_stats_tutorial: 'Plant Stats Tutorial',
+    plant_setup: 'Plant Setup Tutorial',
 };
 
 export default function TutorialSettingsScreen() {
     const { theme } = useUnistyles();
     const navigation = useNavigation();
     const insets = useSafeAreaInsets();
-    
+
     const profile = useUserStore((state) => state.profile);
     const resetTutorialProgress = useUserStore((state) => state.resetTutorialProgress);
 
     // Keep track of which tutorials the user wants to reset
-    const [selectedToReset, setSelectedToReset] = useState<Set<string>>(new Set());
+    const [selectedToReset, setSelectedToReset] = useState<string[]>([]);
 
     const toggleSelection = (tutorialId: string) => {
-        const newSet = new Set(selectedToReset);
-        if (newSet.has(tutorialId)) {
-            newSet.delete(tutorialId);
-        } else {
-            newSet.add(tutorialId);
-        }
-        setSelectedToReset(newSet);
+        setSelectedToReset(prev =>
+            prev.includes(tutorialId)
+                ? prev.filter(id => id !== tutorialId)
+                : [...prev, tutorialId]
+        );
     };
 
     const handleSave = () => {
@@ -44,7 +42,7 @@ export default function TutorialSettingsScreen() {
         selectedToReset.forEach(id => {
             resetTutorialProgress(id);
         });
-        
+
         // Go back
         navigation.goBack();
     };
@@ -83,22 +81,22 @@ export default function TutorialSettingsScreen() {
 
                     {availableTutorials.map((tutorialId) => {
                         const isCompleted = profile?.tutorial_progress?.[tutorialId] === true;
-                        const isSelected = selectedToReset.has(tutorialId);
+                        const isSelected = selectedToReset.includes(tutorialId);
                         const displayName = TUTORIAL_NAMES[tutorialId] || tutorialId;
 
                         return (
-                            <TouchableOpacity 
-                                key={tutorialId} 
+                            <TouchableOpacity
+                                key={tutorialId}
                                 style={[styles.menuItem, { borderBottomColor: theme.colors.greyedOut }]}
                                 onPress={() => toggleSelection(tutorialId)}
                                 disabled={!isCompleted && !isSelected} // Prevent selecting if not completed and not already selected
                             >
                                 <View style={styles.menuItemLeft}>
                                     <View style={[styles.iconContainer, { backgroundColor: theme.colors.surface, borderColor: theme.colors.greyedOut }]}>
-                                        <FontAwesome6 
-                                            name="person-chalkboard" 
-                                            size={16} 
-                                            color={theme.colors.text} 
+                                        <FontAwesome6
+                                            name="person-chalkboard"
+                                            size={16}
+                                            color={theme.colors.text}
                                         />
                                     </View>
                                     <View>
@@ -110,11 +108,11 @@ export default function TutorialSettingsScreen() {
                                         </Text>
                                     </View>
                                 </View>
-                                
+
                                 {/* Checkbox / Toggle indicator */}
                                 <View style={[
-                                    styles.checkbox, 
-                                    { 
+                                    styles.checkbox,
+                                    {
                                         borderColor: isSelected ? theme.colors.primary : theme.colors.greyedOut,
                                         backgroundColor: isSelected ? theme.colors.primary : 'transparent'
                                     }
@@ -125,10 +123,10 @@ export default function TutorialSettingsScreen() {
                         );
                     })}
 
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         style={[styles.saveButton, { backgroundColor: theme.colors.primary }]}
                         onPress={handleSave}
-                        disabled={selectedToReset.size === 0}
+                        disabled={selectedToReset.length === 0}
                     >
                         <Text style={styles.saveButtonText}>
                             Save & Reload Selected

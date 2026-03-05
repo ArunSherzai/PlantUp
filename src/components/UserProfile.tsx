@@ -1,5 +1,5 @@
-import React, { useCallback, useMemo } from 'react';
-import { View, Text, Image, TouchableOpacity, Dimensions, Alert } from 'react-native';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
+import { View, Text, Image, TouchableOpacity, Dimensions, Alert, ActivityIndicator, InteractionManager } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useUnistyles, StyleSheet } from 'react-native-unistyles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -62,6 +62,20 @@ export default function UserProfile({ userId, isOwner }: Props) {
             refreshConnections();
         }, [userId])
     );
+
+    // Defer heavy 3D plant rendering to improve startup responsiveness
+    const [isPlantReady, setIsPlantReady] = useState(false);
+
+    useEffect(() => {
+        let timer: NodeJS.Timeout;
+        const task = InteractionManager.runAfterInteractions(() => {
+            timer = setTimeout(() => setIsPlantReady(true), 2000);
+        });
+        return () => {
+            task.cancel();
+            if (timer) clearTimeout(timer);
+        };
+    }, []);
 
     const currentLevel = profile?.level || 1;
     const currentXP = profile?.xp || 0;
@@ -163,13 +177,19 @@ export default function UserProfile({ userId, isOwner }: Props) {
                                 >
                                     {/* 3D Plant Container */}
                                     <View style={styles.plantViewContainer}>
-                                        <PlantPotPreview
-                                            seed={plantSeed}
-                                            growth={currentLevel}
-                                            mode="lsystem"
-                                            lsystemConfig={lsystemConfig}
-                                            potType="PotStandard"
-                                        />
+                                        {isPlantReady ? (
+                                            <PlantPotPreview
+                                                seed={plantSeed}
+                                                growth={currentLevel}
+                                                mode="lsystem"
+                                                lsystemConfig={lsystemConfig}
+                                                potType="PotStandard"
+                                            />
+                                        ) : (
+                                            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                                                <ActivityIndicator color="#FFFFFF" />
+                                            </View>
+                                        )}
                                     </View>
 
                                     {/* Level Info */}
@@ -295,7 +315,11 @@ export default function UserProfile({ userId, isOwner }: Props) {
                         </View>
                         <View style={styles.userInfo}>
                             <View style={styles.nameRow}>
-                                <Text style={styles.userName}>
+                                <Text
+                                    style={styles.userName}
+                                    numberOfLines={1}
+                                    adjustsFontSizeToFit
+                                >
                                     {profile?.username || 'Gardener'}
                                 </Text>
                             </View>
@@ -426,15 +450,18 @@ const styles = StyleSheet.create((theme) => ({
     },
     userInfo: {
         flex: 1,
+        overflow: 'hidden',
     },
     nameRow: {
         flexDirection: 'row',
         alignItems: 'center',
+        flexWrap: 'nowrap',
     },
     userName: {
         fontSize: 24,
         fontWeight: 'bold',
         color: theme.colors.text,
+        flexShrink: 1,
     },
     userBio: {
         fontSize: 14,
