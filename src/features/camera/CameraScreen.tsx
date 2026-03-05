@@ -165,6 +165,18 @@ export default function CameraScreen() {
     navigateBackWithMedia(navigation, source, capturedMedia);
   }, [capturedMedia, navigation, source]);
 
+  const handleEdit = useCallback(() => {
+    if (!capturedMedia) return;
+
+    // Pass original source + full media info to editor
+    // so it can navigate directly back to CreatePost with the edited image
+    navigation.navigate('PhotoEditor', {
+      imageUri: capturedMedia.uri,
+      source,  // original source (e.g. 'CreatePost'), NOT 'Camera'
+      capturedMedia,
+    });
+  }, [capturedMedia, navigation, source]);
+
   // --- RENDER ---
 
   // Show captured preview
@@ -174,6 +186,7 @@ export default function CameraScreen() {
         media={capturedMedia}
         onRetake={handleRetake}
         onConfirm={handleConfirm}
+        onEdit={handleEdit}
       />
     );
   }

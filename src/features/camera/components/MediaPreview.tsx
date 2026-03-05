@@ -18,14 +18,16 @@ type Props = {
   media: CapturedMedia;
   onRetake: () => void;
   onConfirm: () => void;
+  onEdit?: () => void;  // NEW: open photo editor
 };
 
 /**
  * Full-screen preview of captured photo/video.
- * Shows "Retake" and "Use [Photo|Video]" buttons.
+ * Shows "Retake", "Edit" (photo only), and "Use [Photo|Video]" buttons.
  */
-export default function MediaPreview({ media, onRetake, onConfirm }: Props) {
+export default function MediaPreview({ media, onRetake, onConfirm, onEdit }: Props) {
   const { theme } = useUnistyles();
+  const showEdit = media.type === 'image' && onEdit;
 
   return (
     <View style={styles.container}>
@@ -49,9 +51,16 @@ export default function MediaPreview({ media, onRetake, onConfirm }: Props) {
       {/* Bottom Actions */}
       <View style={styles.actionsContainer}>
         <TouchableOpacity style={styles.retakeButton} onPress={onRetake}>
-          <FontAwesome6 name="arrow-rotate-left" size={18} color="white" />
+          <FontAwesome6 name="arrow-rotate-left" size={16} color="white" />
           <Text style={styles.retakeText}>Retake</Text>
         </TouchableOpacity>
+
+        {showEdit && (
+          <TouchableOpacity style={styles.editButton} onPress={onEdit}>
+            <FontAwesome6 name="wand-magic-sparkles" size={16} color="#00D988" />
+            <Text style={styles.editText}>Edit</Text>
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity onPress={onConfirm}>
           <LinearGradient
@@ -60,7 +69,7 @@ export default function MediaPreview({ media, onRetake, onConfirm }: Props) {
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
           >
-            <FontAwesome6 name="check" size={18} color="white" />
+            <FontAwesome6 name="check" size={16} color="white" />
             <Text style={styles.confirmText}>
               Use {media.type === 'image' ? 'Photo' : 'Video'}
             </Text>
@@ -86,9 +95,10 @@ const styles = StyleSheet.create((theme: any) => ({
     left: 0,
     right: 0,
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 24,
+    gap: 12,
+    paddingHorizontal: 16,
     paddingBottom: 50,
     paddingTop: 20,
     backgroundColor: 'rgba(0,0,0,0.6)',
@@ -96,29 +106,45 @@ const styles = StyleSheet.create((theme: any) => ({
   retakeButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
+    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.5)',
+    borderColor: 'rgba(255,255,255,0.4)',
   },
   retakeText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
+  },
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#329D9C',
+    backgroundColor: 'rgba(50, 157, 156, 0.15)',
+  },
+  editText: {
+    color: '#00D988',
+    fontSize: 14,
+    fontWeight: '700',
   },
   confirmButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
+    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
     borderRadius: 14,
   },
   confirmText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
   },
 }));

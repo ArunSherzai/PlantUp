@@ -43,6 +43,13 @@
             "outputFormat": "mpeg4"
           }
         }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "PlantUp needs access to save edited photos to your gallery.",
+          "savePhotosPermission": "PlantUp needs access to save edited photos to your gallery."
+        }
       ]
     ],
     "orientation": "portrait",
