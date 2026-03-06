@@ -32,7 +32,11 @@ export type RootStackParamList = {
   PlantStats: { plantId: string; onlyShowSelected?: boolean };
   Plant3DTest: undefined;
   Shop: { initialTab?: 'shop' | 'inventory' };
+<<<<<<< Updated upstream
   DailyMentor: { plantId: string; health: any };
+=======
+  PlantTimeline: { plantId: number };
+>>>>>>> Stashed changes
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -79,6 +83,7 @@ import NotificationsScreen from '~/screens/Tab/SettingsScreen/NotificationsScree
 import AccountScreen from '~/screens/Tab/SettingsScreen/AccountScreen';
 import TutorialSettingsScreen from '~/screens/Tab/SettingsScreen/TutorialSettingsScreen';
 import Plant3DTestScreen from '~/screens/Tab/Plant3DTestScreen/Plant3DTestScreen';
+import PlantTimelineScreen from '~/screens/Plants/timeline/PlantTimelineScreen'; // ALLES: added PlantTimelineScreen
 import TutorialDialog from '~/components/TutorialDialog'; // ALLES: added TutorialDialog
 import DailyMentorScreen from '~/screens/Tab/plantStats/DailyMentorScreen';
 
@@ -178,6 +183,11 @@ export default function RootStack() {
             <Stack.Screen
               name="PlantStats"
               component={ShowPlantStats}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="PlantTimeline"
+              component={PlantTimelineScreen}
               options={{ headerShown: false }}
             />
           </Stack.Group>

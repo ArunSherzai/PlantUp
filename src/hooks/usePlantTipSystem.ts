@@ -92,7 +92,6 @@ export function usePlantTipSystem() {
 
             // Check each plant
             for (const plant of plants) {
-                // Get latest sensor data for this plant
                 const { data: latestController } = await db.micro
                     .from('Controllers')
                     .select('temperature, humidity, soil_moisture, light, electrical_conductivity, created_at')
@@ -100,6 +99,36 @@ export function usePlantTipSystem() {
                     .order('created_at', { ascending: false })
                     .limit(1)
                     .single();
+
+                // Intercept for Progress Photo 7-day requirement
+                const { data: latestProgress } = await db.social
+                    .from('Plant_progress_photos')
+                    .select('created_at')
+                    .eq('plant_id', plant.id)
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+
+                let needsProgressPhoto = false;
+                if (!latestProgress) {
+                    needsProgressPhoto = true;
+                } else {
+                    const lastPhotoDate = new Date(latestProgress.created_at);
+                    const sevenDaysAgo = new Date();
+                    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+                    if (lastPhotoDate < sevenDaysAgo) {
+                        needsProgressPhoto = true;
+                    }
+                }
+
+                if (needsProgressPhoto) {
+                    const tip: TipObject = {
+                        message: `Time to take a progress photo for ${plant.nickname || 'your plant'}!`,
+                        severity: 'info'
+                    };
+                    setAndSaveTip(tip);
+                    return true;
+                }
 
                 if (!latestController) continue;
 

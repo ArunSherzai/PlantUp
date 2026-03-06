@@ -9,7 +9,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
-import { FontAwesome6 } from '@expo/vector-icons';
+import { FontAwesome6, MaterialCommunityIcons } from '@expo/vector-icons';
 import { db } from '../../../utils/supabase';
 import { styles, vw, vh } from '../styles/plantStyles';
 import { PlantItem } from '../types/plant.types';
@@ -156,6 +156,10 @@ export const PlantCard = React.memo(
                   justifyContent: 'space-between',
                   height: '100%',
                 }}>
+                <TouchableOpacity onPress={() => navigation.navigate('PlantTimeline', { plantId: item.id })}>
+                  <MaterialCommunityIcons name="cassette" size={26} color="white" />
+                </TouchableOpacity>
+
                 <TouchableOpacity onPress={() => { playSound('flip'); onActionPress(); }}>
                   <FontAwesome6 name="repeat" size={24} color="white" />
                 </TouchableOpacity>
