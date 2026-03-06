@@ -72,10 +72,15 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
     // Helper: compute border overlay style for a given avatar size
     const getBorderStyle = (avatarSize: number) => {
         if (!otherBorderUrl) return null;
-        
+
         let scale = 1.55;
+        let topShift = 0;
+        let leftShift = 0;
+
         if (otherBorderUrl.includes('lightning')) {
-            scale = 2.65;
+            scale = 2.6;
+            topShift = avatarSize * -0.01;
+            leftShift = avatarSize * -0.01;
         } else if (otherBorderUrl.includes('.gif')) {
             scale = 2.45;
         }
@@ -87,9 +92,8 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
             position: 'absolute' as const,
             width: borderSize,
             height: borderSize,
-            // Tiny shift up and left to correct lightning off-center source
-            top: otherBorderUrl.includes('lightning') ? -offset - (avatarSize * 0.04) : -offset,
-            left: otherBorderUrl.includes('lightning') ? -offset - (avatarSize * 0.04) : -offset,
+            top: -offset + topShift,
+            left: -offset + leftShift,
         };
     };
 

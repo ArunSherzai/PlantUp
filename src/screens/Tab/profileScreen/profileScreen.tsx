@@ -188,6 +188,35 @@ export default function ProfileScreen() {
     }
   };
 
+  const getProfileBorderStyle = useCallback((borderUrl: string): any => {
+    // Avatar is exactly 80x80
+    const avatarSize = 80;
+
+    let scale = 1.6;
+    let topShift = 0;
+    let leftShift = 0;
+
+    if (borderUrl.includes('lightning')) {
+      scale = 2.6;
+      topShift = avatarSize * -0.001;
+      leftShift = avatarSize * -0.01;
+    } else if (borderUrl.includes('.gif')) {
+      scale = 2.45;
+    }
+
+    const borderSize = avatarSize * scale;
+    const offset = (borderSize - avatarSize) / 2;
+
+    return {
+      position: 'absolute' as const,
+      width: borderSize,
+      height: borderSize,
+      top: -offset + topShift,
+      left: -offset + leftShift,
+      zIndex: 1,
+    };
+  }, []);
+
   const renderContent = () => {
     switch (activeTab) {
       case 'leveling':
@@ -401,18 +430,7 @@ export default function ProfileScreen() {
                   <ExpoImage
                     key={profile.equipped_border.media_url} // Force re-mount on change!
                     source={{ uri: profile.equipped_border.media_url }}
-                    style={{
-                      // 🟢 RESPONSIVE SIZING RELATIVE TO AVATAR (80px)
-                      position: 'absolute',
-                      width: profile.equipped_border.media_url.includes('lightning') ? '270%' : profile.equipped_border.media_url.includes('.gif') ? '260%' : '168%',
-                      height: profile.equipped_border.media_url.includes('lightning') ? '270%' : profile.equipped_border.media_url.includes('.gif') ? '260%' : '168%',
-                      // Centering: (scale - 100) / 2. 
-                      // Lightning (270%): center is -85%. Shift up/left slightly: -89%.
-                      // GIF (260%): center is -80%. 
-                      top: profile.equipped_border.media_url.includes('lightning') ? '-89%' : profile.equipped_border.media_url.includes('.gif') ? '-80%' : '-37%',
-                      left: profile.equipped_border.media_url.includes('lightning') ? '-89%' : profile.equipped_border.media_url.includes('.gif') ? '-80%' : '-36%',
-                      zIndex: 1,
-                    }}
+                    style={getProfileBorderStyle(profile.equipped_border.media_url)}
                     pointerEvents="none"
                     contentFit="contain"
                   />
@@ -621,6 +639,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   avatarContainer: {
+    width: 80,
+    height: 80,
     marginRight: 20,
   },
   avatar: {

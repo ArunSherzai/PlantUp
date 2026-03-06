@@ -142,7 +142,7 @@ export default function BorderInventoryScreen() {
                             width: '165%', // 🟢 Water Lightning needs special scale
                             height: '165%',
                             top: '-30%',
-                            left: '-32.5%',
+                            left: '-33.5%',
                           }
                           : border.media_url.includes('.gif')
                             ? {
