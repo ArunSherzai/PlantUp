@@ -45,10 +45,10 @@ export function useUserProfile(userId: string | undefined) {
                 // 3. Robust Fetch Title
                 const titlePromise = db.gamification
                     .from('User_titles')
-                    .select('titleid, selected, Titles (id, titlename, color)')
+                    .select('selected, Titles (titlename, color)')
                     .eq('userid', userId)
                     .eq('selected', true)
-                    .maybeSingle();
+                    .limit(1);
 
                 // 4. Robust Fetch Border
                 // First get the equipped border ID
@@ -76,7 +76,12 @@ export function useUserProfile(userId: string | undefined) {
 
                 const statsData = statsResult.data;
                 const userData = userResult.data;
-                const titleInfo = titleResult.data?.Titles as any;
+                
+                // Fetch returns array because we used limit(1)
+                const titleData = titleResult.data && titleResult.data.length > 0 ? titleResult.data[0] : null;
+                const titleInfo = titleData?.Titles as any;
+                
+                console.log('[useUserProfile] Fetching Title for', userId, 'Result:', JSON.stringify(titleResult.data));
 
                 // Process Border
                 let equippedBorderData = borderResultData;
@@ -91,9 +96,6 @@ export function useUserProfile(userId: string | undefined) {
                         const { data } = db.public.storage.from('border-skins').getPublicUrl(mediaPath);
                         equippedBorderData.media_url = data.publicUrl;
                     }
-                    console.log('[useUserProfile] Final border URL:', equippedBorderData.media_url);
-                } else {
-                    console.log('[useUserProfile] No border data for user', userId);
                 }
 
                 // Generate Signed URL for Avatar if path exists
@@ -109,6 +111,8 @@ export function useUserProfile(userId: string | undefined) {
                     }
                 }
 
+                const actualTitle = Array.isArray(titleInfo) ? titleInfo[0] : titleInfo;
+
                 setProfile({
                     id: userId,
                     username: userData?.username || 'Gardener',
@@ -116,10 +120,9 @@ export function useUserProfile(userId: string | undefined) {
                     xp: statsData?.xp || 0,
                     level: statsData?.level || 1,
                     profile_image: profileImageUrl,
-                    // New fields
                     bio: userData?.bio || '',
-                    title: titleInfo?.titlename || '',
-                    titlecolor: titleInfo?.color || '#000',
+                    title: actualTitle?.titlename || '',
+                    titlecolor: actualTitle?.color || '#000',
                     equipped_border: equippedBorderData ? {
                         id: equippedBorderData.id,
                         media_url: equippedBorderData.media_url,

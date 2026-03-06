@@ -110,7 +110,7 @@ export default function DirectMessagesScreen() {
         let leftShift = 0;
 
         if (borderUrl.includes('lightning')) {
-            scale = 2.6;
+            scale = 2.65;
             topShift = avatarSize * -0.01;
             leftShift = avatarSize * -0.01;
         } else if (borderUrl.includes('.gif')) {

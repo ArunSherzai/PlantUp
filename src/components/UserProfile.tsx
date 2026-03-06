@@ -47,7 +47,7 @@ export default function UserProfile({ userId, isOwner }: Props) {
     const { posts: likedPosts, loading: likedPostsLoading, refreshPosts: refreshLikedPosts } = usePosts({ likedBy: userId });
 
     // For Follow/Unfollow logic if looking at someone else
-    const { following, followUser, unfollowUser, refreshConnections } = useConnections(userId);
+    const { followers, followUser, unfollowUser, refreshConnections } = useConnections(userId);
 
 
 
@@ -99,7 +99,7 @@ export default function UserProfile({ userId, isOwner }: Props) {
         };
     }, [currentLevel]);
 
-    const isFollowing = following.some(u => u.id === userId);
+    const isFollowing = followers.some(u => u.id === currentUser?.id);
 
     const handleFollowAction = async () => {
         if (isFollowing) {
@@ -115,6 +115,34 @@ export default function UserProfile({ userId, isOwner }: Props) {
         { label: 'Following', value: followingCount, onPress: () => navigation.navigate('Connections', { initialTab: 'following', userId }) },
         { label: 'Follower', value: followersCount, onPress: () => navigation.navigate('Connections', { initialTab: 'followers', userId }) },
     ];
+
+    const getBorderStyle = useCallback((borderUrl: string) => {
+        // Avatar in this component is 100x100
+        const avatarSize = 100;
+        let scale = 1.6;
+        let topShift = 0;
+        let leftShift = 0;
+
+        if (borderUrl.includes('lightning')) {
+            scale = 2.6; // Same as your other screens
+            topShift = avatarSize * -0.01;
+            leftShift = avatarSize * -0.01;
+        } else if (borderUrl.includes('.gif')) {
+            scale = 2.45;
+        }
+
+        const borderSize = avatarSize * scale;
+        const offset = (borderSize - avatarSize) / 2;
+
+        return {
+            position: 'absolute' as const,
+            width: borderSize,
+            height: borderSize,
+            top: -offset + topShift,
+            left: -offset + leftShift,
+            zIndex: 1,
+        };
+    }, []);
 
     const renderContent = () => {
         switch (activeTab) {
@@ -268,15 +296,17 @@ export default function UserProfile({ userId, isOwner }: Props) {
                     style={styles.headerGradient}
                     resizeMode="cover"
                 />
-                <View style={[styles.headerContent, { paddingTop: insets.top + 10 }]}>
-                    <TouchableOpacity
-                        style={styles.iconButton}
-                        onPress={() => navigation.goBack()}
-                    >
-                        <FontAwesome6 name="chevron-left" size={20} color={theme.colors.textDark} />
-                    </TouchableOpacity>
+                <View style={[styles.headerContent, { paddingTop: insets.top + 20 }]}>
+                    <View style={styles.headerTopRow}>
+                        <TouchableOpacity
+                            style={styles.iconButton}
+                            onPress={() => navigation.goBack()}
+                        >
+                            <FontAwesome6 name="chevron-left" size={20} color="#FFF" />
+                        </TouchableOpacity>
+                    </View>
                     <Text
-                        style={[styles.headerTitle, { color: theme.colors.textDark }]}
+                        style={[styles.headerTitle, { color: '#FFF' }]}
                         adjustsFontSizeToFit
                         numberOfLines={3}
                         minimumFontScale={0.5}
@@ -308,14 +338,7 @@ export default function UserProfile({ userId, isOwner }: Props) {
                                 <ExpoImage
                                     key={profile.equipped_border.media_url} // Force re-mount on change!
                                     source={{ uri: profile.equipped_border.media_url }}
-                                    style={{
-                                        position: 'absolute',
-                                        width: profile.equipped_border.media_url.includes('.gif') ? '262%' : '168%',
-                                        height: profile.equipped_border.media_url.includes('.gif') ? '262%' : '168%',
-                                        top: profile.equipped_border.media_url.includes('.gif') ? '-81%' : '-34%',
-                                        left: profile.equipped_border.media_url.includes('.gif') ? '-81%' : '-34%',
-                                        zIndex: 1,
-                                    }}
+                                    style={getBorderStyle(profile.equipped_border.media_url)}
                                     pointerEvents="none"
                                     contentFit="contain"
                                 />
@@ -332,28 +355,29 @@ export default function UserProfile({ userId, isOwner }: Props) {
                                 </Text>
                             </View>
 
-                            {profile?.title ? (
-                                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, minHeight: 32 }}>
-                                    <Text
-                                        style={{
-                                            fontSize: 14,
-                                            color: profile.titlecolor || theme.colors.text,
-                                            fontWeight: '600',
-                                            flexShrink: 1,
-                                        }}
-                                        numberOfLines={1}
-                                        adjustsFontSizeToFit
-                                    >
-                                        {profile.title}
-                                    </Text>
-                                </View>
-                            ) : null}
+                                {profile?.title ? (
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2, minHeight: 24 }}>
+                                        <Text
+                                            style={{
+                                                fontSize: 15,
+                                                color: profile.titlecolor || theme.colors.text,
+                                                fontWeight: '700',
+                                                flexShrink: 1,
+                                                letterSpacing: 0.2,
+                                            }}
+                                            numberOfLines={1}
+                                            adjustsFontSizeToFit
+                                        >
+                                            {profile.title}
+                                        </Text>
+                                    </View>
+                                ) : null}
 
-                            {profile?.bio && (
-                                <Text style={[styles.userBio, { color: theme.colors.text }]}>
+                            {profile?.bio ? (
+                                <Text style={[styles.userBio, { color: theme.colors.text, marginTop: 6, lineHeight: 20, opacity: 0.8 }]} numberOfLines={4}>
                                     {profile.bio}
                                 </Text>
-                            )}
+                            ) : null}
 
                             {!isCurrentUser && (
                                 <TouchableOpacity
@@ -441,20 +465,24 @@ const styles = StyleSheet.create((theme) => ({
     headerContent: {
         position: 'absolute',
         top: 0,
-        bottom: 0,
         left: 20,
         right: 20,
-        justifyContent: 'space-between',
-        paddingBottom: 20,
+    },
+    headerTopRow: {
+        flexDirection: 'row',
+        justifyContent: 'flex-start',
+        alignItems: 'center',
+        marginBottom: 20,
     },
     iconButton: {
-        padding: 8,
+        padding: 5,
+        marginLeft: -10, // pull back align left slightly like profileScreen
         alignSelf: 'flex-start',
     },
     headerTitle: {
-        fontSize: vw * 10,
+        fontSize: 38,
         fontWeight: '900',
-        lineHeight: vw * 11,
+        lineHeight: 42,
     },
     sheetContent: {
         paddingHorizontal: 20,
@@ -474,7 +502,7 @@ const styles = StyleSheet.create((theme) => ({
         marginBottom: 20,
     },
     avatarContainer: {
-        marginRight: 20,
+        marginRight: 24,
     },
     avatar: {
         width: 100,
@@ -503,11 +531,18 @@ const styles = StyleSheet.create((theme) => ({
         marginTop: 4,
     },
     followButton: {
-        marginTop: 10,
-        paddingVertical: 6,
-        paddingHorizontal: 12,
-        borderRadius: 20,
+        marginTop: 12,
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 25,
         alignSelf: 'flex-start',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 3,
+        elevation: 4,
     },
     followButtonText: {
         color: '#FFF',

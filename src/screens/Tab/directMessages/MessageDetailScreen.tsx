@@ -66,8 +66,9 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
         };
     }, []);
 
-    // Fetch other user's equipped border
+    // Fetch other user's equipped border and title
     const [otherBorderUrl, setOtherBorderUrl] = useState<string | null>(null);
+    const [otherTitle, setOtherTitle] = useState<{name: string, color: string} | null>(null);
 
     // Helper: compute border overlay style for a given avatar size
     const getBorderStyle = (avatarSize: number) => {
@@ -78,7 +79,7 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
         let leftShift = 0;
 
         if (otherBorderUrl.includes('lightning')) {
-            scale = 2.6;
+            scale = 2.65;
             topShift = avatarSize * -0.01;
             leftShift = avatarSize * -0.01;
         } else if (otherBorderUrl.includes('.gif')) {
@@ -101,18 +102,21 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
         if (!otherUserId || isSprig) return;
         (async () => {
             try {
-                const { data: ref } = await db.gamification
+                // Fetch Border
+                const { data: borderRef } = await db.gamification
                     .from('User_owned_border')
                     .select('border_id')
                     .eq('user_id', otherUserId)
                     .eq('is_equipped', true)
                     .maybeSingle();
-                if (ref?.border_id) {
+
+                if (borderRef?.border_id) {
                     const { data: border } = await db.gamification
                         .from('Cosmetic_avatar_borders')
                         .select('media_url')
-                        .eq('id', ref.border_id)
+                        .eq('id', borderRef.border_id)
                         .maybeSingle();
+                        
                     if (border?.media_url) {
                         let path = border.media_url;
                         if (path.includes('seasonal_summer') || path.includes('seasonal_winter')) {
@@ -126,8 +130,29 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
                         }
                     }
                 }
+
+                // Fetch Title
+                const { data: titleResult } = await db.gamification
+                    .from('User_titles')
+                    .select('selected, Titles (id, titlename, color)')
+                    .eq('userid', otherUserId)
+                    .eq('selected', true)
+                    .limit(1);
+
+                if (titleResult && titleResult.length > 0 && titleResult[0].Titles) {
+                    const titleData = titleResult[0].Titles as any;
+                    const actualTitle = Array.isArray(titleData) ? titleData[0] : titleData;
+                    
+                    if (actualTitle) {
+                        setOtherTitle({
+                            name: actualTitle.titlename,
+                            color: actualTitle.color || '#000',
+                        });
+                    }
+                }
+
             } catch (e) {
-                console.warn('[Chat] Border fetch failed:', e);
+                console.warn('[Chat] Cosmetic fetch failed:', e);
             }
         })();
     }, [otherUserId, isSprig]);
@@ -374,7 +399,14 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
                             />
                         )}
                     </View>
-                    <Text style={[styles.headerName, { color: theme.colors.text }]}>{name}</Text>
+                    <View style={{ marginLeft: 12, justifyContent: 'center' }}>
+                        <Text style={[styles.headerName, { color: theme.colors.text, marginLeft: 0, fontWeight: '900', fontSize: 18 }]}>{name}</Text>
+                        {otherTitle && (
+                            <Text style={{ color: otherTitle.color, fontSize: 12, fontWeight: '700', marginTop: 1, letterSpacing: 0.1 }}>
+                                {otherTitle.name}
+                            </Text>
+                        )}
+                    </View>
                 </TouchableOpacity>
                 <View style={{ width: 30 }} />
             </View>

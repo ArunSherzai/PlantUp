@@ -198,7 +198,7 @@ export default function ProfileScreen() {
 
     if (borderUrl.includes('lightning')) {
       scale = 2.6;
-      topShift = avatarSize * -0.001;
+      topShift = avatarSize * -0.000000000001;
       leftShift = avatarSize * -0.01;
     } else if (borderUrl.includes('.gif')) {
       scale = 2.45;
