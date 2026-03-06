@@ -137,16 +137,16 @@ export default function BorderInventoryScreen() {
                       source={{ uri: border.media_url }}
                       style={[
                         styles.borderPreview,
-                        border.media_url.includes('.gif')
+                        border.name?.toLowerCase().includes('lightning')
                           ? {
-                            width: '150%', // 🟢 GIFs
-                            height: '150%',
-                            top: '-25%',
-                            left: '-25%',
+                            width: '165%', // 🟢 Water Lightning needs special scale
+                            height: '165%',
+                            top: '-30%',
+                            left: '-32.5%',
                           }
-                          : border.name?.toLowerCase().includes('lightning')
+                          : border.media_url.includes('.gif')
                             ? {
-                              width: '150%', // 🟢 Water Lightning needs extra scale
+                              width: '150%', // 🟢 GIFs
                               height: '150%',
                               top: '-25%',
                               left: '-25%',
@@ -217,6 +217,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
+    paddingBottom: 40,
   },
   emptyContainer: {
     flex: 1,

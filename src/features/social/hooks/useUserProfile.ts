@@ -38,37 +38,48 @@ export function useUserProfile(userId: string | undefined) {
                 // 2. Fetch User Data
                 const userPromise = db.user
                     .from('Users')
-                    .select('username, plant_coins, avatar_path, bio') // Fetch avatar_path AND bio
+                    .select('username, plant_coins, avatar_path, bio')
                     .eq('id', userId)
                     .single();
 
-                // 3. Fetch Title
+                // 3. Robust Fetch Title
                 const titlePromise = db.gamification
                     .from('User_titles')
-                    .select('selected, Titles (titlename, color)')
+                    .select('titleid, selected, Titles (id, titlename, color)')
                     .eq('userid', userId)
                     .eq('selected', true)
                     .maybeSingle();
 
-                // 4. Fetch Equipped Border
-                const borderPromise = db.gamification
+                // 4. Robust Fetch Border
+                // First get the equipped border ID
+                const { data: equippedBorderRef, error: borderRefError } = await db.gamification
                     .from('User_owned_border')
-                    .select('is_equipped, Cosmetic_avatar_borders (*)')
+                    .select('border_id')
                     .eq('user_id', userId)
                     .eq('is_equipped', true)
                     .maybeSingle();
 
-                const [statsResult, userResult, titleResult, borderResult] = await Promise.all([statsPromise, userPromise, titlePromise, borderPromise]);
+                console.log('[useUserProfile] Border ref for', userId, ':', equippedBorderRef, 'error:', borderRefError);
 
-                // Debug logging
-                console.log('[useUserProfile] Stats result for', userId, ':', statsResult.data, statsResult.error);
+                let borderResultData = null;
+                if (equippedBorderRef?.border_id) {
+                    const { data: borderDetails, error: borderDetailsError } = await db.gamification
+                        .from('Cosmetic_avatar_borders')
+                        .select('*')
+                        .eq('id', equippedBorderRef.border_id)
+                        .maybeSingle();
+                    console.log('[useUserProfile] Border details:', borderDetails, 'error:', borderDetailsError);
+                    borderResultData = borderDetails;
+                }
+
+                const [statsResult, userResult, titleResult] = await Promise.all([statsPromise, userPromise, titlePromise]);
 
                 const statsData = statsResult.data;
                 const userData = userResult.data;
                 const titleInfo = titleResult.data?.Titles as any;
 
                 // Process Border
-                let equippedBorderData = borderResult.data?.Cosmetic_avatar_borders as any;
+                let equippedBorderData = borderResultData;
                 if (equippedBorderData && equippedBorderData.media_url) {
                     let mediaPath = equippedBorderData.media_url;
                     // Legacy fix for seasonal folders if needed
@@ -77,9 +88,12 @@ export function useUserProfile(userId: string | undefined) {
                     }
 
                     if (!mediaPath.startsWith('http')) {
-                        const { data } = db.public.storage.from('app-assets').getPublicUrl(mediaPath);
+                        const { data } = db.public.storage.from('border-skins').getPublicUrl(mediaPath);
                         equippedBorderData.media_url = data.publicUrl;
                     }
+                    console.log('[useUserProfile] Final border URL:', equippedBorderData.media_url);
+                } else {
+                    console.log('[useUserProfile] No border data for user', userId);
                 }
 
                 // Generate Signed URL for Avatar if path exists

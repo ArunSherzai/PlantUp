@@ -403,13 +403,14 @@ export default function ProfileScreen() {
                     source={{ uri: profile.equipped_border.media_url }}
                     style={{
                       // 🟢 RESPONSIVE SIZING RELATIVE TO AVATAR (80px)
-                      // GIFs are approx 2.6x avatar size, PNGs 1.68x
                       position: 'absolute',
-                      width: profile.equipped_border.media_url.includes('.gif') ? '262%' : '168%',
-                      height: profile.equipped_border.media_url.includes('.gif') ? '262%' : '168%',
-                      // Center using negative percentage margins (half of extra width)
-                      top: profile.equipped_border.media_url.includes('.gif') ? '-81%' : '-34%',
-                      left: profile.equipped_border.media_url.includes('.gif') ? '-81%' : '-34%',
+                      width: profile.equipped_border.media_url.includes('lightning') ? '270%' : profile.equipped_border.media_url.includes('.gif') ? '260%' : '168%',
+                      height: profile.equipped_border.media_url.includes('lightning') ? '270%' : profile.equipped_border.media_url.includes('.gif') ? '260%' : '168%',
+                      // Centering: (scale - 100) / 2. 
+                      // Lightning (270%): center is -85%. Shift up/left slightly: -89%.
+                      // GIF (260%): center is -80%. 
+                      top: profile.equipped_border.media_url.includes('lightning') ? '-89%' : profile.equipped_border.media_url.includes('.gif') ? '-80%' : '-37%',
+                      left: profile.equipped_border.media_url.includes('lightning') ? '-89%' : profile.equipped_border.media_url.includes('.gif') ? '-80%' : '-36%',
                       zIndex: 1,
                     }}
                     pointerEvents="none"

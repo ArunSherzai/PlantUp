@@ -24,6 +24,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Image as ExpoImage } from 'expo-image';
 
 const { width } = Dimensions.get('window');
+const vw = width / 100;
 
 type Props = {
     userId: string;
@@ -204,21 +205,25 @@ export default function UserProfile({ userId, isOwner }: Props) {
                             );
                         })()}
 
-                        <Text style={styles.sectionTitle}>Rewards</Text>
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            style={styles.rewardsScroll}>
-                            {REWARDS.map((reward) => (
-                                <RewardItem
-                                    key={reward.level}
-                                    title={reward.title}
-                                    description={reward.description}
-                                    isUnlocked={currentLevel >= reward.level}
-                                    onClaim={() => { if (isCurrentUser) Alert.alert('Claimed!', reward.title); }}
-                                />
-                            ))}
-                        </ScrollView>
+                        {isCurrentUser && (
+                            <>
+                                <Text style={styles.sectionTitle}>Rewards</Text>
+                                <ScrollView
+                                    horizontal
+                                    showsHorizontalScrollIndicator={false}
+                                    style={styles.rewardsScroll}>
+                                    {REWARDS.map((reward) => (
+                                        <RewardItem
+                                            key={reward.level}
+                                            title={reward.title}
+                                            description={reward.description}
+                                            isUnlocked={currentLevel >= reward.level}
+                                            onClaim={() => { if (isCurrentUser) Alert.alert('Claimed!', reward.title); }}
+                                        />
+                                    ))}
+                                </ScrollView>
+                            </>
+                        )}
                     </>
                 );
             case 'posts':
@@ -263,12 +268,15 @@ export default function UserProfile({ userId, isOwner }: Props) {
                     style={styles.headerGradient}
                     resizeMode="cover"
                 />
-                <View style={[styles.headerContent, { paddingTop: insets.top }]}>
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                <View style={[styles.headerContent, { paddingTop: insets.top + 10 }]}>
+                    <TouchableOpacity
+                        style={styles.iconButton}
+                        onPress={() => navigation.goBack()}
+                    >
                         <FontAwesome6 name="chevron-left" size={20} color={theme.colors.textDark} />
                     </TouchableOpacity>
                     <Text
-                        style={styles.headerTitle}
+                        style={[styles.headerTitle, { color: theme.colors.textDark }]}
                         adjustsFontSizeToFit
                         numberOfLines={3}
                         minimumFontScale={0.5}
@@ -285,14 +293,15 @@ export default function UserProfile({ userId, isOwner }: Props) {
 
                     {/* Profile Card */}
                     <View style={styles.profileCard}>
-                        <View style={styles.avatarContainer}>
+                        <View style={[styles.avatarContainer, { position: 'relative' }]}>
                             <Image
                                 source={
                                     profile?.profile_image
                                         ? { uri: profile.profile_image }
                                         : require('../../assets/images/Profilbild.jpg')
                                 }
-                                style={styles.avatar}
+                                style={[styles.avatar, { backgroundColor: theme.colors.greyedOut }]}
+                                resizeMode="cover"
                             />
                             {/* 🟢 ADDED: Responsive Border Fix */}
                             {profile?.equipped_border?.media_url && (
@@ -300,12 +309,11 @@ export default function UserProfile({ userId, isOwner }: Props) {
                                     key={profile.equipped_border.media_url} // Force re-mount on change!
                                     source={{ uri: profile.equipped_border.media_url }}
                                     style={{
-                                        // 🟢 RESPONSIVE SIZING RELATIVE TO AVATAR (80px)
                                         position: 'absolute',
-                                        width: profile.equipped_border.media_url.includes('.gif') ? '240%' : '152%',
-                                        height: profile.equipped_border.media_url.includes('.gif') ? '240%' : '152%',
-                                        top: profile.equipped_border.media_url.includes('.gif') ? '-70%' : '-26%',
-                                        left: profile.equipped_border.media_url.includes('.gif') ? '-70%' : '-26%',
+                                        width: profile.equipped_border.media_url.includes('.gif') ? '262%' : '168%',
+                                        height: profile.equipped_border.media_url.includes('.gif') ? '262%' : '168%',
+                                        top: profile.equipped_border.media_url.includes('.gif') ? '-81%' : '-34%',
+                                        left: profile.equipped_border.media_url.includes('.gif') ? '-81%' : '-34%',
                                         zIndex: 1,
                                     }}
                                     pointerEvents="none"
@@ -316,14 +324,36 @@ export default function UserProfile({ userId, isOwner }: Props) {
                         <View style={styles.userInfo}>
                             <View style={styles.nameRow}>
                                 <Text
-                                    style={styles.userName}
+                                    style={[styles.userName, { color: theme.colors.text }]}
                                     numberOfLines={1}
                                     adjustsFontSizeToFit
                                 >
                                     {profile?.username || 'Gardener'}
                                 </Text>
                             </View>
-                            <Text style={styles.userBio}>Bio placeholder...</Text>
+
+                            {profile?.title ? (
+                                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, minHeight: 32 }}>
+                                    <Text
+                                        style={{
+                                            fontSize: 14,
+                                            color: profile.titlecolor || theme.colors.text,
+                                            fontWeight: '600',
+                                            flexShrink: 1,
+                                        }}
+                                        numberOfLines={1}
+                                        adjustsFontSizeToFit
+                                    >
+                                        {profile.title}
+                                    </Text>
+                                </View>
+                            ) : null}
+
+                            {profile?.bio && (
+                                <Text style={[styles.userBio, { color: theme.colors.text }]}>
+                                    {profile.bio}
+                                </Text>
+                            )}
 
                             {!isCurrentUser && (
                                 <TouchableOpacity
@@ -400,7 +430,7 @@ const styles = StyleSheet.create((theme) => ({
         backgroundColor: theme.colors.background,
     },
     headerBg: {
-        height: '100%',
+        height: '55%',
         width: '100%',
         position: 'absolute',
         top: 0,
@@ -411,16 +441,20 @@ const styles = StyleSheet.create((theme) => ({
     headerContent: {
         position: 'absolute',
         top: 0,
+        bottom: 0,
         left: 20,
+        right: 20,
+        justifyContent: 'space-between',
+        paddingBottom: 20,
     },
-    backButton: {
-        marginBottom: 20,
+    iconButton: {
+        padding: 8,
+        alignSelf: 'flex-start',
     },
     headerTitle: {
-        fontSize: 42,
+        fontSize: vw * 10,
         fontWeight: '900',
-        color: theme.colors.textDark,
-        lineHeight: 46,
+        lineHeight: vw * 11,
     },
     sheetContent: {
         paddingHorizontal: 20,
