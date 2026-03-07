@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, Image, StatusBar, SafeAreaView, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import { useUnistyles } from 'react-native-unistyles';
 import { StackScreenProps } from '@react-navigation/stack';
 import { RootStackParamList } from '../../../navigation/Root';
@@ -7,6 +8,7 @@ import { getTipHistory, StoredTip } from '../../../utils/tipHistory';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useDMStore, ChatMessage } from '../../../stores/DMStore';
 import { useUserStore } from '../../../stores/UserStore';
+import { db } from '../../../utils/supabase';
 import { initializeSounds, unloadSounds } from '../../../utils/soundEffects';
 import { useTypingIndicator } from '../../../hooks/useTypingIndicator';
 import { playSound } from '~/utils/SoundManager';
@@ -24,7 +26,8 @@ interface UIMessage {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function MessageDetailScreen({ route, navigation }: Props) {
-    const { id, name, avatar } = route.params;
+    const { id, name, avatar, userId: otherUserId } = route.params;
+    console.log('[MessageDetail] otherUserId:', otherUserId, 'convId:', id, 'isSprig:', id === 'sprig');
     const { theme } = useUnistyles();
     const insets = useSafeAreaInsets(); // Hook
     const [inputText, setInputText] = useState('');
@@ -62,6 +65,97 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
             unloadSounds();
         };
     }, []);
+
+    // Fetch other user's equipped border and title
+    const [otherBorderUrl, setOtherBorderUrl] = useState<string | null>(null);
+    const [otherTitle, setOtherTitle] = useState<{name: string, color: string} | null>(null);
+
+    // Helper: compute border overlay style for a given avatar size
+    const getBorderStyle = (avatarSize: number) => {
+        if (!otherBorderUrl) return null;
+
+        let scale = 1.55;
+        let topShift = 0;
+        let leftShift = 0;
+
+        if (otherBorderUrl.includes('lightning')) {
+            scale = 2.65;
+            topShift = avatarSize * -0.01;
+            leftShift = avatarSize * -0.01;
+        } else if (otherBorderUrl.includes('.gif')) {
+            scale = 2.45;
+        }
+
+        const borderSize = avatarSize * scale;
+        const offset = (borderSize - avatarSize) / 2;
+
+        return {
+            position: 'absolute' as const,
+            width: borderSize,
+            height: borderSize,
+            top: -offset + topShift,
+            left: -offset + leftShift,
+        };
+    };
+
+    useEffect(() => {
+        if (!otherUserId || isSprig) return;
+        (async () => {
+            try {
+                // Fetch Border
+                const { data: borderRef } = await db.gamification
+                    .from('User_owned_border')
+                    .select('border_id')
+                    .eq('user_id', otherUserId)
+                    .eq('is_equipped', true)
+                    .maybeSingle();
+
+                if (borderRef?.border_id) {
+                    const { data: border } = await db.gamification
+                        .from('Cosmetic_avatar_borders')
+                        .select('media_url')
+                        .eq('id', borderRef.border_id)
+                        .maybeSingle();
+                        
+                    if (border?.media_url) {
+                        let path = border.media_url;
+                        if (path.includes('seasonal_summer') || path.includes('seasonal_winter')) {
+                            path = path.replace('seasonal_summer', 'seasonal').replace('seasonal_winter', 'seasonal');
+                        }
+                        if (!path.startsWith('http')) {
+                            const { data: urlData } = db.public.storage.from('border-skins').getPublicUrl(path);
+                            setOtherBorderUrl(urlData.publicUrl);
+                        } else {
+                            setOtherBorderUrl(path);
+                        }
+                    }
+                }
+
+                // Fetch Title
+                const { data: titleResult } = await db.gamification
+                    .from('User_titles')
+                    .select('selected, Titles (id, titlename, color)')
+                    .eq('userid', otherUserId)
+                    .eq('selected', true)
+                    .limit(1);
+
+                if (titleResult && titleResult.length > 0 && titleResult[0].Titles) {
+                    const titleData = titleResult[0].Titles as any;
+                    const actualTitle = Array.isArray(titleData) ? titleData[0] : titleData;
+                    
+                    if (actualTitle) {
+                        setOtherTitle({
+                            name: actualTitle.titlename,
+                            color: actualTitle.color || '#000',
+                        });
+                    }
+                }
+
+            } catch (e) {
+                console.warn('[Chat] Cosmetic fetch failed:', e);
+            }
+        })();
+    }, [otherUserId, isSprig]);
 
     useEffect(() => {
         if (isSprig) {
@@ -242,7 +336,17 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
 
                 <View style={[styles.messageBubbleContainer, isMe ? styles.myMessageContainer : styles.otherMessageContainer]}>
                     {!isMe && (
-                        <Image source={avatar} style={styles.avatarSmall} />
+                        <View style={{ position: 'relative', width: 28, height: 28, marginRight: 8 }}>
+                            <Image source={avatar} style={styles.avatarSmall} />
+                            {otherBorderUrl && getBorderStyle(28) && (
+                                <ExpoImage
+                                    source={{ uri: otherBorderUrl }}
+                                    style={getBorderStyle(28)!}
+                                    contentFit="contain"
+                                    pointerEvents="none"
+                                />
+                            )}
+                        </View>
                     )}
                     <View style={[
                         styles.messageBubble,
@@ -275,10 +379,35 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                     <FontAwesome name="angle-left" size={30} color={theme.colors.text} />
                 </TouchableOpacity>
-                <View style={styles.headerInfo}>
-                    <Image source={avatar} style={styles.headerAvatar} />
-                    <Text style={[styles.headerName, { color: theme.colors.text }]}>{name}</Text>
-                </View>
+                <TouchableOpacity
+                    style={styles.headerInfo}
+                    onPress={() => {
+                        if (otherUserId && !isSprig) {
+                            navigation.navigate('PublicProfile', { userId: otherUserId });
+                        }
+                    }}
+                    disabled={!otherUserId || isSprig}
+                >
+                    <View style={{ position: 'relative' }}>
+                        <Image source={avatar} style={styles.headerAvatar} />
+                        {otherBorderUrl && getBorderStyle(35) && (
+                            <ExpoImage
+                                source={{ uri: otherBorderUrl }}
+                                style={getBorderStyle(35)!}
+                                contentFit="contain"
+                                pointerEvents="none"
+                            />
+                        )}
+                    </View>
+                    <View style={{ marginLeft: 12, justifyContent: 'center' }}>
+                        <Text style={[styles.headerName, { color: theme.colors.text, marginLeft: 0, fontWeight: '900', fontSize: 18 }]}>{name}</Text>
+                        {otherTitle && (
+                            <Text style={{ color: otherTitle.color, fontSize: 12, fontWeight: '700', marginTop: 1, letterSpacing: 0.1 }}>
+                                {otherTitle.name}
+                            </Text>
+                        )}
+                    </View>
+                </TouchableOpacity>
                 <View style={{ width: 30 }} />
             </View>
 

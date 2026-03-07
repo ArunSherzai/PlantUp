@@ -229,13 +229,7 @@ export default function LSystemPlant3D({ seed, growth = 50, config }: Props) {
         return flowerGeos.map(g => normalizeGeometry(g, 1, true));
     }, [flowerGeos]);
 
-    // Procedural Branch Geometry (Cylinder)
-    // Shifted so pivot is at the bottom (0, 0, 0) and it grows up +Y
-    const branchGeoN = useMemo(() => {
-        const geo = new THREE.CylinderGeometry(1, 1, 1, 5);
-        geo.translate(0, 0.5, 0); // Move base to origin
-        return geo;
-    }, []);
+
 
     const { stemData, leafData, bloomData } = useMemo(() => {
         const stems: { matrix: THREE.Matrix4; color: THREE.Color }[] = [];
@@ -429,25 +423,30 @@ export default function LSystemPlant3D({ seed, growth = 50, config }: Props) {
         return { stemData: stems, leafData: leaves, bloomData: blooms };
     }, [seed, cfg, rng, flowerGeos.length]); // Re-run if geo count changes
 
-    // Create geometries
-    const cylinderGeo = new THREE.CylinderGeometry(1, 1, 1, 5); // Segments reduced for perf
-    cylinderGeo.translate(0, 0.5, 0);
+    // Memoize geometry to avoid re-creating on every render
+    const cylinderGeo = useMemo(() => {
+        const geo = new THREE.CylinderGeometry(1, 1, 1, 5);
+        geo.translate(0, 0.5, 0);
+        return geo;
+    }, []);
 
-    // Create Standard material to avoid dispersion/physical warnings
-    const branchMat = new THREE.MeshStandardMaterial({
+    // Memoize materials to avoid GPU re-uploads on every render
+    const branchMat = useMemo(() => new THREE.MeshStandardMaterial({
         color: new THREE.Color().setHSL(cfg.hue, cfg.saturation, cfg.lightness),
         roughness: 0.8,
-    });
-    const leafMat = new THREE.MeshStandardMaterial({
+    }), [cfg.hue, cfg.saturation, cfg.lightness]);
+
+    const leafMat = useMemo(() => new THREE.MeshStandardMaterial({
         color: new THREE.Color().setHSL(cfg.leafHue, 0.6, 0.4),
         roughness: 0.6,
         side: THREE.DoubleSide
-    });
-    const bloomMat = new THREE.MeshStandardMaterial({
+    }), [cfg.leafHue]);
+
+    const bloomMat = useMemo(() => new THREE.MeshStandardMaterial({
         color: new THREE.Color().setHSL(cfg.bloomHue, 0.8, 0.6),
         roughness: 0.5,
         side: THREE.DoubleSide
-    });
+    }), [cfg.bloomHue]);
 
     // Create Instance Meshes
     if (stemData.length === 0) return null;
@@ -486,3 +485,23 @@ export default function LSystemPlant3D({ seed, growth = 50, config }: Props) {
         </group>
     );
 }
+
+// --- Preload all plant GLBs at module level ---
+// This starts parsing GLBs in the background as soon as this module is imported,
+// so by the time the component mounts, GLTFs are already cached → less freeze.
+try {
+    const _preloadAssets = [
+        PlantAssets.Leaf,
+        PlantAssets.Flower,
+        PlantAssets.FlowerA,
+        PlantAssets.FlowerB,
+        PlantAssets.FlowerPetal,
+        PlantAssets.FlowerPetalB,
+    ];
+    _preloadAssets.forEach(a => {
+        try {
+            const uri = Asset.fromModule(a)?.uri;
+            if (uri) useGLTF.preload(uri);
+        } catch (e) { /* ignore */ }
+    });
+} catch (e) { /* ignore preload errors */ }

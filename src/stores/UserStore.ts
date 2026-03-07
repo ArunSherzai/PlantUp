@@ -727,8 +727,40 @@ export const useUserStore = create<State>((set, get) => ({
   },
 
   equipTitle: async (titleId: string | null) => {
-    const { user, fetchProfile, fetchTitles } = get();
+    const { user, ownedTitles, fetchProfile, fetchTitles } = get();
     if (!user) return;
+
+    // --- Optimistic Update ---
+    // Update the ownedTitles list
+    const newTitles = ownedTitles.map(t => ({
+      ...t,
+      is_equipped: t.id === titleId
+    }));
+    set({ ownedTitles: newTitles });
+
+    // Update the main profile
+    const newlyEquipped = newTitles.find(t => t.id === titleId);
+    const { profile } = get();
+    if (profile) {
+      if (newlyEquipped) {
+        set({
+          profile: {
+            ...profile,
+            title: newlyEquipped.name,
+            titlecolor: newlyEquipped.color,
+          }
+        });
+      } else if (titleId === null) {
+        set({
+          profile: {
+            ...profile,
+            title: undefined,
+            titlecolor: undefined,
+          }
+        });
+      }
+    }
+    // --- End Optimistic Update ---
 
     // 1. Unequip all
     const { error: unequipError } = await db.gamification
@@ -738,6 +770,7 @@ export const useUserStore = create<State>((set, get) => ({
 
     if (unequipError) {
       console.error('[UserStore] Error unequipping titles:', unequipError);
+      get().fetchTitles(); // Revert on error
       return;
     }
     if (titleId) {
@@ -749,12 +782,13 @@ export const useUserStore = create<State>((set, get) => ({
 
       if (equipError) {
         console.error('[UserStore] Error equipping title:', equipError);
+        get().fetchTitles(); // Revert on error
         return;
       }
     }
 
-    // Refresh data
-    await Promise.all([fetchProfile(), fetchTitles()]);
+    // Background sync
+    fetchProfile();
   },
 
   fetchUnclaimedRewards: async () => {

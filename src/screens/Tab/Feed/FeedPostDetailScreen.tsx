@@ -749,23 +749,33 @@ export default function FeedPostDetailScreen() {
                 <View style={styles.bottomSheetContainer}>
                     <View style={styles.userInfoHeader}>
                         <View style={styles.userRow}>
-                            <Image
-                                source={post?.Users?.profile_image ? { uri: post.Users.profile_image } : require('../../../../assets/images/Profilbild.jpg')}
-                                style={styles.avatar}
-                            />
-                            <View style={{ flex: 1 }}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                    <Text style={[styles.username, { color: theme.colors.text }]}>{post?.Users?.username || 'Observer'}</Text>
-                                    {(post?.Users as any)?.level >= 25 && (
-                                        <View style={{ marginLeft: 6 }}>
-                                            <MentorBadge size="small" />
-                                        </View>
-                                    )}
+                            <TouchableOpacity
+                                style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
+                                onPress={() => {
+                                    if (post?.user_id && post?.user_id !== user?.id) {
+                                        navigation.navigate('PublicProfile', { userId: post.user_id });
+                                    }
+                                }}
+                                disabled={!post?.user_id || post?.user_id === user?.id}
+                            >
+                                <Image
+                                    source={post?.Users?.profile_image ? { uri: post.Users.profile_image } : require('../../../../assets/images/Profilbild.jpg')}
+                                    style={styles.avatar}
+                                />
+                                <View style={{ flex: 1 }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                        <Text style={[styles.username, { color: theme.colors.text }]}>{post?.Users?.username || 'Observer'}</Text>
+                                        {(post?.Users as any)?.level >= 25 && (
+                                            <View style={{ marginLeft: 6 }}>
+                                                <MentorBadge size="small" />
+                                            </View>
+                                        )}
+                                    </View>
+                                    <Text style={[styles.caption, { color: theme.colors.text }]} numberOfLines={2}>
+                                        {isTextPost ? getHashtags(post?.caption) : (post?.caption || 'My Pink Princess #post #plslikeandfollow')}
+                                    </Text>
                                 </View>
-                                <Text style={[styles.caption, { color: theme.colors.text }]} numberOfLines={2}>
-                                    {isTextPost ? getHashtags(post?.caption) : (post?.caption || 'My Pink Princess #post #plslikeandfollow')}
-                                </Text>
-                            </View>
+                            </TouchableOpacity>
                             <TouchableOpacity
                                 style={[styles.followButton, { backgroundColor: isFollowing ? theme.colors.surface : '#4CA771', borderWidth: isFollowing ? 1 : 0, borderColor: theme.colors.greyedOut }]}
                                 onPress={handleFollow}

@@ -23,7 +23,7 @@ export type RootStackParamList = {
   FeedPostDetail: { post: any }; // Using any to match Post interface roughly for now, or import it
   UserPlants: { userId?: string };
   Lootbox: { itemName: string; rewardId?: string; rewardType?: string };
-  MessageDetail: { id: string; name: string; avatar: any };
+  MessageDetail: { id: string; name: string; avatar: any; userId?: string };
   Connections: { initialTab: 'followers' | 'following'; userId?: string };
   PublicProfile: { userId: string };
   DirectMessages: undefined;

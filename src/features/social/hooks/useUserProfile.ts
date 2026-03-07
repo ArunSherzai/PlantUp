@@ -38,37 +38,53 @@ export function useUserProfile(userId: string | undefined) {
                 // 2. Fetch User Data
                 const userPromise = db.user
                     .from('Users')
-                    .select('username, plant_coins, avatar_path, bio') // Fetch avatar_path AND bio
+                    .select('username, plant_coins, avatar_path, bio')
                     .eq('id', userId)
                     .single();
 
-                // 3. Fetch Title
+                // 3. Robust Fetch Title
                 const titlePromise = db.gamification
                     .from('User_titles')
                     .select('selected, Titles (titlename, color)')
                     .eq('userid', userId)
                     .eq('selected', true)
-                    .maybeSingle();
+                    .limit(1);
 
-                // 4. Fetch Equipped Border
-                const borderPromise = db.gamification
+                // 4. Robust Fetch Border
+                // First get the equipped border ID
+                const { data: equippedBorderRef, error: borderRefError } = await db.gamification
                     .from('User_owned_border')
-                    .select('is_equipped, Cosmetic_avatar_borders (*)')
+                    .select('border_id')
                     .eq('user_id', userId)
                     .eq('is_equipped', true)
                     .maybeSingle();
 
-                const [statsResult, userResult, titleResult, borderResult] = await Promise.all([statsPromise, userPromise, titlePromise, borderPromise]);
+                console.log('[useUserProfile] Border ref for', userId, ':', equippedBorderRef, 'error:', borderRefError);
 
-                // Debug logging
-                console.log('[useUserProfile] Stats result for', userId, ':', statsResult.data, statsResult.error);
+                let borderResultData = null;
+                if (equippedBorderRef?.border_id) {
+                    const { data: borderDetails, error: borderDetailsError } = await db.gamification
+                        .from('Cosmetic_avatar_borders')
+                        .select('*')
+                        .eq('id', equippedBorderRef.border_id)
+                        .maybeSingle();
+                    console.log('[useUserProfile] Border details:', borderDetails, 'error:', borderDetailsError);
+                    borderResultData = borderDetails;
+                }
+
+                const [statsResult, userResult, titleResult] = await Promise.all([statsPromise, userPromise, titlePromise]);
 
                 const statsData = statsResult.data;
                 const userData = userResult.data;
-                const titleInfo = titleResult.data?.Titles as any;
+                
+                // Fetch returns array because we used limit(1)
+                const titleData = titleResult.data && titleResult.data.length > 0 ? titleResult.data[0] : null;
+                const titleInfo = titleData?.Titles as any;
+                
+                console.log('[useUserProfile] Fetching Title for', userId, 'Result:', JSON.stringify(titleResult.data));
 
                 // Process Border
-                let equippedBorderData = borderResult.data?.Cosmetic_avatar_borders as any;
+                let equippedBorderData = borderResultData;
                 if (equippedBorderData && equippedBorderData.media_url) {
                     let mediaPath = equippedBorderData.media_url;
                     // Legacy fix for seasonal folders if needed
@@ -77,7 +93,7 @@ export function useUserProfile(userId: string | undefined) {
                     }
 
                     if (!mediaPath.startsWith('http')) {
-                        const { data } = db.public.storage.from('app-assets').getPublicUrl(mediaPath);
+                        const { data } = db.public.storage.from('border-skins').getPublicUrl(mediaPath);
                         equippedBorderData.media_url = data.publicUrl;
                     }
                 }
@@ -95,6 +111,8 @@ export function useUserProfile(userId: string | undefined) {
                     }
                 }
 
+                const actualTitle = Array.isArray(titleInfo) ? titleInfo[0] : titleInfo;
+
                 setProfile({
                     id: userId,
                     username: userData?.username || 'Gardener',
@@ -102,10 +120,9 @@ export function useUserProfile(userId: string | undefined) {
                     xp: statsData?.xp || 0,
                     level: statsData?.level || 1,
                     profile_image: profileImageUrl,
-                    // New fields
                     bio: userData?.bio || '',
-                    title: titleInfo?.titlename || '',
-                    titlecolor: titleInfo?.color || '#000',
+                    title: actualTitle?.titlename || '',
+                    titlecolor: actualTitle?.color || '#000',
                     equipped_border: equippedBorderData ? {
                         id: equippedBorderData.id,
                         media_url: equippedBorderData.media_url,

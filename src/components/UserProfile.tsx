@@ -1,5 +1,5 @@
-import React, { useCallback, useMemo } from 'react';
-import { View, Text, Image, TouchableOpacity, Dimensions, Alert } from 'react-native';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
+import { View, Text, Image, TouchableOpacity, Dimensions, Alert, ActivityIndicator, InteractionManager } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useUnistyles, StyleSheet } from 'react-native-unistyles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,6 +24,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Image as ExpoImage } from 'expo-image';
 
 const { width } = Dimensions.get('window');
+const vw = width / 100;
 
 type Props = {
     userId: string;
@@ -46,7 +47,7 @@ export default function UserProfile({ userId, isOwner }: Props) {
     const { posts: likedPosts, loading: likedPostsLoading, refreshPosts: refreshLikedPosts } = usePosts({ likedBy: userId });
 
     // For Follow/Unfollow logic if looking at someone else
-    const { following, followUser, unfollowUser, refreshConnections } = useConnections(userId);
+    const { followers, followUser, unfollowUser, refreshConnections } = useConnections(userId);
 
 
 
@@ -62,6 +63,20 @@ export default function UserProfile({ userId, isOwner }: Props) {
             refreshConnections();
         }, [userId])
     );
+
+    // Defer heavy 3D plant rendering to improve startup responsiveness
+    const [isPlantReady, setIsPlantReady] = useState(false);
+
+    useEffect(() => {
+        let timer: NodeJS.Timeout;
+        const task = InteractionManager.runAfterInteractions(() => {
+            timer = setTimeout(() => setIsPlantReady(true), 2000);
+        });
+        return () => {
+            task.cancel();
+            if (timer) clearTimeout(timer);
+        };
+    }, []);
 
     const currentLevel = profile?.level || 1;
     const currentXP = profile?.xp || 0;
@@ -84,7 +99,7 @@ export default function UserProfile({ userId, isOwner }: Props) {
         };
     }, [currentLevel]);
 
-    const isFollowing = following.some(u => u.id === userId);
+    const isFollowing = followers.some(u => u.id === currentUser?.id);
 
     const handleFollowAction = async () => {
         if (isFollowing) {
@@ -100,6 +115,34 @@ export default function UserProfile({ userId, isOwner }: Props) {
         { label: 'Following', value: followingCount, onPress: () => navigation.navigate('Connections', { initialTab: 'following', userId }) },
         { label: 'Follower', value: followersCount, onPress: () => navigation.navigate('Connections', { initialTab: 'followers', userId }) },
     ];
+
+    const getBorderStyle = useCallback((borderUrl: string) => {
+        // Avatar in this component is 100x100
+        const avatarSize = 100;
+        let scale = 1.6;
+        let topShift = 0;
+        let leftShift = 0;
+
+        if (borderUrl.includes('lightning')) {
+            scale = 2.6; // Same as your other screens
+            topShift = avatarSize * -0.01;
+            leftShift = avatarSize * -0.01;
+        } else if (borderUrl.includes('.gif')) {
+            scale = 2.45;
+        }
+
+        const borderSize = avatarSize * scale;
+        const offset = (borderSize - avatarSize) / 2;
+
+        return {
+            position: 'absolute' as const,
+            width: borderSize,
+            height: borderSize,
+            top: -offset + topShift,
+            left: -offset + leftShift,
+            zIndex: 1,
+        };
+    }, []);
 
     const renderContent = () => {
         switch (activeTab) {
@@ -163,13 +206,19 @@ export default function UserProfile({ userId, isOwner }: Props) {
                                 >
                                     {/* 3D Plant Container */}
                                     <View style={styles.plantViewContainer}>
-                                        <PlantPotPreview
-                                            seed={plantSeed}
-                                            growth={currentLevel}
-                                            mode="lsystem"
-                                            lsystemConfig={lsystemConfig}
-                                            potType="PotStandard"
-                                        />
+                                        {isPlantReady ? (
+                                            <PlantPotPreview
+                                                seed={plantSeed}
+                                                growth={currentLevel}
+                                                mode="lsystem"
+                                                lsystemConfig={lsystemConfig}
+                                                potType="PotStandard"
+                                            />
+                                        ) : (
+                                            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                                                <ActivityIndicator color="#FFFFFF" />
+                                            </View>
+                                        )}
                                     </View>
 
                                     {/* Level Info */}
@@ -184,21 +233,25 @@ export default function UserProfile({ userId, isOwner }: Props) {
                             );
                         })()}
 
-                        <Text style={styles.sectionTitle}>Rewards</Text>
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            style={styles.rewardsScroll}>
-                            {REWARDS.map((reward) => (
-                                <RewardItem
-                                    key={reward.level}
-                                    title={reward.title}
-                                    description={reward.description}
-                                    isUnlocked={currentLevel >= reward.level}
-                                    onClaim={() => { if (isCurrentUser) Alert.alert('Claimed!', reward.title); }}
-                                />
-                            ))}
-                        </ScrollView>
+                        {isCurrentUser && (
+                            <>
+                                <Text style={styles.sectionTitle}>Rewards</Text>
+                                <ScrollView
+                                    horizontal
+                                    showsHorizontalScrollIndicator={false}
+                                    style={styles.rewardsScroll}>
+                                    {REWARDS.map((reward) => (
+                                        <RewardItem
+                                            key={reward.level}
+                                            title={reward.title}
+                                            description={reward.description}
+                                            isUnlocked={currentLevel >= reward.level}
+                                            onClaim={() => { if (isCurrentUser) Alert.alert('Claimed!', reward.title); }}
+                                        />
+                                    ))}
+                                </ScrollView>
+                            </>
+                        )}
                     </>
                 );
             case 'posts':
@@ -243,12 +296,17 @@ export default function UserProfile({ userId, isOwner }: Props) {
                     style={styles.headerGradient}
                     resizeMode="cover"
                 />
-                <View style={[styles.headerContent, { paddingTop: insets.top }]}>
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                        <FontAwesome6 name="chevron-left" size={20} color={theme.colors.textDark} />
-                    </TouchableOpacity>
+                <View style={[styles.headerContent, { paddingTop: insets.top + 20 }]}>
+                    <View style={styles.headerTopRow}>
+                        <TouchableOpacity
+                            style={styles.iconButton}
+                            onPress={() => navigation.goBack()}
+                        >
+                            <FontAwesome6 name="chevron-left" size={20} color="#FFF" />
+                        </TouchableOpacity>
+                    </View>
                     <Text
-                        style={styles.headerTitle}
+                        style={[styles.headerTitle, { color: '#FFF' }]}
                         adjustsFontSizeToFit
                         numberOfLines={3}
                         minimumFontScale={0.5}
@@ -265,29 +323,22 @@ export default function UserProfile({ userId, isOwner }: Props) {
 
                     {/* Profile Card */}
                     <View style={styles.profileCard}>
-                        <View style={styles.avatarContainer}>
+                        <View style={[styles.avatarContainer, { position: 'relative' }]}>
                             <Image
                                 source={
                                     profile?.profile_image
                                         ? { uri: profile.profile_image }
                                         : require('../../assets/images/Profilbild.jpg')
                                 }
-                                style={styles.avatar}
+                                style={[styles.avatar, { backgroundColor: theme.colors.greyedOut }]}
+                                resizeMode="cover"
                             />
                             {/* 🟢 ADDED: Responsive Border Fix */}
                             {profile?.equipped_border?.media_url && (
                                 <ExpoImage
                                     key={profile.equipped_border.media_url} // Force re-mount on change!
                                     source={{ uri: profile.equipped_border.media_url }}
-                                    style={{
-                                        // 🟢 RESPONSIVE SIZING RELATIVE TO AVATAR (80px)
-                                        position: 'absolute',
-                                        width: profile.equipped_border.media_url.includes('.gif') ? '240%' : '152%',
-                                        height: profile.equipped_border.media_url.includes('.gif') ? '240%' : '152%',
-                                        top: profile.equipped_border.media_url.includes('.gif') ? '-70%' : '-26%',
-                                        left: profile.equipped_border.media_url.includes('.gif') ? '-70%' : '-26%',
-                                        zIndex: 1,
-                                    }}
+                                    style={getBorderStyle(profile.equipped_border.media_url)}
                                     pointerEvents="none"
                                     contentFit="contain"
                                 />
@@ -295,11 +346,38 @@ export default function UserProfile({ userId, isOwner }: Props) {
                         </View>
                         <View style={styles.userInfo}>
                             <View style={styles.nameRow}>
-                                <Text style={styles.userName}>
+                                <Text
+                                    style={[styles.userName, { color: theme.colors.text }]}
+                                    numberOfLines={1}
+                                    adjustsFontSizeToFit
+                                >
                                     {profile?.username || 'Gardener'}
                                 </Text>
                             </View>
-                            <Text style={styles.userBio}>Bio placeholder...</Text>
+
+                                {profile?.title ? (
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2, minHeight: 24 }}>
+                                        <Text
+                                            style={{
+                                                fontSize: 15,
+                                                color: profile.titlecolor || theme.colors.text,
+                                                fontWeight: '700',
+                                                flexShrink: 1,
+                                                letterSpacing: 0.2,
+                                            }}
+                                            numberOfLines={1}
+                                            adjustsFontSizeToFit
+                                        >
+                                            {profile.title}
+                                        </Text>
+                                    </View>
+                                ) : null}
+
+                            {profile?.bio ? (
+                                <Text style={[styles.userBio, { color: theme.colors.text, marginTop: 6, lineHeight: 20, opacity: 0.8 }]} numberOfLines={4}>
+                                    {profile.bio}
+                                </Text>
+                            ) : null}
 
                             {!isCurrentUser && (
                                 <TouchableOpacity
@@ -376,7 +454,7 @@ const styles = StyleSheet.create((theme) => ({
         backgroundColor: theme.colors.background,
     },
     headerBg: {
-        height: '100%',
+        height: '55%',
         width: '100%',
         position: 'absolute',
         top: 0,
@@ -388,15 +466,23 @@ const styles = StyleSheet.create((theme) => ({
         position: 'absolute',
         top: 0,
         left: 20,
+        right: 20,
     },
-    backButton: {
+    headerTopRow: {
+        flexDirection: 'row',
+        justifyContent: 'flex-start',
+        alignItems: 'center',
         marginBottom: 20,
     },
+    iconButton: {
+        padding: 5,
+        marginLeft: -10, // pull back align left slightly like profileScreen
+        alignSelf: 'flex-start',
+    },
     headerTitle: {
-        fontSize: 42,
+        fontSize: 38,
         fontWeight: '900',
-        color: theme.colors.textDark,
-        lineHeight: 46,
+        lineHeight: 42,
     },
     sheetContent: {
         paddingHorizontal: 20,
@@ -416,7 +502,7 @@ const styles = StyleSheet.create((theme) => ({
         marginBottom: 20,
     },
     avatarContainer: {
-        marginRight: 20,
+        marginRight: 24,
     },
     avatar: {
         width: 100,
@@ -426,15 +512,18 @@ const styles = StyleSheet.create((theme) => ({
     },
     userInfo: {
         flex: 1,
+        overflow: 'hidden',
     },
     nameRow: {
         flexDirection: 'row',
         alignItems: 'center',
+        flexWrap: 'nowrap',
     },
     userName: {
         fontSize: 24,
         fontWeight: 'bold',
         color: theme.colors.text,
+        flexShrink: 1,
     },
     userBio: {
         fontSize: 14,
@@ -442,11 +531,18 @@ const styles = StyleSheet.create((theme) => ({
         marginTop: 4,
     },
     followButton: {
-        marginTop: 10,
-        paddingVertical: 6,
-        paddingHorizontal: 12,
-        borderRadius: 20,
+        marginTop: 12,
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 25,
         alignSelf: 'flex-start',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 3,
+        elevation: 4,
     },
     followButtonText: {
         color: '#FFF',
