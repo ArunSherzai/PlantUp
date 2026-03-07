@@ -32,11 +32,10 @@ export type RootStackParamList = {
   PlantStats: { plantId: string; onlyShowSelected?: boolean };
   Plant3DTest: undefined;
   Shop: { initialTab?: 'shop' | 'inventory' };
-<<<<<<< Updated upstream
+
   DailyMentor: { plantId: string; health: any };
-=======
   PlantTimeline: { plantId: number };
->>>>>>> Stashed changes
+
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
