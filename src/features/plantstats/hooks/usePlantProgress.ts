@@ -82,15 +82,13 @@ export function usePlantProgress(plantId: string) {
 
     const takePhoto = async (title: string = 'Progress Update') => {
         if (!user) {
-            Alert.alert('Error', 'You must be logged in to take a photo.');
-            return false;
+            throw new Error('You must be logged in to take a photo.');
         }
 
         try {
             const { status } = await ImagePicker.requestCameraPermissionsAsync();
             if (status !== 'granted') {
-                Alert.alert('Permission Denied', 'Camera permissions are required to take a progress photo.');
-                return false;
+                throw new Error('Camera permissions are required to take a progress photo.');
             }
 
             const result = await ImagePicker.launchCameraAsync({
@@ -108,11 +106,11 @@ export function usePlantProgress(plantId: string) {
             const asset = result.assets[0];
             const base64FileData = asset.base64;
             const fileExt = asset.uri.split('.').pop() || 'jpg';
-            const fileName = `${user.id}/${plantId}_${Date.now()}.${fileExt}`;
+            const fileName = `${plantId}/${Date.now()}.${fileExt}`;
 
             // Upload to Supabase Storage
             const { data: uploadData, error: uploadError } = await db.public.storage
-                .from('post-media') // Reusing existing bucket as assumed
+                .from('plant-progress')
                 .upload(fileName, decode(base64FileData as string), {
                     contentType: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
                     upsert: false,
@@ -141,12 +139,11 @@ export function usePlantProgress(plantId: string) {
             }
 
             await fetchPhotos(); // Refresh list after success
-            return true;
+            return imageUrl;
 
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error taking photo:', error);
-            Alert.alert('Upload Failed', error instanceof Error ? error.message : 'An unknown error occurred.');
-            return false;
+            throw error;
         } finally {
             setIsUploading(false);
         }

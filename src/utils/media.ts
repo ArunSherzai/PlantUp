@@ -11,6 +11,28 @@ export const getPublicPostUrl = (path: string | null) => {
     return data.publicUrl;
 };
 
+export const getPublicPlantImageUrl = (path: string | null) => {
+    if (!path) return null;
+    if (path.startsWith('http')) return path;
+
+    const { data } = db.public.storage
+        .from('plant-images')
+        .getPublicUrl(path);
+
+    return data.publicUrl;
+};
+
+export const getPublicProgressImageUrl = (path: string | null) => {
+    if (!path) return null;
+    if (path.startsWith('http')) return path;
+
+    const { data } = db.public.storage
+        .from('plant-progress')
+        .getPublicUrl(path);
+
+    return data.publicUrl;
+};
+
 export const getDisplayMedia = (post: any) => {
     let url = getPublicPostUrl(post.media_url);
 

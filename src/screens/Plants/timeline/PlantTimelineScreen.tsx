@@ -1,18 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Image, TouchableOpacity, FlatList, ActivityIndicator, Modal, TextInput } from 'react-native';
+import { View, Text, Image, TouchableOpacity, FlatList, ActivityIndicator, Modal, TextInput, Alert } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather, FontAwesome6, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useUnistyles, StyleSheet } from 'react-native-unistyles';
+import ConfettiCannon from 'react-native-confetti-cannon';
+import { db } from '../../../utils/supabase';
+import { useUserStore } from '../../../stores/UserStore';
 import { usePlantProgress, ProgressPhoto } from '../../../features/plantstats/hooks/usePlantProgress';
 import { usePlants } from '../../../features/plantlist/hooks/usePlants';
-import { getPublicPostUrl } from '../../../utils/media';
+import { getPublicPlantImageUrl, getPublicProgressImageUrl } from '../../../utils/media';
+import AlertModal from '../../../components/AlertModal';
 
 export default function PlantTimelineScreen() {
     const route = useRoute<any>();
     const navigation = useNavigation<any>();
     const insets = useSafeAreaInsets();
     const { theme } = useUnistyles();
+    const { user } = useUserStore();
 
     const { plants } = usePlants();
     const plantId = route.params?.plantId;
@@ -32,6 +37,21 @@ export default function PlantTimelineScreen() {
     const [isTitleModalVisible, setIsTitleModalVisible] = useState(false);
     const [newPhotoTitle, setNewPhotoTitle] = useState('Progress Update');
 
+    // Confetti & Export Modal state
+    const [showConfettiModal, setShowConfettiModal] = useState(false);
+    const [newPhotoUrl, setNewPhotoUrl] = useState<string | null>(null);
+    const [isExporting, setIsExporting] = useState(false);
+
+    const [modalVisible, setModalVisible] = useState(false);
+    const [modalConfig, setModalConfig] = useState<{ type: 'success' | 'error' | 'loading'; title: string; message: string }>({
+        type: 'success', title: '', message: ''
+    });
+
+    const showModal = (type: 'success' | 'error' | 'loading', title: string, message: string) => {
+        setModalConfig({ type, title, message });
+        setModalVisible(true);
+    };
+
     const handleSelectPlant = (pId: string) => {
         setIsPlantDropdownVisible(false);
         navigation.setParams({ plantId: pId });
@@ -44,9 +64,41 @@ export default function PlantTimelineScreen() {
 
     const handleTakePhoto = async () => {
         setIsTitleModalVisible(false);
-        const success = await takePhoto(newPhotoTitle.trim() || 'Progress Update');
-        if (success) {
-            setNewPhotoTitle('Progress Update');
+        try {
+            const resultUrl = await takePhoto(newPhotoTitle.trim() || 'Progress Update');
+            if (resultUrl && typeof resultUrl === 'string') {
+                setNewPhotoTitle('Progress Update');
+                // Show confetti and offer to post
+                setNewPhotoUrl(resultUrl);
+                setShowConfettiModal(true);
+            }
+        } catch (error: any) {
+            showModal('error', 'Camera Error', error.message || 'Could not take a photo.');
+        }
+    };
+
+    const handleExportPost = async () => {
+        if (!user?.id || !newPhotoUrl) return;
+        setIsExporting(true);
+        try {
+            const { error } = await db.social.from('Posts').insert({
+                user_id: user.id,
+                caption: 'Plant progress updated! 🎉🎉',
+                media_url: newPhotoUrl,
+                type: 'image',
+                likes: 0,
+                shares: 0,
+                comments_count: 0,
+            });
+
+            if (error) throw error;
+            setShowConfettiModal(false);
+            showModal('success', 'Success', 'Progress shared to your feed!');
+        } catch (error: any) {
+            console.error('Failed to post progress:', error);
+            showModal('error', 'Error', error.message || 'Could not share to feed.');
+        } finally {
+            setIsExporting(false);
         }
     };
 
@@ -64,8 +116,12 @@ export default function PlantTimelineScreen() {
             <View style={styles.topCardInner}>
                 <TouchableOpacity style={styles.plantInfoRow} onPress={() => setIsPlantDropdownVisible(true)}>
                     <View style={styles.plantImageContainer}>
-                        {plantDetails?.image_url ? (
-                            <Image source={{ uri: plantDetails.image_url }} style={styles.plantImage} />
+                        {activePlant?.image_url ? (
+                            <Image source={{ uri: activePlant.image_url }} style={styles.plantImage} />
+                        ) : plantDetails?.image_url ? (
+                            <Image source={{ uri: getPublicPlantImageUrl(plantDetails.image_url) || undefined }} style={styles.plantImage} />
+                        ) : activePlant?.image ? (
+                            <Image source={activePlant.image} style={styles.plantImage} />
                         ) : (
                             <Feather name="image" size={32} color={theme.colors.greyedOut} />
                         )}
@@ -154,7 +210,7 @@ export default function PlantTimelineScreen() {
 
                 <View style={styles.contentColumn}>
                     <View style={styles.photoContainer}>
-                        <Image source={{ uri: getPublicPostUrl(PItem.image_url) || undefined }} style={styles.photoImage} />
+                        <Image source={{ uri: getPublicProgressImageUrl(PItem.image_url) || undefined }} style={styles.photoImage} />
                     </View>
                     <View style={styles.stageCard}>
                         <Text style={styles.stageTitle}>Stage {index + 1}</Text>
@@ -176,10 +232,10 @@ export default function PlantTimelineScreen() {
             {/* Simple App Header */}
             <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                    <Feather name="chevron-left" size={32} color={theme.colors.textDark || '#112c1d'} />
+                    <Feather name="chevron-left" size={32} color={theme.colors.text || '#112c1d'} />
                 </TouchableOpacity>
                 <View style={styles.headerTitleContainer}>
-                    <Feather name="image" size={24} color={theme.colors.textDark || '#112c1d'} />
+                    <Feather name="image" size={24} color={theme.colors.text || '#112c1d'} />
                     <Text style={styles.headerTitle}>Progress Photos</Text>
                 </View>
                 <View style={{ width: 32 }} />
@@ -210,18 +266,24 @@ export default function PlantTimelineScreen() {
                         <Text style={styles.modalTitle}>Select a Plant</Text>
                         <FlatList
                             data={plants}
-                            keyExtractor={(item) => item.id}
+                            keyExtractor={(item) => item.id.toString()}
                             style={{ maxHeight: 300, width: '100%' }}
                             renderItem={({ item }) => (
                                 <TouchableOpacity
                                     style={styles.dropdownItem}
                                     onPress={() => handleSelectPlant(item.id)}
                                 >
-                                    <View style={styles.dropdownImageContainer}>
-                                        <Feather name="image" size={20} color={theme.colors.primary} />
+                                    <View style={[styles.dropdownImageContainer, { overflow: 'hidden' }]}>
+                                        {item.image_url ? (
+                                            <Image source={{ uri: item.image_url }} style={{ width: '100%', height: '100%' }} />
+                                        ) : item.image ? (
+                                            <Image source={item.image} style={{ width: '100%', height: '100%' }} />
+                                        ) : (
+                                            <Feather name="image" size={20} color={theme.colors.primary} />
+                                        )}
                                     </View>
                                     <View>
-                                        <Text style={styles.dropdownItemName}>{item.name}</Text>
+                                        <Text style={styles.dropdownItemName}>{item.name || 'Unnamed Plant'}</Text>
                                     </View>
                                 </TouchableOpacity>
                             )}
@@ -261,12 +323,66 @@ export default function PlantTimelineScreen() {
                 </View>
             </Modal>
 
+            {/* Confetti & Export Modal */}
+            <Modal
+                transparent
+                visible={showConfettiModal}
+                animationType="fade"
+                onRequestClose={() => setShowConfettiModal(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    {/* Confetti should fire when modal shows */}
+                    <ConfettiCannon
+                        count={100}
+                        origin={{ x: -10, y: 0 }}
+                        autoStart={true}
+                        fadeOut={true}
+                    />
+
+                    <View style={styles.modalContent}>
+                        <Text style={[styles.modalTitle, { textAlign: 'center', fontSize: 24, marginBottom: 8 }]}>Yay! 🎉</Text>
+                        <Text style={[styles.modalTitle, { textAlign: 'center', fontSize: 16, fontWeight: 'normal', marginBottom: 24 }]}>
+                            You made progress! Would you like to share this on your social feed?
+                        </Text>
+
+                        <View style={[styles.modalButtons, { justifyContent: 'center', width: '100%' }]}>
+                            <TouchableOpacity
+                                onPress={() => setShowConfettiModal(false)}
+                                style={[styles.modalButtonCancel, { flex: 1, alignItems: 'center' }]}
+                                disabled={isExporting}
+                            >
+                                <Text style={styles.modalButtonTextCancel}>No thanks</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={handleExportPost}
+                                style={[styles.modalButtonSubmit, { flex: 1, alignItems: 'center' }]}
+                                disabled={isExporting}
+                            >
+                                {isExporting ? (
+                                    <ActivityIndicator size="small" color="#fff" />
+                                ) : (
+                                    <Text style={styles.modalButtonTextSubmit}>Yes, Share!</Text>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
             {isUploading && (
                 <View style={styles.uploadOverlay}>
                     <ActivityIndicator size="large" color="#ffffff" />
                     <Text style={styles.uploadText}>Saving entry...</Text>
                 </View>
             )}
+
+            <AlertModal
+                visible={modalVisible}
+                type={modalConfig.type}
+                title={modalConfig.title}
+                message={modalConfig.message}
+                onClose={() => setModalVisible(false)}
+            />
         </View>
     );
 }
@@ -291,7 +407,7 @@ const styles = StyleSheet.create((theme) => ({
         gap: 8,
     },
     headerTitle: {
-        color: theme.colors.textDark || '#112c1d',
+        color: theme.colors.text || '#112c1d',
         fontSize: 22,
         fontWeight: 'bold',
     },
@@ -370,14 +486,14 @@ const styles = StyleSheet.create((theme) => ({
     },
     dateIcon: {
         marginRight: 6,
-        color: theme.colors.textDark || 'black',
+        color: theme.colors.text || 'black',
     },
     dateLabel: {
         color: theme.colors.text || '#4a5d50',
         fontSize: 14,
     },
     dateValue: {
-        color: theme.colors.textDark || '#112c1d',
+        color: theme.colors.text || '#112c1d',
         fontSize: 14,
         fontWeight: '600',
     },
@@ -509,7 +625,7 @@ const styles = StyleSheet.create((theme) => ({
         lineHeight: 20,
     },
     stageTitleDark: {
-        color: theme.colors.textDark || '#112c1d',
+        color: theme.colors.text || '#112c1d',
         fontWeight: 'bold',
         fontSize: 18,
         marginBottom: 8,
@@ -564,7 +680,7 @@ const styles = StyleSheet.create((theme) => ({
     dropdownItemName: {
         fontSize: 16,
         fontWeight: 'bold',
-        color: theme.colors.textDark || '#112c1d',
+        color: theme.colors.text || '#112c1d',
     },
     dropdownItemDesc: {
         fontSize: 12,
@@ -591,7 +707,7 @@ const styles = StyleSheet.create((theme) => ({
     modalTitle: {
         fontSize: 20,
         fontWeight: 'bold',
-        color: theme.colors.textDark || '#112c1d',
+        color: theme.colors.text || '#112c1d',
         marginBottom: 16,
     },
     modalInput: {
@@ -600,7 +716,7 @@ const styles = StyleSheet.create((theme) => ({
         borderRadius: 12,
         padding: 12,
         fontSize: 16,
-        color: theme.colors.textDark,
+        color: theme.colors.text,
         marginBottom: 24,
     },
     modalButtons: {

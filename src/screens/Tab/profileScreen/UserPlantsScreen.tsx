@@ -36,12 +36,12 @@ export default function UserPlantsScreen() {
         const health = 75;
 
         return (
-            <TouchableOpacity 
+            <TouchableOpacity
                 activeOpacity={0.9}
                 style={styles.cardContainer}
                 onPress={() => {
-                   // Optional: Navigate to detail if needed
-                   // navigation.navigate('ShowPlantStats', { plantId: item.id });
+                    // Optional: Navigate to detail if needed
+                    // navigation.navigate('ShowPlantStats', { plantId: item.id });
                 }}
             >
                 <View style={styles.healthBadge}>
@@ -52,11 +52,19 @@ export default function UserPlantsScreen() {
 
                 {/* Image Container for better centering */}
                 <View style={styles.imageWrapper}>
-                    <Image
-                        source={item.image || require('../../../../assets/images/plant4.png')}
-                        style={styles.plantImage}
-                        resizeMode="contain"
-                    />
+                    {item.image_url ? (
+                        <Image
+                            source={{ uri: item.image_url }}
+                            style={styles.plantImage}
+                            resizeMode="contain"
+                        />
+                    ) : (
+                        <Image
+                            source={item.image || require('../../../../assets/images/plant4.png')}
+                            style={styles.plantImage}
+                            resizeMode="contain"
+                        />
+                    )}
                 </View>
 
                 <View style={styles.infoContainer}>
@@ -93,7 +101,7 @@ export default function UserPlantsScreen() {
                 showsVerticalScrollIndicator={false}
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
-                        <Image 
+                        <Image
                             source={require('../../../../assets/images/plant4.png')} // Fallback illustration
                             style={{ width: 100, height: 100, opacity: 0.5, marginBottom: 10 }}
                             resizeMode="contain"
@@ -147,7 +155,7 @@ const styles = StyleSheet.create((theme) => ({
         padding: 12,
         alignItems: 'center',
         justifyContent: 'space-between',
-        
+
         // Premium Shadow
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 8 },
@@ -210,7 +218,7 @@ const styles = StyleSheet.create((theme) => ({
         color: theme.colors.typography, // Gray scaling
         opacity: 0.6,
     },
-    
+
     // Empty State
     emptyContainer: {
         flex: 1,

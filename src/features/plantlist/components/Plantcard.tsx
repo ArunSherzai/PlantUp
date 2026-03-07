@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Image, TouchableOpacity, TextInput, ScrollView } from 'react-native';
+import { View, Text, Image, TouchableOpacity, TextInput, ScrollView, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useSharedValue,
@@ -10,11 +10,16 @@ import Animated, {
 } from 'react-native-reanimated';
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import { FontAwesome6, MaterialCommunityIcons } from '@expo/vector-icons';
+import Feather from '@expo/vector-icons/Feather';
+import * as ImagePicker from 'expo-image-picker';
+import { decode } from 'base64-arraybuffer';
 import { db } from '../../../utils/supabase';
+import { useUserStore } from '../../../stores/UserStore';
 import { styles, vw, vh } from '../styles/plantStyles';
 import { PlantItem } from '../types/plant.types';
 import { useNavigation } from '@react-navigation/native';
 import { playSound } from '~/utils/SoundManager';
+import AlertModal from '../../../components/AlertModal';
 
 interface Props {
   item: PlantItem;
@@ -36,6 +41,88 @@ export const PlantCard = React.memo(
     const [editedDescription, setEditedDescription] = useState(item.description);
 
     const [plantTypes, setPlantTypes] = useState<{ id: number; name: string }[]>([]);
+
+    const { user } = useUserStore();
+    const [customImageUri, setCustomImageUri] = useState<string | null>(item.image_url || null);
+    const [customImageBase64, setCustomImageBase64] = useState<string | null>(null);
+
+    const [modalVisible, setModalVisible] = useState(false);
+    const [modalConfig, setModalConfig] = useState<{ type: 'success' | 'error' | 'loading'; title: string; message: string }>({
+      type: 'success', title: '', message: ''
+    });
+
+    const showModal = (type: 'success' | 'error' | 'loading', title: string, message: string) => {
+      setModalConfig({ type, title, message });
+      setModalVisible(true);
+    };
+
+    const pickImage = async () => {
+      Alert.alert(
+        'Upload Photo',
+        'Choose a photo source',
+        [
+          {
+            text: 'Camera',
+            onPress: async () => {
+              const { status } = await ImagePicker.requestCameraPermissionsAsync();
+              if (status !== 'granted') {
+                Alert.alert('Permission Denied', 'Camera permissions are required.');
+                return;
+              }
+              const result = await ImagePicker.launchCameraAsync({
+                mediaTypes: 'images',
+                allowsEditing: true,
+                quality: 0.8,
+                base64: true,
+              });
+              if (!result.canceled && result.assets && result.assets[0]) {
+                setCustomImageUri(result.assets[0].uri);
+                setCustomImageBase64(result.assets[0].base64 || null);
+              }
+            }
+          },
+          {
+            text: 'Gallery',
+            onPress: async () => {
+              const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: 'images',
+                allowsEditing: true,
+                quality: 0.8,
+                base64: true,
+              });
+              if (!result.canceled && result.assets && result.assets[0]) {
+                setCustomImageUri(result.assets[0].uri);
+                setCustomImageBase64(result.assets[0].base64 || null);
+              }
+            }
+          },
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          }
+        ]
+      );
+    };
+
+    const uploadCustomImage = async (plantId: string): Promise<string | null> => {
+      if (!customImageUri || !customImageBase64) return null;
+      try {
+        const fileExt = customImageUri.split('.').pop() || 'jpg';
+        const fileName = `${plantId}.${fileExt}`;
+        const { data, error } = await db.public.storage
+          .from('plant-images')
+          .upload(fileName, decode(customImageBase64), {
+            contentType: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
+            upsert: true, // Overwrite if changing avatar
+          });
+
+        if (error) throw error;
+        return data?.path || null;
+      } catch (e) {
+        console.error('Image upload failed', e);
+        return null;
+      }
+    };
 
     // Flip animation
     useEffect(() => {
@@ -66,23 +153,42 @@ export const PlantCard = React.memo(
 
     // Save data
     const handleSave = async () => {
-      const { error } = await db.social
-        .from('Plants')
-        .update({
-          nickname: editedName,
-          description: editedDescription,
-          plant_data_id: editedType,
-        })
-        .eq('id', item.id);
+      let finalImageUrl = item.image_url;
 
-      if (error) {
-        console.log('Update error:', error);
-        return;
+      try {
+        // If a NEW image was selected (we have base64 data)
+        if (customImageBase64 && user) {
+          const uploadedUrl = await uploadCustomImage(item.id);
+          if (uploadedUrl) {
+            finalImageUrl = uploadedUrl;
+          } else {
+            throw new Error('Image upload failed.');
+          }
+        }
+
+        const { error } = await db.social
+          .from('Plants')
+          .update({
+            nickname: editedName,
+            description: editedDescription,
+            plant_data_id: editedType,
+            image_url: finalImageUrl,
+          })
+          .eq('id', item.id);
+
+        if (error) {
+          throw error;
+        }
+
+        playSound('flip');
+        await refreshPlants();
+        // Only clear base64, so if they flip it back we still show the new image or original url
+        setCustomImageBase64(null);
+        showModal('success', 'Saved!', 'Plant updated successfully.');
+      } catch (err: any) {
+        console.error('Update error:', err);
+        showModal('error', 'Update Failed', err.message || 'Could not update plant.');
       }
-
-      playSound('flip');
-      await refreshPlants();
-      onActionPress();
     };
 
     const handleDelete = async () => {
@@ -142,7 +248,12 @@ export const PlantCard = React.memo(
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.gradient}>
-              <Image source={item.image} style={styles.image} />
+
+              {item.image_url ? (
+                <Image source={{ uri: item.image_url }} style={styles.image} />
+              ) : (
+                <Image source={item.image} style={styles.image} />
+              )}
 
               <View style={styles.infoColumn}>
                 <Text style={styles.name}>{item.name}</Text>
@@ -180,7 +291,21 @@ export const PlantCard = React.memo(
             end={{ x: 1, y: 1 }}
             style={styles.backGradient}>
             <View style={styles.backContent}>
-              <Text style={styles.backTitle}>Edit Plant</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <Text style={[styles.backTitle, { marginBottom: 0 }]}>Edit Plant</Text>
+                <TouchableOpacity onPress={pickImage} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 }}>
+                  <Feather name="camera" size={14} color="white" style={{ marginRight: 6 }} />
+                  <Text style={{ color: 'white', fontSize: 12, fontWeight: 'bold' }}>Change Photo</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={{ width: '100%', alignItems: 'center', marginBottom: 10 }}>
+                {customImageUri ? (
+                  <Image source={{ uri: customImageUri }} style={{ width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: 'white' }} />
+                ) : (
+                  <Image source={item.image} style={{ width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: 'white' }} />
+                )}
+              </View>
 
               <View style={styles.backRow}>
                 {/* LEFT SIDE */}
@@ -283,6 +408,19 @@ export const PlantCard = React.memo(
             </TouchableOpacity>
           </LinearGradient>
         </Animated.View>
+
+        <AlertModal
+          visible={modalVisible}
+          type={modalConfig.type}
+          title={modalConfig.title}
+          message={modalConfig.message}
+          onClose={() => {
+            setModalVisible(false);
+            if (modalConfig.type === 'success') {
+              onActionPress(); // flip card back
+            }
+          }}
+        />
       </View>
     );
   }

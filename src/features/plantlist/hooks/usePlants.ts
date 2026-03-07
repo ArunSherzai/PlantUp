@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { db } from '../../../utils/supabase';
 import { PlantItem } from '../types/plant.types';
 import { customGradients } from '../constants/plantGradient';
+import { getPublicPlantImageUrl } from '../../../utils/media';
 
 export function usePlants(userId?: string) {
   const [plants, setPlants] = useState<PlantItem[]>([]);
@@ -18,7 +19,7 @@ export function usePlants(userId?: string) {
 
     const { data, error } = await db.social
       .from('Plants')
-      .select('id, nickname, description')
+      .select('id, nickname, description, image_url')
       .eq('user_id', targetId);
 
     if (error) {
@@ -30,6 +31,7 @@ export function usePlants(userId?: string) {
       id: p.id,
       name: p.nickname,
       description: p.description,
+      image_url: getPublicPlantImageUrl(p.image_url) || undefined,
       image: require('../../../../assets/images/plant4.png'),
       gradientColors: customGradients[idx % customGradients.length],
     }));

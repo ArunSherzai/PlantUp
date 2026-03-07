@@ -15,6 +15,7 @@
     "@expo/vector-icons": "^14.0.2",
     "@gorhom/bottom-sheet": "^5.2.8",
     "@react-native-async-storage/async-storage": "1.23.1",
+    "@react-native-community/slider": "4.5.5",
     "@react-native-masked-view/masked-view": "0.3.2",
     "@react-navigation/bottom-tabs": "^7.0.5",
     "@react-navigation/native": "^7.0.3",
@@ -49,6 +50,7 @@
     "react": "18.3.1",
     "react-native": "0.76.9",
     "react-native-compressor": "^1.13.0",
+    "react-native-confetti-cannon": "^1.5.2",
     "react-native-edge-to-edge": "1.4.3",
     "react-native-gesture-handler": "~2.20.2",
     "react-native-gifted-charts": "^1.4.61",
@@ -64,8 +66,7 @@
     "react-native-video": "^6.18.0",
     "three": "^0.182.0",
     "victory-native": "^41.17.1",
-    "zustand": "^4.5.1",
-    "@react-native-community/slider": "4.5.5"
+    "zustand": "^4.5.1"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
