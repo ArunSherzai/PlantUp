@@ -290,29 +290,36 @@ export const PlantCard = React.memo(
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.backGradient}>
-            <View style={styles.backContent}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <Text style={[styles.backTitle, { marginBottom: 0 }]}>Edit Plant</Text>
-                <TouchableOpacity onPress={pickImage} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 }}>
-                  <Feather name="camera" size={14} color="white" style={{ marginRight: 6 }} />
-                  <Text style={{ color: 'white', fontSize: 12, fontWeight: 'bold' }}>Change Photo</Text>
+            <View style={[styles.backContent, { flex: 1 }]}>
+              {/* Header: avatar + title + change photo */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: vh * 1.2 }}>
+                <TouchableOpacity onPress={pickImage}>
+                  <Image
+                    source={
+                      customImageUri ? { uri: customImageUri }
+                        : item.image_url ? { uri: item.image_url }
+                          : item.image
+                    }
+                    style={{ width: 48, height: 48, borderRadius: 24, borderWidth: 2, borderColor: 'white' }}
+                  />
+                  <View style={{ position: 'absolute', bottom: -2, right: -2, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 10, padding: 3 }}>
+                    <Feather name="camera" size={10} color="white" />
+                  </View>
                 </TouchableOpacity>
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={[styles.backTitle, { marginBottom: 2, fontSize: vw * 5 }]}>Edit Plant</Text>
+                  <TouchableOpacity onPress={pickImage}>
+                    <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }}>Tap photo to change</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
 
-              <View style={{ width: '100%', alignItems: 'center', marginBottom: 10 }}>
-                {customImageUri ? (
-                  <Image source={{ uri: customImageUri }} style={{ width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: 'white' }} />
-                ) : (
-                  <Image source={item.image} style={{ width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: 'white' }} />
-                )}
-              </View>
-
-              <View style={styles.backRow}>
+              {/* Form fields - 2 column */}
+              <View style={[styles.backRow, { flex: 1, marginTop: 0 }]}>
                 {/* LEFT SIDE */}
-                <View style={styles.column}>
-                  <View style={styles.field}>
+                <View style={[styles.column, { justifyContent: 'space-between' }]}>
+                  <View style={[styles.field, { marginBottom: vh * 0.8 }]}>
                     <Text style={styles.label}>Name</Text>
-
                     <TextInput
                       style={styles.input}
                       value={editedName}
@@ -320,7 +327,7 @@ export const PlantCard = React.memo(
                     />
                   </View>
 
-                  <View style={styles.field}>
+                  <View style={[styles.field, { marginBottom: 0 }]}>
                     <Text style={styles.label}>Description</Text>
                     <TextInput
                       style={styles.input}
@@ -331,8 +338,8 @@ export const PlantCard = React.memo(
                 </View>
 
                 {/* RIGHT SIDE */}
-                <View style={styles.column}>
-                  <View style={styles.field}>
+                <View style={[styles.column, { justifyContent: 'space-between' }]}>
+                  <View style={[styles.field, { marginBottom: vh * 0.8 }]}>
                     <Text style={styles.label}>Plant Type</Text>
 
                     <View style={{ width: '100%', zIndex: 20 }}>
@@ -365,7 +372,7 @@ export const PlantCard = React.memo(
                             backgroundColor: 'rgba(0,0,0,0.8)',
                             borderRadius: 8,
                             marginTop: 4,
-                            maxHeight: vh * 20, // Increased height
+                            maxHeight: vh * 20,
                             zIndex: 100,
                             padding: 4
                           }}>
@@ -388,7 +395,6 @@ export const PlantCard = React.memo(
                       )}
                     </View>
                   </View>
-                  <Text style={styles.label}></Text>
 
                   <View style={styles.buttonRow}>
                     <TouchableOpacity style={styles.cancelButton} onPress={() => { playSound('flip'); onActionPress(); }}>
