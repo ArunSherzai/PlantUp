@@ -188,6 +188,35 @@ export default function ProfileScreen() {
     }
   };
 
+  const getProfileBorderStyle = useCallback((borderUrl: string): any => {
+    // Avatar is exactly 80x80
+    const avatarSize = 80;
+
+    let scale = 1.6;
+    let topShift = 0;
+    let leftShift = 0;
+
+    if (borderUrl.includes('lightning')) {
+      scale = 2.6;
+      topShift = avatarSize * -0.000000000001;
+      leftShift = avatarSize * -0.01;
+    } else if (borderUrl.includes('.gif')) {
+      scale = 2.45;
+    }
+
+    const borderSize = avatarSize * scale;
+    const offset = (borderSize - avatarSize) / 2;
+
+    return {
+      position: 'absolute' as const,
+      width: borderSize,
+      height: borderSize,
+      top: -offset + topShift,
+      left: -offset + leftShift,
+      zIndex: 1,
+    };
+  }, []);
+
   const renderContent = () => {
     switch (activeTab) {
       case 'leveling':
@@ -348,8 +377,16 @@ export default function ProfileScreen() {
         />
 
         <View style={[styles.headerContent, { paddingTop: insets.top }]}>
-          {/* Header Top Row: Settings Only */}
+          {/* Header Top Row: Borders & Settings */}
           <View style={styles.headerTopRow}>
+            {/* Border Inventory Button */}
+            <TouchableOpacity
+              style={[styles.iconButton, { marginRight: 8 }]}
+              onPress={() => navigation.navigate('BorderInventory')}
+            >
+              <FontAwesome5 name="tshirt" size={20} color={theme.colors.textDark} />
+            </TouchableOpacity>
+
             {/* Settings Button */}
             <TouchableOpacity
               style={styles.iconButton}
@@ -393,17 +430,7 @@ export default function ProfileScreen() {
                   <ExpoImage
                     key={profile.equipped_border.media_url} // Force re-mount on change!
                     source={{ uri: profile.equipped_border.media_url }}
-                    style={{
-                      // 🟢 RESPONSIVE SIZING RELATIVE TO AVATAR (80px)
-                      // GIFs are approx 2.6x avatar size, PNGs 1.68x
-                      position: 'absolute',
-                      width: profile.equipped_border.media_url.includes('.gif') ? '262%' : '168%',
-                      height: profile.equipped_border.media_url.includes('.gif') ? '262%' : '168%',
-                      // Center using negative percentage margins (half of extra width)
-                      top: profile.equipped_border.media_url.includes('.gif') ? '-81%' : '-34%',
-                      left: profile.equipped_border.media_url.includes('.gif') ? '-81%' : '-34%',
-                      zIndex: 1,
-                    }}
+                    style={getProfileBorderStyle(profile.equipped_border.media_url)}
                     pointerEvents="none"
                     contentFit="contain"
                   />
@@ -412,11 +439,15 @@ export default function ProfileScreen() {
 
               <View style={styles.userInfo}>
                 <View style={styles.nameRow}>
-                  <Text style={[styles.userName, { color: theme.colors.text }]}>
+                  <Text
+                    style={[styles.userName, { color: theme.colors.text }]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                  >
                     {profile?.username || user?.email?.split('@')[0] || 'Gardener'}
                   </Text>
                   {(profile?.level || 0) >= 25 && (
-                    <View style={{ marginLeft: 8 }}>
+                    <View style={{ marginLeft: 8, flexShrink: 0 }}>
                       <MentorBadge size="medium" />
                     </View>
                   )}
@@ -424,56 +455,54 @@ export default function ProfileScreen() {
 
                 <TouchableOpacity
                   onPress={() => navigation.navigate('TitleInventory')}
-                  style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, minHeight: 32 }}
                 >
                   <Text
                     style={{
                       fontSize: 14,
-                      color: profile?.titlecolor || theme.colors.text,
-                      fontWeight: '600',
+                      color: profile?.title ? (profile.titlecolor || theme.colors.text) : theme.colors.greyedOut,
+                      fontWeight: profile?.title ? '600' : '400',
+                      fontStyle: profile?.title ? 'normal' : 'italic',
                       marginRight: 8,
-                    }}>
-                    {profile?.title}
+                      flexShrink: 1,
+                    }}
+                    numberOfLines={1}
+                  >
+                    {profile?.title || 'Select Title'}
                   </Text>
                   <GradientIcon name="pen" size={12} />
                 </TouchableOpacity>
               </View>
-
-              {/* Values T-Shirt Icon */}
-              <TouchableOpacity
-                onPress={() => navigation.navigate('BorderInventory')}
-                style={{ padding: 8 }}
-              >
-                <FontAwesome5 name="tshirt" size={24} color={theme.colors.gradient[1]} />
-              </TouchableOpacity>
             </View>
+            {/* Bio Section (Below Top Row) - only if bio exists */}
+            {profile?.bio ? (
+              <View style={{ marginTop: 8 }}>
+                {/* Hidden Text for measurement */}
+                <Text
+                  style={[styles.userBio, { position: 'absolute', opacity: 0, zIndex: -1 }]}
+                  onTextLayout={(e: { nativeEvent: { lines: any[] } }) => {
+                    if (e.nativeEvent.lines.length > 1) setIsBioTruncated(true);
+                  }}
+                >
+                  {profile.bio}
+                </Text>
 
-            {/* Bio Section (Below Top Row) */}
-            <View>
-              {/* Hidden Text for measurement */}
-              <Text
-                style={[styles.userBio, { position: 'absolute', opacity: 0, zIndex: -1 }]}
-                onTextLayout={(e: { nativeEvent: { lines: any[] } }) => {
-                  if (e.nativeEvent.lines.length > 1) setIsBioTruncated(true);
-                }}
-              >
-                {profile?.bio || ''}
-              </Text>
-
-              <Text
-                style={[styles.userBio, { color: theme.colors.text }]}
-                numberOfLines={isBioExpanded ? undefined : 1}
-              >
-                {profile?.bio || ''}
-              </Text>
-              {isBioTruncated && (
-                <TouchableOpacity onPress={() => setIsBioExpanded(!isBioExpanded)}>
-                  <Text style={{ color: theme.colors.primary, fontSize: 12, marginTop: 4, fontWeight: '600' }}>
-                    {isBioExpanded ? 'Show less' : 'Show more'}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
+                <Text
+                  style={[styles.userBio, { color: theme.colors.text }]}
+                  numberOfLines={isBioExpanded ? undefined : 1}
+                >
+                  {profile.bio}
+                </Text>
+                {isBioTruncated && (
+                  <TouchableOpacity onPress={() => setIsBioExpanded(!isBioExpanded)}>
+                    <Text style={{ color: theme.colors.primary, fontSize: 12, marginTop: 4, fontWeight: '600' }}>
+                      {isBioExpanded ? 'Show less' : 'Show more'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            ) : null}
           </View>
 
           <StatsRow stats={stats} theme={theme} typographyColor={theme.colors.typography} />
@@ -551,7 +580,7 @@ export default function ProfileScreen() {
           }
         }}
       />
-    </View>
+    </View >
   );
 }
 
@@ -594,7 +623,7 @@ const styles = StyleSheet.create({
   },
   profileCard: {
     borderRadius: 20,
-    padding: 20,
+    padding: 16,
     flexDirection: 'column',
     alignItems: 'flex-start',
     shadowColor: '#000',
@@ -608,9 +637,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
-    marginBottom: 10,
   },
   avatarContainer: {
+    width: 80,
+    height: 80,
     marginRight: 20,
   },
   avatar: {
@@ -621,14 +651,17 @@ const styles = StyleSheet.create({
   userInfo: {
     flex: 1,
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'nowrap',
   },
   userName: {
     fontSize: 24,
     fontWeight: 'bold',
+    flexShrink: 1,
   },
   userBio: {
     fontSize: 14,

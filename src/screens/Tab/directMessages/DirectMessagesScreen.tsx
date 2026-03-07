@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TextInput, FlatList, Image, TouchableOpacity, SafeAreaView, StatusBar, ImageBackground, Modal, ActivityIndicator, Alert, Dimensions } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import { useUnistyles } from 'react-native-unistyles';
 import { StackScreenProps } from '@react-navigation/stack';
 import { RootStackParamList } from '../../../navigation/Root';
@@ -50,6 +51,83 @@ export default function DirectMessagesScreen() {
     const { mentors, fetchMentors, sendRequest, outgoingRequests, incomingRequests, fetchIncomingRequests, fetchOutgoingRequests, getRequestStatus, loading: mentorLoading, acceptRequest, rejectRequest } = useMentorStore();
     const { user, profile } = useUserStore();
     const { startTutorial } = useTutorialStore();
+
+    // Border map: userId -> border URL
+    const [borderMap, setBorderMap] = useState<Record<string, string>>({});
+
+    // Fetch borders for all conversation partners
+    useEffect(() => {
+        const fetchBorders = async () => {
+            const partnerIds = conversations
+                .map(c => c.participants?.[0]?.user_id)
+                .filter((id): id is string => !!id);
+            if (partnerIds.length === 0) return;
+
+            try {
+                const { data: refs } = await db.gamification
+                    .from('User_owned_border')
+                    .select('user_id, border_id')
+                    .in('user_id', partnerIds)
+                    .eq('is_equipped', true);
+                if (!refs || refs.length === 0) return;
+
+                const borderIds = refs.map(r => r.border_id).filter(Boolean);
+                const { data: borders } = await db.gamification
+                    .from('Cosmetic_avatar_borders')
+                    .select('id, media_url')
+                    .in('id', borderIds);
+                if (!borders) return;
+
+                const borderById: Record<string, string> = {};
+                borders.forEach(b => { if (b.media_url) borderById[b.id] = b.media_url; });
+
+                const newMap: Record<string, string> = {};
+                refs.forEach(r => {
+                    let url = borderById[r.border_id];
+                    if (!url) return;
+                    if (url.includes('seasonal_summer') || url.includes('seasonal_winter')) {
+                        url = url.replace('seasonal_summer', 'seasonal').replace('seasonal_winter', 'seasonal');
+                    }
+                    if (!url.startsWith('http')) {
+                        const { data: urlData } = db.public.storage.from('border-skins').getPublicUrl(url);
+                        newMap[r.user_id] = urlData.publicUrl;
+                    } else {
+                        newMap[r.user_id] = url;
+                    }
+                });
+                setBorderMap(newMap);
+            } catch (e) {
+                console.warn('[DM Overview] Border fetch failed:', e);
+            }
+        };
+        fetchBorders();
+    }, [conversations]);
+
+    // Helper: compute border overlay style for a given avatar size
+    const getBorderStyle = useCallback((avatarSize: number, borderUrl: string) => {
+        let scale = 1.6;
+        let topShift = 0;
+        let leftShift = 0;
+
+        if (borderUrl.includes('lightning')) {
+            scale = 2.65;
+            topShift = avatarSize * -0.01;
+            leftShift = avatarSize * -0.01;
+        } else if (borderUrl.includes('.gif')) {
+            scale = 2.45;
+        }
+
+        const borderSize = avatarSize * scale;
+        const offset = (borderSize - avatarSize) / 2;
+
+        return {
+            position: 'absolute' as const,
+            width: borderSize,
+            height: borderSize,
+            top: -offset + topShift,
+            left: -offset + leftShift,
+        };
+    }, []);
 
     useFocusEffect(
         React.useCallback(() => {
@@ -137,6 +215,7 @@ export default function DirectMessagesScreen() {
                     id: conversationId,
                     name: selectedUser.username,
                     avatar: avatarSource,
+                    userId: selectedUser.id,
                 });
             } else {
                 Alert.alert('Unable to Message', 'You can only message users who follow you back (Mutual Followers).');
@@ -223,17 +302,29 @@ export default function DirectMessagesScreen() {
                         id: item.id, // Conversation ID
                         name: item.name,
                         avatar: item.avatar,
-                        // Optionally pass userId if needed to refetch, but convId is enough
-                        // We might need partnerId if we strictly used userId before
+                        userId: item.conversationData?.participants?.[0]?.user_id,
                     });
                 }
             }}
         >
             <View style={styles.avatarContainer}>
                 <Image source={item.avatar} style={styles.avatar} resizeMode="cover" />
+                {(() => {
+                    const partnerId = item.conversationData?.participants?.[0]?.user_id;
+                    const bUrl = partnerId ? borderMap[partnerId] : null;
+                    if (!bUrl) return null;
+                    return (
+                        <ExpoImage
+                            source={{ uri: bUrl }}
+                            style={getBorderStyle(vw * 13, bUrl)}
+                            contentFit="contain"
+                            pointerEvents="none"
+                        />
+                    );
+                })()}
                 {/* Unread Badge */}
                 {item.unreadCount > 0 && (
-                    <View style={styles.unreadBadge}>
+                    <View style={[styles.unreadBadge, { zIndex: 10 }]}>
                         <Text style={styles.unreadBadgeText}>
                             {item.unreadCount > 99 ? '99+' : item.unreadCount}
                         </Text>
@@ -427,6 +518,7 @@ export default function DirectMessagesScreen() {
                                                             id: convId,
                                                             name: item.username,
                                                             avatar: getAvatarSource(item.avatar_path),
+                                                            userId: item.id,
                                                         });
                                                     }
                                                 }}
@@ -554,7 +646,7 @@ const styles = StyleSheet.create({
         borderTopLeftRadius: vw * 8,
         borderTopRightRadius: vw * 8,
         paddingTop: vh * 3,
-        paddingHorizontal: vw * 5,
+        // Removed paddingHorizontal: vw * 5 to allow border overflow
         // Ensure it fills the bottom naturally
     },
     contentHeader: {
@@ -562,7 +654,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         marginBottom: vh * 2,
-        paddingRight: vw * 2
+        paddingHorizontal: vw * 5,
+        paddingRight: vw * 7, // Extra padding since we removed it from parent
     },
     sectionTitle: {
         fontSize: vw * 6,
@@ -577,6 +670,7 @@ const styles = StyleSheet.create({
     },
     searchContainer: {
         marginBottom: vh * 2,
+        paddingHorizontal: vw * 5,
     },
     searchInput: {
         height: vh * 6,
@@ -591,6 +685,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         marginBottom: vh * 2.5,
+        paddingHorizontal: vw * 5,
     },
     avatarContainer: {
         width: vw * 13,
@@ -701,6 +796,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#F0F0F0',
         borderRadius: vw * 6,
         padding: 4,
+        marginHorizontal: vw * 5,
     },
     tab: {
         flex: 1,
@@ -731,7 +827,8 @@ const styles = StyleSheet.create({
     mentorItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: vh * 2,
+        marginBottom: vh * 2.5,
+        paddingHorizontal: vw * 5,
         paddingVertical: vh * 1,
     },
     mentorContent: {

@@ -1,5 +1,5 @@
-import React, { Suspense, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import React, { Suspense, useRef, useMemo, useState, useCallback, useEffect } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, InteractionManager } from 'react-native';
 import { ErrorBoundary } from './ErrorBoundary';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';
@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import { getLevelProgress, getXPForNextLevel, getTotalXPForLevel } from '../utils/leveling';
 import PotModel from './PotModel';
 import LSystemPlant3D, { DEFAULT_LSYSTEM_CONFIG, LSystemConfig } from './LSystemPlant3D';
+import { patchExpoGL } from '../utils/patchExpoGL';
 
 type RankCardProps = {
   level: number;
@@ -92,7 +93,19 @@ export default function RankCard({ level, xp, rankName = 'Blooming Sprout', seed
     };
   });
 
-  console.log('[RankCard] Rendering with:', { level, xp, seed, growth: level });
+  // Defer heavy 3D rendering to avoid blocking initial screen paint
+  const [isPlantReady, setIsPlantReady] = useState(false);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    const task = InteractionManager.runAfterInteractions(() => {
+      timer = setTimeout(() => setIsPlantReady(true), 1500);
+    });
+    return () => {
+      task.cancel();
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
 
   return (
     <LinearGradient
@@ -104,27 +117,35 @@ export default function RankCard({ level, xp, rankName = 'Blooming Sprout', seed
       {/* 3D Plant Preview - Inline Canvas like test screen */}
       <ErrorBoundary fallback={
         <View style={[styles.plantContainer, { justifyContent: 'center', alignItems: 'center' }]}>
-           <Text style={{color: 'white'}}>3D View Unavailable</Text>
+          <Text style={{ color: 'white' }}>3D View Unavailable</Text>
         </View>
       }>
         <View style={styles.plantContainer}>
+          {isPlantReady ? (
             <Canvas
-            dpr={[1, 2]}
-            camera={{ position: [0.8, 0.5, 0.8], fov: 45, near: 0.01, far: 50 }}
-            style={{ flex: 1 }}
+              dpr={[1, 2]}
+              camera={{ position: [0.8, 0.5, 0.8], fov: 45, near: 0.01, far: 50 }}
+              style={{ flex: 1 }}
+              onCreated={(state) => patchExpoGL(state)}
             >
-            <CameraController />
+              <CameraController />
 
-            {/* Lighting */}
-            <ambientLight intensity={0.5} />
-            <hemisphereLight args={['#87CEEB', '#556B2F', 0.6]} />
-            <directionalLight position={[3, 5, 2]} intensity={1.2} color="#FFF8DC" />
-            <directionalLight position={[-2, 3, -1]} intensity={0.4} color="#B0C4DE" />
+              {/* Lighting */}
+              <ambientLight intensity={0.5} />
+              <hemisphereLight args={['#87CEEB', '#556B2F', 0.6]} />
+              <directionalLight position={[3, 5, 2]} intensity={1.2} color="#FFF8DC" />
+              <directionalLight position={[-2, 3, -1]} intensity={0.4} color="#B0C4DE" />
 
-            <Suspense fallback={null}>
+              <Suspense fallback={null}>
                 <RotatingPlantScene seed={seed} growth={level} />
-            </Suspense>
+              </Suspense>
             </Canvas>
+          ) : (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+              <ActivityIndicator color="#FFFFFF" />
+              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 8 }}>Pflanze lädt...</Text>
+            </View>
+          )}
         </View>
       </ErrorBoundary>
 

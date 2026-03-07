@@ -1,4 +1,4 @@
-import React, { Suspense, useRef, useEffect } from "react";
+import React, { Suspense, useRef, useEffect, useState } from "react";
 import { View, ActivityIndicator, Text } from "react-native";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
@@ -7,6 +7,7 @@ import { OrbitControls, useProgress } from "@react-three/drei/native";
 import PotModel, { PotType } from "./PotModel";
 import ProceduralPlant, { PlantStyle, PlantConfig } from "./ProceduralPlant";
 import LSystemPlant3D, { LSystemConfig } from "./LSystemPlant3D";
+import { patchExpoGL } from "../utils/patchExpoGL";
 
 export type PlantMode = "procedural" | "lsystem";
 
@@ -138,16 +139,22 @@ export default function PlantPotPreview({
     cameraY = 0.85,
     cameraDistance = 1.5,
 }: Props) {
+    const [isSceneLoaded, setIsSceneLoaded] = useState(false);
+
     return (
         <View style={{ flex: 1 }}>
             <ErrorBoundary fallback={
                 <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                     <Text style={{ color: 'white', textAlign: 'center' }}>3D View Unavailable {'\n'} (Disable Debug Remote JS)</Text>
+                    <Text style={{ color: 'white', textAlign: 'center' }}>3D View Unavailable {'\n'} (Disable Debug Remote JS)</Text>
                 </View>
             }>
                 <Canvas
                     dpr={[1, 2]}
                     camera={{ position: [1, 0.85, 1], fov: 45, near: 0.01, far: 50 }}
+                    onCreated={(state) => {
+                        patchExpoGL(state);
+                        setIsSceneLoaded(true);
+                    }}
                 >
                     {/* Initial Camera Position Setup */}
                     <InitialCamera cameraY={cameraY} cameraDistance={cameraDistance} />
@@ -159,7 +166,7 @@ export default function PlantPotPreview({
                         enableZoom={true}
                         enablePan={false}
                         minPolarAngle={0}
-                        maxPolarAngle={Math.PI / 1.5} // Don't let user go under the pot
+                        maxPolarAngle={Math.PI / 1.5}
                         minDistance={0.1}
                         maxDistance={4}
                     />
@@ -192,6 +199,25 @@ export default function PlantPotPreview({
                     </Suspense>
                 </Canvas>
             </ErrorBoundary>
+            {/* Loading overlay - shows while scene + assets load */}
+            {!isSceneLoaded && (
+                <View style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    backgroundColor: 'rgba(0,0,0,0.15)',
+                    borderRadius: 12,
+                }}>
+                    <View style={{ alignItems: 'center' }}>
+                        <ActivityIndicator color="#FFFFFF" size="small" />
+                        <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11, marginTop: 6 }}>3D lädt...</Text>
+                    </View>
+                </View>
+            )}
             <Loader />
         </View>
     );

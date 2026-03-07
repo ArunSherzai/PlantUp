@@ -53,3 +53,13 @@ function PotGLB({ uri, position, rotation, scale }: { uri: string, position: any
         </group>
     );
 }
+
+// --- Preload pot GLBs at module level ---
+try {
+    [PlantAssets.PotStandard, PlantAssets.PotB, PlantAssets.PotEgg].forEach(asset => {
+        try {
+            const uri = Asset.fromModule(asset)?.uri;
+            if (uri) useGLTF.preload(uri);
+        } catch (e) { /* ignore */ }
+    });
+} catch (e) { /* ignore preload errors */ }

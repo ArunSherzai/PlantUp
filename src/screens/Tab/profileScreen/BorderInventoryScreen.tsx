@@ -137,12 +137,26 @@ export default function BorderInventoryScreen() {
                       source={{ uri: border.media_url }}
                       style={[
                         styles.borderPreview,
-                        border.media_url.includes('.gif') && {
-                          width: '144%', // 🟢 Scale up ONLY for GIFs
-                          height: '144%',
-                          top: '-22%',
-                          left: '-22%',
-                        }
+                        border.name?.toLowerCase().includes('lightning')
+                          ? {
+                            width: '165%', // 🟢 Water Lightning needs special scale
+                            height: '165%',
+                            top: '-30%',
+                            left: '-33.5%',
+                          }
+                          : border.media_url.includes('.gif')
+                            ? {
+                              width: '150%', // 🟢 GIFs
+                              height: '150%',
+                              top: '-25%',
+                              left: '-25%',
+                            }
+                            : {
+                              width: '91%',  // 🟢 Standard PNGs (poolparty, halloween, etc.)
+                              height: '91%',
+                              top: '4.5%',
+                              left: '4.5%',
+                            }
                       ]}
                       contentFit="contain"
                     />
@@ -203,6 +217,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
+    paddingBottom: 40,
   },
   emptyContainer: {
     flex: 1,
@@ -252,10 +267,6 @@ const styles = StyleSheet.create({
   },
   borderPreview: {
     position: 'absolute',
-    width: '91%', // 🟢 PNGs should strictly fit the container (which is ~1.6x avatar)
-    height: '91%',
-    top: '4.5%',
-    left: '4.5%',
     pointerEvents: 'none',
   },
   borderName: {
