@@ -28,6 +28,11 @@ export interface PlantThresholds {
 export interface TipObject {
     message: string;
     severity: 'critical' | 'warning' | 'info';
+    /**
+     * Optional: the plant this tip refers to.
+     * Used to deep link from notifications into the correct PlantStats screen.
+     */
+    plantId?: string;
 }
 
 export const GENERAL_TIPS = [

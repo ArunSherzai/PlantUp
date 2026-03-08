@@ -32,7 +32,10 @@ export type SoundType =
     | 'swipe'
     | 'flip'
     | 'bin'
-    | 'purchase';
+    | 'purchase'
+    | 'advice_ping'
+    | 'critical_sprig'
+    | 'sprig_warning';
 
 // Sound file mappings - using simple filenames without special characters
 const SOUND_FILES: Record<SoundType, any> = {
@@ -55,6 +58,9 @@ const SOUND_FILES: Record<SoundType, any> = {
     flip: require('../../assets/sounds/flip.wav'),
     bin: require('../../assets/sounds/Bin.wav'),
     purchase: require('../../assets/sounds/cash-register-kaching-sound-effect-125042.wav'),
+    advice_ping: require('../../assets/sounds/advices_ping.mp3'),
+    critical_sprig: require('../../assets/sounds/critical_sprig.wav'),
+    sprig_warning: require('../../assets/sounds/sprig_warning.wav'),
 };
 
 // Sounds to preload at startup (most frequently used)
@@ -213,7 +219,15 @@ class SoundManagerClass {
         try {
             // Unload all sounds
             for (const [type, sound] of this.sounds) {
-                await sound.unloadAsync();
+                try {
+                    const status = await sound.getStatusAsync();
+                    if (status.isLoaded) {
+                        await sound.unloadAsync();
+                    }
+                } catch (e) {
+                    // Ignore already unloaded or non-existent player errors
+                    console.log(`[SoundManager] Skip unloading ${type}: player already gone`);
+                }
             }
             this.sounds.clear();
 

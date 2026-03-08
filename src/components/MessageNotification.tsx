@@ -7,6 +7,7 @@ interface MessageNotificationProps {
         senderName: string;
         content: string;
         avatar?: any;
+        conversationId?: string;
     } | null;
     onClose: () => void;
     onPress?: () => void;

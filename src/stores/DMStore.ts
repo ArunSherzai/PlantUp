@@ -4,6 +4,7 @@ import { useUserStore } from './UserStore';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { playSendSound, playReceiveSound } from '../utils/soundEffects';
 import { useMessageNotificationStore } from './MessageNotificationStore';
+import { NotificationService } from '../services/NotificationService';
 
 export interface ChatMessage {
     id: string;
@@ -46,20 +47,24 @@ interface DMState {
     unsubscribeFromInbox: () => void;
     handleNewInboxMessage: (newMessage: ChatMessage) => void;
     upsertConversation: (row: Partial<Conversation>) => void;
+
+    // Status tracking
+    inboxStatus: string;
+    chatStatus: string;
+    getChannelStatuses: () => { inbox: string; chat: string };
 }
 
 // Keep track of active subscriptions outside the store to avoid serialization issues if any
-let activeChannel: RealtimeChannel | null = null;
-let activeChannelId: string | null = null;
 let inboxChannels: RealtimeChannel[] = [];
-// Track processed events to prevent duplicates from multiple subscriptions or echoes
-const processedEvents = new Set<string>();
+let retryTimeout: NodeJS.Timeout | null = null;
 
 export const useDMStore = create<DMState>((set, get) => ({
     conversations: [],
     messages: {},
     loading: false,
     activeConversationId: null,
+    inboxStatus: 'DISCONNECTED',
+    chatStatus: 'DISCONNECTED',
 
     fetchConversations: async () => {
         const user = useUserStore.getState().user;
@@ -264,75 +269,20 @@ export const useDMStore = create<DMState>((set, get) => ({
     },
 
     subscribeToConversation: (conversationId: string) => {
-        // Unsubscribe from previous if different
-        if (activeChannelId === conversationId && activeChannel) return;
-        if (activeChannel) {
-            db.public.removeChannel(activeChannel);
-            activeChannel = null;
-            activeChannelId = null;
+        set({
+            activeConversationId: conversationId,
+            chatStatus: get().inboxStatus === 'SUBSCRIBED' ? 'SUBSCRIBED' : get().inboxStatus
+        });
+        if (get().inboxStatus !== 'SUBSCRIBED') {
+            console.warn('[DMStore] Navigated to chat, but global Inbox is not SUBSCRIBED yet. Status:', get().inboxStatus);
         }
-
-        console.log('[DMStore] Subscribing to conversation:', conversationId);
-
-        const channel = db.public
-            .channel(`dm:${conversationId}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: 'INSERT',
-                    schema: 'social_media_schema',
-                    table: 'dm_messages',
-                    filter: `conversation_id=eq.${conversationId}`
-                },
-                (payload) => {
-                    console.log('[DMStore] Realtime Chat Event:', payload);
-                    const newMessage = payload.new as ChatMessage;
-                    const user = useUserStore.getState().user;
-
-                    set(state => {
-                        const currentMessages = state.messages[conversationId] || [];
-                        // Avoid duplicates
-                        if (currentMessages.find(m => m.id === newMessage.id)) return state;
-
-                        // Play receive sound only if message is from another user
-                        if (user && newMessage.sender_id !== user.id) {
-                            playReceiveSound();
-                        }
-
-                        // Newest First: Prepend the new message
-                        return {
-                            messages: {
-                                ...state.messages,
-                                [conversationId]: [newMessage, ...currentMessages]
-                            }
-                        };
-                    });
-                }
-            )
-            .subscribe((status, err) => {
-                console.log('[DMStore] Chat subscription status:', status);
-                if (err) {
-                    console.error('[DMStore] Chat subscription error:', err);
-                }
-                if (status === 'SUBSCRIBED') {
-                    console.log('[DMStore] ✅ Successfully subscribed to chat:', conversationId);
-                } else if (status === 'CLOSED') {
-                    console.log('[DMStore] ❌ Chat subscription closed:', conversationId);
-                } else if (status === 'CHANNEL_ERROR') {
-                    console.error('[DMStore] ❌ Chat subscription error:', conversationId);
-                }
-            });
-
-        activeChannel = channel;
-        activeChannelId = conversationId;
     },
 
     unsubscribeFromConversation: (conversationId: string) => {
-        if (activeChannel && activeChannelId === conversationId) {
-            db.public.removeChannel(activeChannel);
-            activeChannel = null;
-            activeChannelId = null;
-        }
+        set({
+            activeConversationId: null,
+            chatStatus: get().inboxStatus === 'SUBSCRIBED' ? 'IDLE (READY)' : 'IDLE'
+        });
     },
 
     markAsRead: async (conversationId: string) => {
@@ -386,113 +336,134 @@ export const useDMStore = create<DMState>((set, get) => ({
     },
 
     subscribeToInbox: () => {
-        const user = useUserStore.getState().user;
-        if (!user) return;
-
-        // Prevent duplicate subscriptions
-        if (inboxChannels.length > 0) {
-            console.log('[DMStore] Inbox already subscribed');
+        if (inboxChannels.length > 0 && get().inboxStatus === 'SUBSCRIBED') {
             return;
         }
 
-        console.log(`[DMStore] SUBSCRIBING inbox for ${user.id}`);
+        // Cleanup
+        if (inboxChannels.length > 0) {
+            inboxChannels.forEach(ch => {
+                console.log('[DMStore] Cleaning up old inbox channel:', ch.topic);
+                db.public.removeChannel(ch);
+            });
+            inboxChannels = [];
+        }
 
+        const user = useUserStore.getState().user;
+        if (!user) {
+            console.log('[DMStore] Skipping subscription: No user session');
+            return;
+        }
+
+        console.log(`[DMStore] 📡 Attempting Global Inbox Subscription (v4) for: ${user.id}`);
+
+        // MUST use db.public (the main client) for channel/removeChannel
+        // but we filter for 'social_media_schema' inside the .on()
         const channel = db.public
-            .channel(`dm_inbox:${user.id}`)
+            .channel(`realtime_inbox:${user.id}`)
             .on(
                 'postgres_changes',
                 {
-                    event: 'UPDATE',
+                    event: 'INSERT',
                     schema: 'social_media_schema',
-                    table: 'dm_conversations',
-                    // filter: `or(user_low.eq.${user.id},user_high.eq.${user.id})`,
+                    table: 'dm_messages',
                 },
-                (payload) => {
-                    console.log('[DMStore] 📬 INBOX EVENT RECEIVED');
-                    const updatedConvo = payload.new as any;
-                    const eventKey = `${updatedConvo.id}-${updatedConvo.last_message_time}`;
+                async (payload: { new: ChatMessage }) => {
+                    console.log('[DMStore] 📨 Realtime Message arrived:', payload.new.id);
+                    const newMessage = payload.new;
 
-                    if (processedEvents.has(eventKey)) {
-                        console.log('[DMStore] 🛑 Skipping duplicate event:', eventKey);
-                        return;
-                    }
-                    processedEvents.add(eventKey);
-                    // Clear after 5 seconds to free memory
-                    setTimeout(() => processedEvents.delete(eventKey), 5000);
+                    // 1. Update Message Cache for ALL incoming messages
+                    set(state => {
+                        const conversationId = newMessage.conversation_id;
+                        const currentMsgs = state.messages[conversationId] || [];
+                        if (currentMsgs.find(m => m.id === newMessage.id)) return state;
 
-                    console.log('[DMStore] Payload:', JSON.stringify(payload.new, null, 2));
-                    const user = useUserStore.getState().user;
+                        return {
+                            messages: {
+                                ...state.messages,
+                                [conversationId]: [newMessage, ...currentMsgs]
+                            }
+                        };
+                    });
 
-                    console.log('[DMStore] Last message from:', updatedConvo.last_message_sender_id);
-                    console.log('[DMStore] Current user:', user?.id);
-                    console.log('[DMStore] Message text:', updatedConvo.last_message_text);
+                    // 2. Ignore our own messages for Banners and Sounds
+                    if (newMessage.sender_id === user.id) return;
 
-                    // Show notification & Update Badge if message is from another user
-                    let nextUnreadCount = undefined;
+                    const conversations = get().conversations;
+                    const existingConvo = conversations.find(c => c.id === newMessage.conversation_id);
 
-                    if (updatedConvo.last_message_sender_id &&
-                        updatedConvo.last_message_sender_id !== user?.id &&
-                        updatedConvo.last_message_text) {
+                    if (existingConvo) {
+                        const senderName = existingConvo.participants?.[0]?.username || 'New Message';
+                        const avatar = existingConvo.participants?.[0]?.avatar_path;
+                        const nextUnreadCount = (existingConvo.unread_count || 0) + 1;
 
-                        console.log('[DMStore] ✅ New message from OTHER user - showing notification');
+                        const isActive = get().activeConversationId === newMessage.conversation_id;
 
-                        // Find the conversation to get detailed info
-                        const conversations = get().conversations;
-                        const existingConvo = conversations.find(c => c.id === updatedConvo.id);
-
-                        // DUPLICATE CHECK: Only notify if the time has actually changed or the message text is different
-                        // This prevents re-notifying on metadata updates (like 'read' status changes happening concurrently)
-                        console.log('[DuplicateCheck] Existing Time:', existingConvo?.last_message?.created_at);
-                        console.log('[DuplicateCheck] New Time:', updatedConvo.last_message_time);
-
-                        const existingTime = existingConvo?.last_message?.created_at ? new Date(existingConvo.last_message.created_at).getTime() : 0;
-                        const newTime = updatedConvo.last_message_time ? new Date(updatedConvo.last_message_time).getTime() : 0;
-
-                        const isDuplicate = existingConvo &&
-                            existingTime === newTime &&
-                            existingConvo.last_message?.content === updatedConvo.last_message_text;
-
-                        if (!isDuplicate) {
-                            const senderName = existingConvo?.participants?.[0]?.username || 'New Message';
-                            const avatar = existingConvo?.participants?.[0]?.avatar_path;
-
-                            // Increment badge locally
-                            const currentUnread = existingConvo?.unread_count || 0;
-                            nextUnreadCount = currentUnread + 1;
-
-                            // Play sound
+                        if (!isActive) {
                             playReceiveSound();
 
-                            // Show notification banner
+                            // 1. In-app banner (MessageNotificationStore)
                             useMessageNotificationStore.getState().showNotification({
                                 senderName,
-                                content: updatedConvo.last_message_text,
+                                content: newMessage.content,
                                 avatar: avatar ? { uri: avatar } : undefined,
-                                conversationId: updatedConvo.id,
+                                conversationId: newMessage.conversation_id,
                             });
-                        } else {
-                            console.log('[DMStore] ⚠️ Ignoring duplicate/redundant update');
-                        }
-                    }
 
-                    // Upsert with new unread count if applicable
-                    get().upsertConversation({
-                        ...updatedConvo as Conversation,
-                        ...(nextUnreadCount !== undefined ? { unread_count: nextUnreadCount } : {})
-                    });
+                            // 2. OS Push Notification (NotificationService) - Only if app is not active on this chat
+                            NotificationService.sendNotification(
+                                senderName,
+                                newMessage.content,
+                                'chat',
+                                {
+                                    conversationId: newMessage.conversation_id,
+                                    senderName,
+                                    senderAvatar: avatar,
+                                    senderUserId: newMessage.sender_id
+                                }
+                            );
+                        } else {
+                            playReceiveSound();
+                        }
+
+                        const updatedConvo = {
+                            ...existingConvo,
+                            unread_count: isActive ? existingConvo.unread_count : nextUnreadCount,
+                            last_message: newMessage,
+                            updated_at: newMessage.created_at
+                        };
+                        get().upsertConversation(updatedConvo);
+                    } else {
+                        get().fetchConversations();
+                    }
                 }
             )
-            .subscribe((status, err) => {
-                console.log('[DMStore] Inbox subscription status:', status);
-                if (err) {
-                    console.error('[DMStore] Inbox subscription error:', err);
+            .subscribe((status: string, err?: Error) => {
+                console.log(`[DMStore] 🛰 Inbox Status: ${status}`, err || '');
+
+                set({ inboxStatus: status });
+
+                // Sync chat status logic
+                if (get().activeConversationId) {
+                    set({ chatStatus: status });
+                } else {
+                    set({ chatStatus: status === 'SUBSCRIBED' ? 'IDLE (READY)' : 'IDLE' });
                 }
+
+                if (err || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+                    console.warn(`[DMStore] 📡 Connection issue (${status}). Retrying...`);
+                    set({ inboxStatus: 'RECONNECTING' });
+
+                    if (retryTimeout) clearTimeout(retryTimeout);
+                    const jitter = Math.random() * 1000;
+                    retryTimeout = setTimeout(() => {
+                        get().subscribeToInbox();
+                    }, 2500 + jitter);
+                }
+
                 if (status === 'SUBSCRIBED') {
-                    console.log('[DMStore] ✅ Successfully subscribed to inbox for user:', user.id);
-                } else if (status === 'CLOSED') {
-                    console.log('[DMStore] ❌ Inbox subscription closed');
-                } else if (status === 'CHANNEL_ERROR') {
-                    console.error('[DMStore] ❌ Inbox subscription error');
+                    console.log('[DMStore] ✅ Global Inbox listening on social_media_schema');
+                    if (retryTimeout) clearTimeout(retryTimeout);
                 }
             });
 
@@ -501,10 +472,18 @@ export const useDMStore = create<DMState>((set, get) => ({
 
     unsubscribeFromInbox: () => {
         if (inboxChannels.length > 0) {
-            console.log('[DMStore] Unsubscribing from Inbox');
+            console.log('[DMStore] Closing Inbox Channels');
             inboxChannels.forEach(ch => db.public.removeChannel(ch));
             inboxChannels = [];
+            set({ inboxStatus: 'DISCONNECTED', chatStatus: 'DISCONNECTED' });
         }
+    },
+
+    getChannelStatuses: () => {
+        return {
+            inbox: get().inboxStatus,
+            chat: get().chatStatus
+        };
     },
 
     handleNewInboxMessage: (newMessage: ChatMessage) => {

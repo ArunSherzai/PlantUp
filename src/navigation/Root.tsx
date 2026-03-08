@@ -81,14 +81,28 @@ import TutorialSettingsScreen from '~/screens/Tab/SettingsScreen/TutorialSetting
 import Plant3DTestScreen from '~/screens/Tab/Plant3DTestScreen/Plant3DTestScreen';
 import TutorialDialog from '~/components/TutorialDialog'; // ALLES: added TutorialDialog
 import DailyMentorScreen from '~/screens/Tab/plantStats/DailyMentorScreen';
+import { NotificationService } from '../services/NotificationService';
+import { navigationRef, NavigationService } from '../services/NavigationService';
+import React, { useEffect } from 'react';
 
 import { StatusBar } from 'expo-status-bar';
 
 export default function RootStack() {
   const { theme } = useUnistyles();
 
+  useEffect(() => {
+    NotificationService.initialize();
+  }, []);
+
   return (
-    <NavigationContainer linking={linking}>
+    <NavigationContainer
+      ref={navigationRef}
+      linking={linking}
+      onReady={() => {
+        // If the app was opened via a notification tap before the navigator was ready,
+        // replay the queued navigation request now.
+        NavigationService.flushPendingNavigation();
+      }}>
       <StatusBar hidden />
       <View style={{ flex: 1 }}>
         <Stack.Navigator

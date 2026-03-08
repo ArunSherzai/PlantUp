@@ -139,6 +139,7 @@ export default function DirectMessagesScreen() {
 
             if (user) {
                 fetchConversations();
+                subscribeToInbox(); // Safety check: ensure we are listening
                 fetchMentors();
                 fetchOutgoingRequests();
                 fetchIncomingRequests();
@@ -230,15 +231,18 @@ export default function DirectMessagesScreen() {
 
 
     const mergedData = React.useMemo(() => {
-        // 1. Convert "Sprig" tip to a conversation-like object
-        const sprigItem = sprigTip ? {
+        // 1. "Sprig" appears always as a virtual conversation at the top.
+        //    If we have a latest tip, use it as preview, otherwise show a generic subtitle.
+        const sprigItem = {
             id: 'sprig',
             special: true,
             name: 'Sprig',
-            lastMessage: sprigTip.message,
-            time: new Date(sprigTip.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            lastMessage: sprigTip?.message || 'Your friendly plant mentor',
+            time: sprigTip
+                ? new Date(sprigTip.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                : '',
             avatar: require('../../../../assets/images/sprig_idle.png'),
-        } : null;
+        };
 
         // 2. Map real conversations to UI format
         const realItems = conversations.map(c => {
@@ -271,8 +275,7 @@ export default function DirectMessagesScreen() {
             };
         });
 
-        const list = sprigItem ? [sprigItem, ...realItems] : [...realItems];
-        return list;
+        return [sprigItem, ...realItems];
     }, [sprigTip, conversations]);
 
     const filteredMessages = mergedData.filter(msg =>

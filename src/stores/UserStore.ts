@@ -162,7 +162,7 @@ export const useUserStore = create<State>((set, get) => ({
         const { subscribeToInbox, fetchConversations } = require('./DMStore').useDMStore.getState();
         fetchConversations();
         subscribeToInbox();
-      }, 3500);
+      }, 1000); // Reduced delay
     }
     else {
       set({ profile: null, inventory: [], ownedBorders: [], ownedTitles: [] });

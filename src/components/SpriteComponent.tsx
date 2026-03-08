@@ -1,18 +1,41 @@
 import React from 'react';
 import { TouchableOpacity, Image, StyleSheet } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
 import { usePlantTipSystem } from '../hooks/usePlantTipSystem';
 import TipNotification from './TipNotification';
 import MessageNotification from './MessageNotification';
 import { useMessageNotificationStore } from '../stores/MessageNotificationStore';
+import type { RootStackParamList } from '../navigation/Root';
 
 export default function SpriteComponent() {
     const { triggerManualTip, activeTip, dismissTip } = usePlantTipSystem();
     const { notification, hideNotification } = useMessageNotificationStore();
+    const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
+
+    const handleMessageNotificationPress = () => {
+        if (!notification) return;
+
+        const conversationId = notification.conversationId;
+        if (conversationId) {
+            navigation.navigate('MessageDetail', {
+                id: conversationId,
+                name: notification.senderName,
+                avatar: notification.avatar || require('../../assets/images/Profilbild.jpg'),
+            });
+        }
+
+        hideNotification();
+    };
 
     return (
         <>
             <TipNotification tip={activeTip} onClose={dismissTip} />
-            <MessageNotification message={notification} onClose={hideNotification} />
+            <MessageNotification
+                message={notification}
+                onClose={hideNotification}
+                onPress={handleMessageNotificationPress}
+            />
         </>
     );
 }

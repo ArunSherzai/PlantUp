@@ -18,6 +18,20 @@
     "plugins": [
       "expo-font",
       [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#1db954",
+          "sounds": [
+            "./assets/sounds/sprig_noti.wav",
+            "./assets/sounds/advices_ping.mp3",
+            "./assets/sounds/rec.wav",
+            "./assets/sounds/critical_sprig.wav",
+            "./assets/sounds/sprig_warning.wav"
+          ]
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#ffffff",
@@ -32,7 +46,8 @@
       ],
       "expo-video",
       "react-native-compressor",
-      "expo-asset"
+      "expo-asset",
+      "./withJitpackNotifeeExclude.js"
     ],
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",

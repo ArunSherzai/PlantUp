@@ -5,6 +5,8 @@ import { saveTip } from '../utils/tipHistory';
 import { useTipStore } from '../stores/TipStore';
 import { useUserStore } from '../stores/UserStore';
 import { useTutorialStore } from '../stores/TutorialStore';
+import { NotificationService } from '../services/NotificationService';
+import { AppState } from 'react-native';
 
 export function usePlantTipSystem() {
     const {
@@ -29,11 +31,37 @@ export function usePlantTipSystem() {
         }
     }, [sprigNotificationsEnabled, setActiveTip]);
 
+    // Helper to send push notification if app is in background or we want to alert user
+    const sendPushNotification = async (tip: TipObject) => {
+        let title = 'PlantUp Advice';
+        let category: 'critical' | 'warning' | 'general' = 'general';
+
+        if (tip.severity === 'critical') {
+            title = 'Sprig Emergency!';
+            category = 'critical';
+        } else if (tip.severity === 'warning') {
+            title = 'Sprig Warning';
+            category = 'warning';
+        }
+
+        const data: any = {};
+        if (tip.plantId) {
+            data.plantId = tip.plantId;
+        }
+
+        await NotificationService.sendNotification(title, tip.message, category, data);
+    };
+
     // Helper to save tip history
     const setAndSaveTip = (tip: TipObject | null) => {
         // Prevent re-triggering same tip
         if (tip && activeTip?.message === tip.message) {
             return;
+        }
+
+        // Send Push Notification if app is in background
+        if (tip && AppState.currentState !== 'active') {
+            sendPushNotification(tip);
         }
 
         // If we are trying to set a NEW tip (not null) and we are PAUSED
@@ -123,7 +151,12 @@ export function usePlantTipSystem() {
                 const tip = getTriggeredTip(plantData, thresholds);
 
                 if (tip) {
-                    setAndSaveTip(tip);
+                    // Attach plantId so we can deep-link from notifications into this plant's stats
+                    const enrichedTip: TipObject = {
+                        ...tip,
+                        plantId: plant.id,
+                    };
+                    setAndSaveTip(enrichedTip);
                     // Return true if a tip was found/set
                     return true;
                 }
