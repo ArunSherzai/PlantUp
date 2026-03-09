@@ -102,28 +102,14 @@ export function useFypFeed(initialMode: FeedMode = 'fyp') {
                 postsData = data;
             }
 
-            // Fetch liked post IDs to exclude from FYP
-            let likedPostIds = new Set<string>();
-            if (user?.id && mode === 'fyp') {
-                const { data: likedData } = await db.social
-                    .from('post_interactions')
-                    .select('post_id')
-                    .eq('user_id', user.id)
-                    .eq('interaction_type', 'like');
-                if (likedData) {
-                    likedData.forEach((l: any) => likedPostIds.add(l.post_id));
-                }
-            }
-
             if (!postsData || postsData.length === 0) {
                 setPosts([]);
                 setLoading(false);
                 return;
             }
 
-            // Filter out liked posts (for FYP mode) and already-seen posts
+            // Filter out already-seen posts (for FYP mode pagination)
             postsData = postsData.filter((p: any) => {
-                if (likedPostIds.has(p.id)) return false;
                 if (mode === 'fyp' && seenPostIds.current.has(p.id)) return false;
                 return true;
             });

@@ -107,11 +107,7 @@ export class NotificationService {
                     break;
                 case 'general':
                 default:
-                    NavigationService.navigate('MessageDetail', {
-                        id: 'sprig',
-                        name: 'Sprig',
-                        avatar: require('../../assets/images/sprig_idle.png'),
-                    });
+                    NavigationService.navigate('TabNavigator');
                     break;
             }
         }

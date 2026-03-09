@@ -40,7 +40,7 @@ export default function UserProfile({ userId, isOwner }: Props) {
     // Explicitly derive owner status if not passed, but trusting prop is better for flexibility
     const isCurrentUser = isOwner ?? (currentUser?.id === userId);
 
-    const { profile, loading: profileLoading } = useUserProfile(userId);
+    const { profile, loading: profileLoading, refreshProfile } = useUserProfile(userId);
     const { followersCount, followingCount, refreshStats } = useSocialStats(userId);
     const { plants, refreshPlants } = usePlants(userId);
     const { posts: userPosts, loading: postsLoading, refreshPosts: refreshUserPosts } = usePosts({ userId: userId });
@@ -56,12 +56,13 @@ export default function UserProfile({ userId, isOwner }: Props) {
 
     useFocusEffect(
         useCallback(() => {
+            if (refreshProfile) refreshProfile();
             refreshStats();
             refreshPlants();
             refreshUserPosts();
             refreshLikedPosts();
             refreshConnections();
-        }, [userId])
+        }, [userId, refreshProfile])
     );
 
     // Defer heavy 3D plant rendering to improve startup responsiveness

@@ -85,11 +85,9 @@ export default function ProfileScreen() {
       // If we already have a profile, we can skip immediate fetch to improve responsiveness
       // But we still want to refresh occasionally.
       if (user) {
-        // Only fetch if profile is missing - setUser already triggers initial fetches
-        if (!profile) {
-          fetchProfile();
-          fetchUnclaimedRewards();
-        }
+        // ALWAYS fetch profile and rewards when screen comes into focus
+        fetchProfile();
+        fetchUnclaimedRewards();
       }
 
       // --- TUTORIAL TRIGGER (Profile Basics) ---

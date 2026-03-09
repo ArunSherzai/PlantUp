@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { AppState } from 'react-native';
 import { db } from '../utils/supabase';
 import { useUserStore } from './UserStore';
 import { RealtimeChannel } from '@supabase/supabase-js';
@@ -43,7 +44,7 @@ interface DMState {
     subscribeToConversation: (conversationId: string) => void;
     unsubscribeFromConversation: (conversationId: string) => void;
     markAsRead: (conversationId: string) => Promise<void>;
-    subscribeToInbox: () => void;
+    subscribeToInbox: () => Promise<void>;
     unsubscribeFromInbox: () => void;
     handleNewInboxMessage: (newMessage: ChatMessage) => void;
     upsertConversation: (row: Partial<Conversation>) => void;
@@ -335,7 +336,7 @@ export const useDMStore = create<DMState>((set, get) => ({
         });
     },
 
-    subscribeToInbox: () => {
+    subscribeToInbox: async () => {
         if (inboxChannels.length > 0 && get().inboxStatus === 'SUBSCRIBED') {
             return;
         }
@@ -353,6 +354,21 @@ export const useDMStore = create<DMState>((set, get) => ({
         if (!user) {
             console.log('[DMStore] Skipping subscription: No user session');
             return;
+        }
+
+        // Explicitly set realtime auth token before subscribing
+        // This fixes the race condition where subscribeToInbox fires before
+        // the global getSession().then() in supabase.ts has resolved
+        try {
+            const { data: { session } } = await db.public.auth.getSession();
+            if (session?.access_token) {
+                db.public.realtime.setAuth(session.access_token);
+                console.log('[DMStore] ✅ Realtime auth token set before subscription');
+            } else {
+                console.warn('[DMStore] ⚠️ No session token available, subscription may fail');
+            }
+        } catch (e) {
+            console.warn('[DMStore] Error getting session for realtime auth:', e);
         }
 
         console.log(`[DMStore] 📡 Attempting Global Inbox Subscription (v4) for: ${user.id}`);
@@ -397,38 +413,41 @@ export const useDMStore = create<DMState>((set, get) => ({
                         const avatar = existingConvo.participants?.[0]?.avatar_path;
                         const nextUnreadCount = (existingConvo.unread_count || 0) + 1;
 
-                        const isActive = get().activeConversationId === newMessage.conversation_id;
+                        const isAppActive = AppState.currentState === 'active';
+                        const isChatActive = get().activeConversationId === newMessage.conversation_id && isAppActive;
 
-                        if (!isActive) {
+                        if (!isChatActive) {
                             playReceiveSound();
 
-                            // 1. In-app banner (MessageNotificationStore)
-                            useMessageNotificationStore.getState().showNotification({
-                                senderName,
-                                content: newMessage.content,
-                                avatar: avatar ? { uri: avatar } : undefined,
-                                conversationId: newMessage.conversation_id,
-                            });
-
-                            // 2. OS Push Notification (NotificationService) - Only if app is not active on this chat
-                            NotificationService.sendNotification(
-                                senderName,
-                                newMessage.content,
-                                'chat',
-                                {
-                                    conversationId: newMessage.conversation_id,
+                            if (isAppActive) {
+                                // 1. In-app banner (MessageNotificationStore) - ONLY when app is open
+                                useMessageNotificationStore.getState().showNotification({
                                     senderName,
-                                    senderAvatar: avatar,
-                                    senderUserId: newMessage.sender_id
-                                }
-                            );
+                                    content: newMessage.content,
+                                    avatar: avatar ? { uri: avatar } : undefined,
+                                    conversationId: newMessage.conversation_id,
+                                });
+                            } else {
+                                // 2. OS Push Notification (NotificationService) - ONLY when app is background/closed
+                                NotificationService.sendNotification(
+                                    senderName,
+                                    newMessage.content,
+                                    'chat',
+                                    {
+                                        conversationId: newMessage.conversation_id,
+                                        senderName,
+                                        senderAvatar: avatar,
+                                        senderUserId: newMessage.sender_id
+                                    }
+                                );
+                            }
                         } else {
                             playReceiveSound();
                         }
 
                         const updatedConvo = {
                             ...existingConvo,
-                            unread_count: isActive ? existingConvo.unread_count : nextUnreadCount,
+                            unread_count: isChatActive ? existingConvo.unread_count : nextUnreadCount,
                             last_message: newMessage,
                             updated_at: newMessage.created_at
                         };
