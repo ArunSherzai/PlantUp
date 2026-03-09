@@ -50,7 +50,7 @@ const FeedCard = ({ imageUri, caption, hashtags, isVideo, style, onPress, userna
 
     // Debug logging
     if (caption) {
-      // console.log('DEBUG FeedCard:', { caption: caption.substring(0, 10), surface: theme.colors.surface });
+        // console.log('DEBUG FeedCard:', { caption: caption.substring(0, 10), surface: theme.colors.surface });
     }
 
     // Extract sensor data from sensorData prop (which is now caption)
@@ -121,17 +121,29 @@ const FeedCard = ({ imageUri, caption, hashtags, isVideo, style, onPress, userna
                                 <FontAwesome6 name="play" size={vw * 3} color="white" />
                             </View>
                         )}
-                        <TouchableOpacity style={[styles.menuButton, { bottom: 8, right: 8 }]}>
+                        <TouchableOpacity style={[styles.menuButton, { top: 8, right: 8 }]}>
                             <FontAwesome6 name="ellipsis" size={vw * 4} color="white" />
                         </TouchableOpacity>
+
+                        {/* Creator Info Overlay */}
+                        {username && (
+                            <View style={styles.creatorOverlay}>
+                                {userAvatar ? (
+                                    <Image source={userAvatar} style={styles.creatorAvatar} />
+                                ) : (
+                                    <View style={styles.creatorAvatar} />
+                                )}
+                                <Text style={styles.creatorName} numberOfLines={1}>{username}</Text>
+                            </View>
+                        )}
                     </View>
                 </>
             ) : (
                 <LinearGradient
                     colors={[
-                        theme.colors.surface, 
-                        (theme.colors.surface.toUpperCase() === '#FFFFFF' || theme.colors.surface.toUpperCase() === '#FFF') 
-                            ? '#F0F0F0' 
+                        theme.colors.surface,
+                        (theme.colors.surface.toUpperCase() === '#FFFFFF' || theme.colors.surface.toUpperCase() === '#FFF')
+                            ? '#F0F0F0'
                             : '#2A2E32'
                     ]}
                     start={{ x: 0, y: 0 }}
@@ -164,7 +176,7 @@ const FeedCard = ({ imageUri, caption, hashtags, isVideo, style, onPress, userna
                         {(() => {
                             const cleanCaption = caption ? caption.replace(/#\w+/g, '').trim() : "No content";
                             const isShort = cleanCaption.length < 60;
-                            
+
                             return (
                                 <Text
                                     style={[
@@ -185,9 +197,21 @@ const FeedCard = ({ imageUri, caption, hashtags, isVideo, style, onPress, userna
                     </View>
 
                     {/* Menu button */}
-                    <TouchableOpacity style={[styles.menuButton, { bottom: 8, right: 8 }]}>
+                    <TouchableOpacity style={[styles.menuButton, { top: 8, right: 8 }]}>
                         <FontAwesome6 name="ellipsis" size={vw * 4} color={theme.colors.text} style={{ opacity: 0.6 }} />
                     </TouchableOpacity>
+
+                    {/* Creator Info Overlay */}
+                    {username && (
+                        <View style={[styles.creatorOverlay, { backgroundColor: 'transparent', padding: 0, bottom: 12, left: 16 }]}>
+                            {userAvatar ? (
+                                <Image source={userAvatar} style={[styles.creatorAvatar, { width: 20, height: 20, borderRadius: 10 }]} />
+                            ) : (
+                                <View style={[styles.creatorAvatar, { width: 20, height: 20, borderRadius: 10 }]} />
+                            )}
+                            <Text style={[styles.creatorName, { color: theme.colors.text, fontSize: vw * 2.8 }]} numberOfLines={1}>{username}</Text>
+                        </View>
+                    )}
                 </LinearGradient>
             )}
         </TouchableOpacity>
@@ -270,5 +294,30 @@ const styles = StyleSheet.create({
         width: 4,
         borderTopRightRadius: 4,
         borderBottomRightRadius: 4,
+    },
+    creatorOverlay: {
+        position: 'absolute',
+        bottom: 8,
+        left: 8,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+        maxWidth: '85%',
+    },
+    creatorAvatar: {
+        width: 16,
+        height: 16,
+        borderRadius: 8,
+        marginRight: 6,
+        backgroundColor: '#ccc',
+    },
+    creatorName: {
+        color: 'white',
+        fontSize: vw * 2.5,
+        fontWeight: '600',
+        flexShrink: 1,
     }
 });
