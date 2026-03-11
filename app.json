@@ -32,7 +32,25 @@
       ],
       "expo-video",
       "react-native-compressor",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "PlantUp needs camera access to take photos and videos for posts.",
+          "microphonePermission": "PlantUp needs microphone access to record video with audio.",
+          "recordAudioAndroid": {
+            "audioEncoder": "aac",
+            "outputFormat": "mpeg4"
+          }
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "PlantUp needs access to save edited photos to your gallery.",
+          "savePhotosPermission": "PlantUp needs access to save edited photos to your gallery."
+        }
+      ]
     ],
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",

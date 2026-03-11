@@ -19,7 +19,9 @@ export type RootStackParamList = {
   Notifications: undefined;
   Account: undefined;
   TutorialSettings: undefined;
-  CreatePost: undefined;
+  CreatePost: { capturedMedia?: any } | undefined;
+  Camera: { mode?: 'photo' | 'video'; source?: string; capturedMedia?: any; editedImageUri?: string };
+  PhotoEditor: { imageUri: string; source?: string };
   FeedPostDetail: { post: any }; // Using any to match Post interface roughly for now, or import it
   UserPlants: { userId?: string };
   Lootbox: { itemName: string; rewardId?: string; rewardType?: string };
@@ -85,6 +87,8 @@ import Plant3DTestScreen from '~/screens/Tab/Plant3DTestScreen/Plant3DTestScreen
 import PlantTimelineScreen from '~/screens/Plants/timeline/PlantTimelineScreen'; // ALLES: added PlantTimelineScreen
 import TutorialDialog from '~/components/TutorialDialog'; // ALLES: added TutorialDialog
 import DailyMentorScreen from '~/screens/Tab/plantStats/DailyMentorScreen';
+import CameraScreen from '~/features/camera/CameraScreen';
+import PhotoEditorScreen from '~/features/camera/components/editor/PhotoEditorScreen';
 
 import { StatusBar } from 'expo-status-bar';
 
@@ -231,6 +235,16 @@ export default function RootStack() {
               name="DailyMentor"
               component={DailyMentorScreen}
               options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="Camera"
+              component={CameraScreen}
+              options={{ headerShown: false, gestureEnabled: false }}
+            />
+            <Stack.Screen
+              name="PhotoEditor"
+              component={PhotoEditorScreen}
+              options={{ headerShown: false, gestureEnabled: false }}
             />
           </Stack.Group>
 
