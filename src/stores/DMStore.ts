@@ -457,6 +457,83 @@ export const useDMStore = create<DMState>((set, get) => ({
                     }
                 }
             )
+            // 🔔 Follow Notifications: Listen for new follows targeting this user
+            .on(
+                'postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'social_media_schema',
+                    table: 'follows',
+                },
+                async (payload: any) => {
+                    console.log('[DMStore] 🔔 FOLLOW EVENT RAW PAYLOAD:', JSON.stringify(payload));
+                    const follow = payload.new;
+
+                    if (!follow || !follow.following_id) {
+                        console.warn('[DMStore] ⚠️ Follow payload missing data:', follow);
+                        return;
+                    }
+
+                    // Only care about follows where WE are the one being followed
+                    if (follow.following_id !== user.id) return;
+
+                    console.log('[DMStore] 🔔 New follower detected:', follow.follower_id);
+
+                    const isAppActive = AppState.currentState === 'active';
+
+                    let followerName = 'Someone';
+                    let followerAvatar: string | undefined;
+
+                    // WARNING: Do NOT do async DB fetches in the background on React Native.
+                    // The thread often freezes or crashes, which silently kills the notification.
+                    // Only fetch avatar/name if the app is actually open.
+                    if (isAppActive) {
+                        try {
+                            const { data: followerData } = await db.user
+                                .from('Users')
+                                .select('username, avatar_path')
+                                .eq('id', follow.follower_id)
+                                .single();
+                                
+                            if (followerData) {
+                                followerName = followerData.username || 'Someone';
+                                if (followerData.avatar_path) {
+                                    if (followerData.avatar_path.startsWith('http')) {
+                                        followerAvatar = followerData.avatar_path;
+                                    } else {
+                                        const { data: urlData } = db.public.storage.from('avatar').getPublicUrl(followerData.avatar_path);
+                                        followerAvatar = urlData.publicUrl;
+                                    }
+                                }
+                            }
+                        } catch (e) {
+                            console.warn('[DMStore] Could not fetch follower info:', e);
+                        }
+
+                        // In-app banner
+                        useMessageNotificationStore.getState().showNotification({
+                            senderName: 'New Follower 🌱',
+                            content: `${followerName} is now following you!`,
+                            avatar: followerAvatar ? { uri: followerAvatar } : undefined,
+                            userId: follow.follower_id,
+                            type: 'follow',
+                        });
+                    } else {
+                        // OS Push Notification (Background)
+                        // Trigger IMMEDIATELY without async DB calls
+                        NotificationService.sendNotification(
+                            'New Follower 🌱',
+                            'Someone is now following you!',
+                            'general',
+                            {
+                                category: 'follow',
+                                followerId: follow.follower_id,
+                                followerName: 'Someone',
+                            }
+                        );
+                    }
+                }
+            )
             .subscribe((status: string, err?: Error) => {
                 console.log(`[DMStore] 🛰 Inbox Status: ${status}`, err || '');
 

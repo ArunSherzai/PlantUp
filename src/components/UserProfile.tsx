@@ -103,10 +103,19 @@ export default function UserProfile({ userId, isOwner }: Props) {
     const isFollowing = followers.some(u => u.id === currentUser?.id);
 
     const handleFollowAction = async () => {
-        if (isFollowing) {
-            await unfollowUser(userId);
-        } else {
-            await followUser(userId);
+        try {
+            if (isFollowing) {
+                console.log('[UserProfile] Unfollowing user:', userId);
+                await unfollowUser(userId);
+            } else {
+                console.log('[UserProfile] Following user:', userId);
+                await followUser(userId);
+            }
+            // Force refresh both connections and stats
+            await refreshConnections();
+            refreshStats();
+        } catch (e) {
+            console.error('[UserProfile] Follow/Unfollow error:', e);
         }
     };
 

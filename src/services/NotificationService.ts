@@ -82,7 +82,7 @@ export class NotificationService {
         const { notification } = detail;
 
         if (type === EventType.PRESS) {
-            const category = notification.data?.category as NotificationCategory;
+            const category = notification.data?.category as string;
             const data = notification.data || {};
 
             switch (category) {
@@ -105,6 +105,11 @@ export class NotificationService {
                         });
                     }
                     break;
+                case 'follow':
+                    if (data.followerId) {
+                        NavigationService.navigate('PublicProfile', { userId: data.followerId });
+                    }
+                    break;
                 case 'general':
                 default:
                     NavigationService.navigate('TabNavigator');
@@ -121,6 +126,7 @@ export class NotificationService {
     ) {
         let channelId = 'general';
         let largeIcon: string | undefined = undefined;
+        let useCircularIcon = false;
 
         switch (category) {
             case 'critical':
@@ -133,6 +139,7 @@ export class NotificationService {
                 break;
             case 'chat':
                 channelId = 'chat';
+                useCircularIcon = true; // Profile photos should be circular
                 if (data && data.senderAvatar) {
                     largeIcon = data.senderAvatar;
                 }
@@ -151,7 +158,7 @@ export class NotificationService {
             android: {
                 channelId,
                 largeIcon,
-                circularLargeIcon: true,
+                circularLargeIcon: useCircularIcon,
                 smallIcon: 'ic_launcher',
                 color: '#1db954',
                 pressAction: {
@@ -170,6 +177,7 @@ export class NotificationService {
     ) {
         let channelId = 'general';
         let largeIcon: string | undefined = undefined;
+        let useCircularIcon = false;
 
         switch (category) {
             case 'critical':
@@ -182,6 +190,7 @@ export class NotificationService {
                 break;
             case 'chat':
                 channelId = 'chat';
+                useCircularIcon = true;
                 if (data && data.senderAvatar) {
                     largeIcon = data.senderAvatar;
                 }
@@ -205,7 +214,7 @@ export class NotificationService {
             android: {
                 channelId,
                 largeIcon,
-                circularLargeIcon: true,
+                circularLargeIcon: useCircularIcon,
                 smallIcon: 'ic_launcher',
                 color: '#1db954',
                 pressAction: {

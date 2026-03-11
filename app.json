@@ -70,6 +70,11 @@
         "style": "light",
         "hidden": true
       }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "12345678-1234-1234-1234-1234567890ab"
+      }
     }
   }
 }

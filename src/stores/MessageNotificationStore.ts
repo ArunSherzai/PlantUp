@@ -5,6 +5,8 @@ interface MessageNotificationData {
     content: string;
     avatar?: any;
     conversationId?: string;
+    userId?: string;         // For follow notifications: the follower's user ID
+    type?: 'message' | 'follow'; // Distinguish notification types
 }
 
 interface MessageNotificationStore {

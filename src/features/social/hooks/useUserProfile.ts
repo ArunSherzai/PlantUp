@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { db } from '../../../utils/supabase';
 
 export type UserProfileData = {
@@ -22,7 +22,7 @@ export function useUserProfile(userId: string | undefined) {
     const [profile, setProfile] = useState<UserProfileData | null>(null);
     const [loading, setLoading] = useState(false);
 
-    const fetchProfile = async () => {
+    const fetchProfile = useCallback(async () => {
         if (!userId) return;
         setLoading(true);
         try {
@@ -132,7 +132,7 @@ export function useUserProfile(userId: string | undefined) {
         } finally {
             setLoading(false);
         }
-    };
+    }, [userId]);
 
     useEffect(() => {
         fetchProfile();

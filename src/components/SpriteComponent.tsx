@@ -16,10 +16,13 @@ export default function SpriteComponent() {
     const handleMessageNotificationPress = () => {
         if (!notification) return;
 
-        const conversationId = notification.conversationId;
-        if (conversationId) {
+        if (notification.type === 'follow' && notification.userId) {
+            // Follow notification: navigate to the follower's profile
+            navigation.navigate('PublicProfile', { userId: notification.userId });
+        } else if (notification.conversationId) {
+            // Chat message notification: navigate to the conversation
             navigation.navigate('MessageDetail', {
-                id: conversationId,
+                id: notification.conversationId,
                 name: notification.senderName,
                 avatar: notification.avatar || require('../../assets/images/Profilbild.jpg'),
             });

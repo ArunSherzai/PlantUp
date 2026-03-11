@@ -21,10 +21,13 @@ supabase.auth.getSession().then(({ data: { session } }) => {
   if (session?.access_token) {
     console.log('[Supabase] Setting initial realtime auth token');
     supabase.realtime.setAuth(session.access_token);
+    PushTokenService.register();
   } else {
     console.log('[Supabase] No session found on init');
   }
 });
+
+import { PushTokenService } from '../services/PushTokenService';
 
 // Then listen for future session changes
 supabase.auth.onAuthStateChange((_event, session) => {
@@ -32,6 +35,13 @@ supabase.auth.onAuthStateChange((_event, session) => {
   if (session?.access_token) {
     console.log('[Supabase] Setting realtime auth token from state change');
     supabase.realtime.setAuth(session.access_token);
+    
+    // Register for push notifications when user is authenticated
+    if (_event === 'SIGNED_IN' || _event === 'INITIAL_SESSION') {
+      PushTokenService.register();
+    }
+  } else if (_event === 'SIGNED_OUT') {
+    PushTokenService.unregister();
   }
 });
 
