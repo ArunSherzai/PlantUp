@@ -20,6 +20,7 @@ import SensorDisplayCard from '../../../components/SensorDisplayCard';
 import MentorBadge from '../../../components/MentorBadge';
 import { ScrollView } from 'react-native-gesture-handler';
 import { logViewEvent, logDwellEvent, logLikeEvent, logUnlikeEvent, logCommentEvent, logSaveEvent, logUnsaveEvent, logFollowEvent, logReportEvent } from '../../../utils/interactionLogger';
+import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
 
 // We need the RouteProp to access params
 type FeedPostDetailRouteProp = RouteProp<RootStackParamList, 'FeedPostDetail'>;
@@ -395,15 +396,14 @@ export default function FeedPostDetailScreen() {
             logReportEvent(user.id, post.id, reason);
             Alert.alert("Report Submitted", "Thank you for reporting this post. We will review it shortly.");
         } catch (err: any) {
-            console.error(err);
-            Alert.alert("Error", err.message || "Could not submit report. Please try again.");
+            ErrorHandlerService.handle(err);
         }
     };
 
     const handleBlock = async () => {
         console.log("Blocking Post:", post?.id, "User:", user?.id);
         if (!user?.id || !post?.id) {
-            console.error("Missing user or post ID");
+            ErrorHandlerService.handle(new Error('Missing user or post ID'), { showUI: false });
             return;
         }
         try {
@@ -415,8 +415,7 @@ export default function FeedPostDetailScreen() {
             setIsBlocked(true);
             setMenuStage('none');
         } catch (err: any) {
-            console.error(err);
-            Alert.alert("Error", "Could not block post.");
+            ErrorHandlerService.handle(err);
         }
     };
 
@@ -429,8 +428,7 @@ export default function FeedPostDetailScreen() {
             if (error) throw error;
             setIsBlocked(false);
         } catch (err: any) {
-            console.error(err);
-            Alert.alert("Error", "Could not unblock post.");
+            ErrorHandlerService.handle(err);
         }
     };
 

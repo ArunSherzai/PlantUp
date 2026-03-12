@@ -3,6 +3,7 @@ import { Alert } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
 import * as QueryParams from 'expo-auth-session/build/QueryParams';
+import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
 
 export const signUp = async (email: string, password: string, username: string) => {
   const { data, error } = await db.public.auth.signUp({ email, password });
@@ -49,7 +50,7 @@ export const signIn = async (email: string, password: string) => {
 export const signOut = async () => {
   const { error } = await db.public.auth.signOut();
   if (error) {
-    console.error('Abmeldung fehlgeschlagen:', error.message);
+    ErrorHandlerService.handle(error);
   }
 };
 
@@ -68,7 +69,7 @@ export const LoginViaGoogle = async () => {
   });
 
   if (error) {
-    console.error('OAuth error:', error.message);
+    ErrorHandlerService.handle(error);
     return;
   }
 
@@ -85,7 +86,7 @@ export const LoginViaGoogle = async () => {
       });
 
       if (sessionError) {
-        console.error('Session error:', sessionError.message);
+        ErrorHandlerService.handle(sessionError);
       } else {
         console.log('Logged in successfully with Google');
       }
@@ -112,7 +113,7 @@ export const ForgotPassword = async (email: string) => {
   });
 
   if (error) {
-    console.error('Forgot password error:', error.message);
+    ErrorHandlerService.handle(error, { showUI: false });
     return { success: false, message: error.message };
   }
 

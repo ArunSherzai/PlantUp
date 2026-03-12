@@ -4,6 +4,7 @@ import { db } from '../utils/supabase';
 import { BlockService } from '../features/blocking/BlockService';
 import { getLevelFromXP } from '../utils/leveling';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ErrorHandlerService } from '../core/error/services/ErrorHandlerService';
 
 type Border = {
   id: string;
@@ -122,7 +123,7 @@ export const useUserStore = create<State>((set, get) => ({
         set({ sprigNotificationsEnabled: JSON.parse(value) });
       }
     } catch (e) {
-      console.error('Failed to load settings', e);
+      ErrorHandlerService.handle(e, { showUI: false });
     }
   },
 
@@ -131,7 +132,7 @@ export const useUserStore = create<State>((set, get) => ({
     try {
       await AsyncStorage.setItem('sprigNotificationsEnabled', JSON.stringify(enabled));
     } catch (e) {
-      console.error('Failed to save settings', e);
+      ErrorHandlerService.handle(e, { showUI: false });
     }
   },
 
@@ -193,7 +194,7 @@ export const useUserStore = create<State>((set, get) => ({
       .eq('id', user.id);
 
     if (error) {
-      console.error('Failed to update tutorial progress:', error);
+      ErrorHandlerService.handle(error, { showUI: false });
       // Revert optimism on failure
       set({ profile: { ...profile, tutorial_progress: currentProgress } });
     }
@@ -218,7 +219,7 @@ export const useUserStore = create<State>((set, get) => ({
       .eq('id', user.id);
 
     if (error) {
-      console.error('Failed to reset tutorial progress:', error);
+      ErrorHandlerService.handle(error, { showUI: false });
       // Revert optimism on failure
       set({ profile: { ...profile, tutorial_progress: currentProgress } });
     }
@@ -235,7 +236,7 @@ export const useUserStore = create<State>((set, get) => ({
       .single();
 
     if (selectError) {
-      console.error('Error loading user for coin update:', selectError);
+      ErrorHandlerService.handle(selectError, { showUI: false });
       return;
     }
 
@@ -248,7 +249,7 @@ export const useUserStore = create<State>((set, get) => ({
       .eq('id', user.id);
 
     if (updateError) {
-      console.error('Error updating plant coins:', updateError);
+      ErrorHandlerService.handle(updateError, { showUI: false });
       return;
     }
   },
@@ -262,7 +263,7 @@ export const useUserStore = create<State>((set, get) => ({
       const { data, error } = await db.public.rpc('get_inventory');
 
       if (error) {
-        console.error('[UserStore] Error fetching inventory (RPC):', JSON.stringify(error, null, 2));
+        ErrorHandlerService.handle(error, { showUI: false });
         return;
       }
 
@@ -280,7 +281,7 @@ export const useUserStore = create<State>((set, get) => ({
       }
 
     } catch (err) {
-      console.error('[UserStore] Exception fetching inventory:', err);
+      ErrorHandlerService.handle(err, { showUI: false });
     }
   },
 
@@ -313,8 +314,8 @@ export const useUserStore = create<State>((set, get) => ({
         return { success: false, message: result.message };
       }
     } catch (e: any) {
-      console.error('Error activating booster:', e);
-      return { success: false, message: e.message || 'Unknown error' };
+      const handled = ErrorHandlerService.handle(e, { showUI: false });
+      return { success: false, message: handled.userMessage || 'Unknown error' };
     }
   },
 
@@ -352,8 +353,8 @@ export const useUserStore = create<State>((set, get) => ({
     ]);
 
     // Debug Logs
-    if (statsResult.error) console.error('[UserStore] Stats Error:', statsResult.error);
-    if (userResult.error) console.error('[UserStore] User Error:', userResult.error);
+    if (statsResult.error) ErrorHandlerService.handle(statsResult.error, { showUI: false });
+    if (userResult.error) ErrorHandlerService.handle(userResult.error, { showUI: false });
 
     const statsData = statsResult.data;
     const userData = userResult.data;
@@ -532,7 +533,7 @@ export const useUserStore = create<State>((set, get) => ({
       .update({ xp: newXP, level: newLevel })
       .eq('user_id', user.id);
 
-    if (error) console.error('Failed to update XP:', error);
+    if (error) ErrorHandlerService.handle(error, { showUI: false });
   },
 
   updateStreak: (newStreak: number, lastDate: string) => {
@@ -555,7 +556,7 @@ export const useUserStore = create<State>((set, get) => ({
         .eq('user_id', user.id);
 
       if (ownedError) {
-        console.error('[UserStore] Error fetching owned borders:', ownedError);
+        ErrorHandlerService.handle(ownedError, { showUI: false });
         return;
       }
 
@@ -575,7 +576,7 @@ export const useUserStore = create<State>((set, get) => ({
         .in('id', borderIds);
 
       if (bordersError) {
-        console.error('[UserStore] Error fetching border details:', bordersError);
+        ErrorHandlerService.handle(bordersError, { showUI: false });
         return;
       }
       if (!bordersData) {
@@ -612,7 +613,7 @@ export const useUserStore = create<State>((set, get) => ({
       set({ ownedBorders: mergedBorders });
 
     } catch (error) {
-      console.error('[UserStore] Fatal error in fetchBorders:', error);
+      ErrorHandlerService.handle(error, { showUI: false });
     }
   },
 
@@ -680,7 +681,7 @@ export const useUserStore = create<State>((set, get) => ({
         .eq('border_id', borderId);
 
       if (error) {
-        console.error('Error equipping border:', error);
+        ErrorHandlerService.handle(error, { showUI: false });
         // Revert optimization would go here (fetchBorders())
         get().fetchBorders();
         return;
@@ -711,7 +712,7 @@ export const useUserStore = create<State>((set, get) => ({
       .eq('userid', user.id);
 
     if (error) {
-      console.error('[UserStore] Error fetching titles:', error);
+      ErrorHandlerService.handle(error, { showUI: false });
       return;
     }
 
@@ -769,7 +770,7 @@ export const useUserStore = create<State>((set, get) => ({
       .eq('userid', user.id);
 
     if (unequipError) {
-      console.error('[UserStore] Error unequipping titles:', unequipError);
+      ErrorHandlerService.handle(unequipError, { showUI: false });
       get().fetchTitles(); // Revert on error
       return;
     }
@@ -781,7 +782,7 @@ export const useUserStore = create<State>((set, get) => ({
         .eq('titleid', titleId);
 
       if (equipError) {
-        console.error('[UserStore] Error equipping title:', equipError);
+        ErrorHandlerService.handle(equipError, { showUI: false });
         get().fetchTitles(); // Revert on error
         return;
       }
@@ -801,7 +802,7 @@ export const useUserStore = create<State>((set, get) => ({
       .eq('user_id', user.id);
 
     if (error) {
-      console.error('[UserStore] Error fetching unclaimed rewards:', error);
+      ErrorHandlerService.handle(error, { showUI: false });
       return;
     }
     set({ unclaimedRewards: data || [] });
@@ -816,7 +817,7 @@ export const useUserStore = create<State>((set, get) => ({
         .rpc('get_user_rewards_status', { p_user_id: user.id });
 
       if (error) {
-        console.error('[UserStore] Error fetching rewards map:', error);
+        ErrorHandlerService.handle(error, { showUI: false });
         return;
       }
 
@@ -849,7 +850,7 @@ export const useUserStore = create<State>((set, get) => ({
 
       set({ rewardsMap: processedRewards });
     } catch (e) {
-      console.error('[UserStore] Exception fetching rewards map:', e);
+      ErrorHandlerService.handle(e, { showUI: false });
     }
   },
 
@@ -863,7 +864,7 @@ export const useUserStore = create<State>((set, get) => ({
       });
 
       if (error) {
-        console.error('[UserStore] Error claiming reward:', error);
+        ErrorHandlerService.handle(error, { showUI: false });
         return false;
       }
 
@@ -882,7 +883,7 @@ export const useUserStore = create<State>((set, get) => ({
       return false;
 
     } catch (e) {
-      console.error('[UserStore] Exception claiming reward:', e);
+      ErrorHandlerService.handle(e, { showUI: false });
       return false;
     }
   },
@@ -907,8 +908,8 @@ export const useUserStore = create<State>((set, get) => ({
       return { success: result.success, message: result.message };
 
     } catch (e: any) {
-      console.error('Purchase error:', e);
-      return { success: false, message: e.message || 'Purchase failed' };
+      const handled = ErrorHandlerService.handle(e, { showUI: false });
+      return { success: false, message: handled.userMessage || 'Purchase failed' };
     }
   },
 
@@ -937,8 +938,8 @@ export const useUserStore = create<State>((set, get) => ({
       return { success: false, message: result.message };
 
     } catch (e: any) {
-      console.error('Lootbox error:', e);
-      return { success: false, message: e.message || 'Transaction failed' };
+      const handled = ErrorHandlerService.handle(e, { showUI: false });
+      return { success: false, message: handled.userMessage || 'Transaction failed' };
     }
   },
 
@@ -950,7 +951,7 @@ export const useUserStore = create<State>((set, get) => ({
       const blockedIds = await BlockService.getBlockedUsers();
       set({ blockedUserIds: new Set(blockedIds) });
     } catch (e) {
-      console.error('Failed to fetch blocked users', e);
+      ErrorHandlerService.handle(e, { showUI: false });
     }
   },
 
@@ -963,7 +964,7 @@ export const useUserStore = create<State>((set, get) => ({
       set({ blockedUserIds: newSet });
 
     } catch (e: any) {
-      console.error('Failed to block user', e);
+      ErrorHandlerService.handle(e, { showUI: false });
       throw e;
     }
   },
@@ -977,7 +978,7 @@ export const useUserStore = create<State>((set, get) => ({
       set({ blockedUserIds: newSet });
 
     } catch (e: any) {
-      console.error('Failed to unblock user', e);
+      ErrorHandlerService.handle(e, { showUI: false });
       throw e;
     }
   },

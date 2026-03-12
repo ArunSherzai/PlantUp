@@ -20,6 +20,7 @@ import { PlantItem } from '../types/plant.types';
 import { useNavigation } from '@react-navigation/native';
 import { playSound } from '~/utils/SoundManager';
 import AlertModal from '../../../components/AlertModal';
+import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
 
 interface Props {
   item: PlantItem;
@@ -119,7 +120,7 @@ export const PlantCard = React.memo(
         if (error) throw error;
         return data?.path || null;
       } catch (e) {
-        console.error('Image upload failed', e);
+        ErrorHandlerService.handle(e, { showUI: false });
         return null;
       }
     };
@@ -186,7 +187,7 @@ export const PlantCard = React.memo(
         setCustomImageBase64(null);
         showModal('success', 'Saved!', 'Plant updated successfully.');
       } catch (err: any) {
-        console.error('Update error:', err);
+        ErrorHandlerService.handle(err, { showUI: false });
         showModal('error', 'Update Failed', err.message || 'Could not update plant.');
       }
     };

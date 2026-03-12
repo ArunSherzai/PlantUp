@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TipObject } from './tipResolver';
+import { ErrorHandlerService } from '../core/error/services/ErrorHandlerService';
 
 const TIP_HISTORY_KEY = 'plantup_tip_history';
 
@@ -25,7 +26,7 @@ export const saveTip = async (tip: TipObject) => {
         await AsyncStorage.setItem(TIP_HISTORY_KEY, JSON.stringify(trimmedHistory));
         return newTip;
     } catch (error) {
-        console.error('Error saving tip history:', error);
+        ErrorHandlerService.handle(error, { showUI: false });
         return null;
     }
 };
@@ -35,7 +36,7 @@ export const getTipHistory = async (): Promise<StoredTip[]> => {
         const history = await AsyncStorage.getItem(TIP_HISTORY_KEY);
         return history ? JSON.parse(history) : [];
     } catch (error) {
-        console.error('Error fetching tip history:', error);
+        ErrorHandlerService.handle(error, { showUI: false });
         return [];
     }
 };
@@ -45,7 +46,7 @@ export const getLatestTip = async (): Promise<StoredTip | null> => {
         const history = await getTipHistory();
         return history.length > 0 ? history[0] : null;
     } catch (error) {
-        console.error('Error fetching latest tip:', error);
+        ErrorHandlerService.handle(error, { showUI: false });
         return null;
     }
 };

@@ -10,6 +10,7 @@ import { useTutorialStore } from '~/stores/TutorialStore';
 import { GestureHandlerRootView, ScrollView } from 'react-native-gesture-handler';
 import DraggableBottomSheet from '~/components/DraggableBottomSheet';
 import { FontAwesome6 } from '@expo/vector-icons';
+import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
 
 // --- COMPONENTS ---
 import Header from '~/features/plantstats/components/Header';
@@ -65,7 +66,7 @@ async function setCache(key: string, value: any) {
   try {
     await AsyncStorage.setItem(key, JSON.stringify(value));
   } catch (e) {
-    console.error('Cache save failed', e);
+    ErrorHandlerService.handle(e, { showUI: false });
   }
 }
 
@@ -79,7 +80,7 @@ async function fetchLatestController(plantId: string): Promise<PlantController |
     .limit(1)
     .maybeSingle(); // maybeSingle is safer than single if no data exists
 
-  if (error) console.error('Error fetching latest:', error);
+  if (error) ErrorHandlerService.handle(error, { showUI: false });
   return data as PlantController;
 }
 
@@ -274,7 +275,7 @@ export default function ShowPlantStats() {
 
       await Promise.all(updates);
     } catch (err) {
-      console.error('runQuestCheck error:', err);
+      ErrorHandlerService.handle(err, { showUI: false });
     }
   };
 
@@ -325,7 +326,7 @@ export default function ShowPlantStats() {
         }
       }
     } catch (err) {
-      console.error('Data fetch error:', err);
+      ErrorHandlerService.handle(err, { showUI: false });
     } finally {
       setLoading(false);
       setLoadingHistory(false);
@@ -362,7 +363,7 @@ export default function ShowPlantStats() {
         setLoading(false);
       }
     } catch (e) {
-      console.error(e);
+      ErrorHandlerService.handle(e, { showUI: false });
       setLoading(false);
     }
   }, [initialPlantId, fetchPlantData]); // Removed timeRange dependency to prevent loop

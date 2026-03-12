@@ -9,6 +9,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { db } from '../../../utils/supabase';
 import { useUserStore } from '../../../stores/UserStore';
+import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
 
 import { StatusBar } from 'expo-status-bar';
 
@@ -127,8 +128,7 @@ export default function AccountScreen() {
             navigation.goBack();
 
         } catch (err: any) {
-            console.error(err);
-            Alert.alert("Error", err.message || "Something went wrong.");
+            ErrorHandlerService.handle(err);
         } finally {
             setLoading(false);
         }
