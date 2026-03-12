@@ -1,5 +1,8 @@
 import React, { Component, ReactNode } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { StyleSheet } from 'react-native-unistyles';
+import { SystemBars } from 'react-native-edge-to-edge';
 import { ErrorHandlerService } from '../services/ErrorHandlerService';
 
 interface Props {
@@ -16,9 +19,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
     }
 
     componentDidCatch(error: Error, info: React.ErrorInfo) {
-        // Pipe render crashes into our global handler as bugs
         ErrorHandlerService.handle(error, { showUI: false });
-        // Log info.componentStack to Sentry here...
     }
 
     resetError = () => {
@@ -30,46 +31,76 @@ export class GlobalErrorBoundary extends Component<Props, State> {
             if (this.props.fallback) return this.props.fallback;
 
             return (
-                <View style={styles.container}>
+                <SafeAreaView style={styles.container}>
+                    <SystemBars style="dark" />
+
+                    <Text style={styles.emoji}>😵</Text>
                     <Text style={styles.title}>Oops! Something went wrong.</Text>
-                    <Text style={styles.subtitle}>We've recorded the issue and we'll fix it soon.</Text>
-                    <TouchableOpacity style={styles.button} onPress={this.resetError}>
+                    <Text style={styles.subtitle}>
+                        We've recorded the issue and we'll fix it soon.
+                    </Text>
+
+                    <TouchableOpacity
+                        style={styles.button}
+                        activeOpacity={0.8}
+                        onPress={this.resetError}
+                    >
                         <Text style={styles.buttonText}>Try Again</Text>
                     </TouchableOpacity>
-                </View>
+                </SafeAreaView>
             );
         }
         return this.props.children;
     }
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create((theme) => ({
     container: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        padding: 20,
-        backgroundColor: '#fff'
+        paddingHorizontal: 32,
+        backgroundColor: theme.colors.background,
+    },
+    emoji: {
+        fontSize: 64,
+        marginBottom: 16,
     },
     title: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        marginBottom: 10,
-        color: '#333'
+        fontSize: theme.fontSizes.header,
+        fontWeight: '700',
+        fontFamily: theme.fonts.header,
+        color: theme.colors.text,
+        textAlign: 'center',
+        marginBottom: 8,
     },
     subtitle: {
+        fontSize: theme.fontSizes.medium,
+        fontFamily: theme.fonts.regular,
+        color: theme.colors.greyedOut,
         textAlign: 'center',
-        marginBottom: 20,
-        color: '#666'
+        marginBottom: 32,
+        lineHeight: 22,
     },
     button: {
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        backgroundColor: '#2E7D32', // PlantUp typical green color
-        borderRadius: 8,
+        alignItems: 'center',
+        backgroundColor: theme.colors.primary,
+        borderRadius: 24,
+        elevation: 5,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        paddingVertical: 16,
+        paddingHorizontal: 48,
+        shadowColor: '#000',
+        shadowOffset: { height: 2, width: 0 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
     },
     buttonText: {
-        color: '#fff',
-        fontWeight: 'bold'
-    }
-});
+        color: theme.colors.background,
+        fontSize: theme.fontSizes.medium,
+        fontWeight: '600',
+        fontFamily: theme.fonts.regular,
+        textAlign: 'center',
+    },
+}));
