@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db } from '../../../utils/supabase';
+import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
 
 export type UserProfileData = {
     id: string;
@@ -130,7 +131,7 @@ export function useUserProfile(userId: string | undefined) {
                     } : undefined
                 });
             } catch (error) {
-                console.error('Error fetching user profile:', error);
+                ErrorHandlerService.handle(error, { showUI: false });
             } finally {
                 setLoading(false);
             }

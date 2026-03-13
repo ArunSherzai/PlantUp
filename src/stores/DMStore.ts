@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { db } from '../utils/supabase';
 import { useUserStore } from './UserStore';
+import { ErrorHandlerService } from '../core/error/services/ErrorHandlerService';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { playSendSound, playReceiveSound } from '../utils/soundEffects';
 import { useMessageNotificationStore } from './MessageNotificationStore';
@@ -160,7 +161,7 @@ export const useDMStore = create<DMState>((set, get) => ({
             set({ conversations, loading: false });
 
         } catch (e) {
-            console.error('[DMStore] Error fetching conversations:', e);
+            ErrorHandlerService.handle(e, { showUI: false });
             set({ loading: false });
         }
     },
@@ -175,13 +176,13 @@ export const useDMStore = create<DMState>((set, get) => ({
             });
 
             if (error) {
-                console.error('Error creating conversation:', error);
+                ErrorHandlerService.handle(error, { showUI: false });
                 return null;
             }
 
             return data as string; // UUID
         } catch (err) {
-            console.error('Exception creating conversation:', err);
+            ErrorHandlerService.handle(err, { showUI: false });
             return null;
         }
     },
@@ -203,7 +204,7 @@ export const useDMStore = create<DMState>((set, get) => ({
                 .range(offset, offset + 14); // Fetch 15 at a time
 
             if (error) {
-                console.error('[DMStore] Error fetching messages:', error);
+                ErrorHandlerService.handle(error, { showUI: false });
                 throw error;
             }
 
@@ -224,7 +225,7 @@ export const useDMStore = create<DMState>((set, get) => ({
             });
 
         } catch (e) {
-            console.error('[DMStore] Exception fetching messages:', e);
+            ErrorHandlerService.handle(e, { showUI: false });
             set({ loading: false });
         }
     },
@@ -248,7 +249,7 @@ export const useDMStore = create<DMState>((set, get) => ({
                 });
 
             if (error) {
-                console.error('[DMStore] Error sending message:', error);
+                ErrorHandlerService.handle(error, { showUI: false });
                 return false;
             }
             console.log('[DMStore] Message sent successfully');
@@ -258,7 +259,7 @@ export const useDMStore = create<DMState>((set, get) => ({
 
             return true;
         } catch (e) {
-            console.error('[DMStore] Exception sending message:', e);
+            ErrorHandlerService.handle(e, { showUI: false });
             return false;
         }
     },
@@ -312,14 +313,14 @@ export const useDMStore = create<DMState>((set, get) => ({
             .subscribe((status, err) => {
                 console.log('[DMStore] Chat subscription status:', status);
                 if (err) {
-                    console.error('[DMStore] Chat subscription error:', err);
+                    ErrorHandlerService.handle(err, { showUI: false });
                 }
                 if (status === 'SUBSCRIBED') {
                     console.log('[DMStore] ✅ Successfully subscribed to chat:', conversationId);
                 } else if (status === 'CLOSED') {
                     console.log('[DMStore] ❌ Chat subscription closed:', conversationId);
                 } else if (status === 'CHANNEL_ERROR') {
-                    console.error('[DMStore] ❌ Chat subscription error:', conversationId);
+                    ErrorHandlerService.handle(new Error(`Chat subscription error for ${conversationId}`), { showUI: false });
                 }
             });
 
@@ -347,7 +348,7 @@ export const useDMStore = create<DMState>((set, get) => ({
                 .is('read_at', null)
                 .neq('sender_id', user.id);
         } catch (e) {
-            console.error('[DMStore] Error marking as read:', e);
+            ErrorHandlerService.handle(e, { showUI: false });
         }
     },
 
@@ -485,14 +486,14 @@ export const useDMStore = create<DMState>((set, get) => ({
             .subscribe((status, err) => {
                 console.log('[DMStore] Inbox subscription status:', status);
                 if (err) {
-                    console.error('[DMStore] Inbox subscription error:', err);
+                    ErrorHandlerService.handle(err, { showUI: false });
                 }
                 if (status === 'SUBSCRIBED') {
                     console.log('[DMStore] ✅ Successfully subscribed to inbox for user:', user.id);
                 } else if (status === 'CLOSED') {
                     console.log('[DMStore] ❌ Inbox subscription closed');
                 } else if (status === 'CHANNEL_ERROR') {
-                    console.error('[DMStore] ❌ Inbox subscription error');
+                    ErrorHandlerService.handle(new Error('Inbox subscription channel error'), { showUI: false });
                 }
             });
 

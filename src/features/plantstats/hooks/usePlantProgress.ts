@@ -4,6 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { db } from '../../../utils/supabase';
 import { useUserStore } from '../../../stores/UserStore';
 import { decode } from 'base64-arraybuffer';
+import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
 
 export interface ProgressPhoto {
     id: string;
@@ -66,7 +67,7 @@ export function usePlantProgress(plantId: string) {
             }
 
         } catch (err) {
-            console.error('Fetch photos failed:', err);
+            ErrorHandlerService.handle(err, { showUI: false });
         } finally {
             setLoading(false);
         }
@@ -142,7 +143,7 @@ export function usePlantProgress(plantId: string) {
             return imageUrl;
 
         } catch (error: any) {
-            console.error('Error taking photo:', error);
+            ErrorHandlerService.handle(error, { showUI: false });
             throw error;
         } finally {
             setIsUploading(false);

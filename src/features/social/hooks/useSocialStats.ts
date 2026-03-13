@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { db } from '../../../utils/supabase';
+import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
 
 export function useSocialStats(userId: string | undefined) {
     const [followersCount, setFollowersCount] = useState(0);
@@ -45,7 +46,7 @@ export function useSocialStats(userId: string | undefined) {
             setFriendsCount(mutuals);
 
         } catch (error) {
-            console.error('Error fetching social stats:', error);
+            ErrorHandlerService.handle(error, { showUI: false });
         }
     };
 

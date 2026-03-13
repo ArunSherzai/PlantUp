@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { db } from '../utils/supabase';
+import { ErrorHandlerService } from '../core/error/services/ErrorHandlerService';
 
 export interface Post {
     id: string;
@@ -65,7 +66,7 @@ export function useFeed() {
                 .in('id', userIds);
 
             if (usersError) {
-                console.error('Error fetching users for feed:', usersError);
+                ErrorHandlerService.handle(usersError, { showUI: false });
                 // Proceed with posts but no user info
             }
 
@@ -102,7 +103,7 @@ export function useFeed() {
             setError(null);
 
         } catch (err: any) {
-            console.error('Error fetching feed:', err);
+            ErrorHandlerService.handle(err, { showUI: false });
             setError(err.message);
         } finally {
             setLoading(false);

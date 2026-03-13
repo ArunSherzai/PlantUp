@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { db } from '../../../utils/supabase';
 import { useUserStore } from '../../../stores/UserStore';
+import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
 
 export type ConnectionUser = {
     id: string;
@@ -78,7 +79,7 @@ export function useConnections(targetUserId?: string) {
             setFollowing(followingList);
 
         } catch (error) {
-            console.error('Error fetching connections:', error);
+            ErrorHandlerService.handle(error, { showUI: false });
         } finally {
             setLoading(false);
         }
@@ -94,7 +95,7 @@ export function useConnections(targetUserId?: string) {
             if (error) throw error;
             await fetchConnections();
         } catch (error) {
-            console.error('Error following user:', error);
+            ErrorHandlerService.handle(error, { showUI: false });
         }
     };
 
@@ -108,7 +109,7 @@ export function useConnections(targetUserId?: string) {
             if (error) throw error;
             await fetchConnections();
         } catch (error) {
-            console.error('Error unfollowing user:', error);
+            ErrorHandlerService.handle(error, { showUI: false });
         }
     };
 

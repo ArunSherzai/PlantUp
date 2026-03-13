@@ -1,4 +1,5 @@
 import { Audio } from 'expo-av';
+import { ErrorHandlerService } from '../core/error/services/ErrorHandlerService';
 
 let sendSound: Audio.Sound | null = null;
 let receiveSound: Audio.Sound | null = null;
@@ -24,7 +25,7 @@ export const initializeSounds = async () => {
 
         console.log('[SoundEffects] Sounds initialized successfully');
     } catch (error) {
-        console.error('[SoundEffects] Error initializing sounds:', error);
+        ErrorHandlerService.handle(error, { showUI: false, silentLog: true });
     }
 };
 
@@ -35,7 +36,7 @@ export const playSendSound = async () => {
             await sendSound.playAsync();
         }
     } catch (error) {
-        console.error('[SoundEffects] Error playing send sound:', error);
+        ErrorHandlerService.handle(error, { showUI: false, silentLog: true });
     }
 };
 
@@ -46,7 +47,7 @@ export const playReceiveSound = async () => {
             await receiveSound.playAsync();
         }
     } catch (error) {
-        console.error('[SoundEffects] Error playing receive sound:', error);
+        ErrorHandlerService.handle(error, { showUI: false, silentLog: true });
     }
 };
 
@@ -62,6 +63,6 @@ export const unloadSounds = async () => {
         }
         console.log('[SoundEffects] Sounds unloaded successfully');
     } catch (error) {
-        console.error('[SoundEffects] Error unloading sounds:', error);
+        ErrorHandlerService.handle(error, { showUI: false, silentLog: true });
     }
 };

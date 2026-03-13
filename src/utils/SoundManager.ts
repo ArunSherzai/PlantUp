@@ -11,6 +11,7 @@
 import { Audio, AVPlaybackStatus } from 'expo-av';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState, AppStateStatus } from 'react-native';
+import { ErrorHandlerService } from '../core/error/services/ErrorHandlerService';
 
 // Sound type definitions
 export type SoundType =
@@ -105,7 +106,7 @@ class SoundManagerClass {
             this.initialized = true;
             console.log('[SoundManager] Initialized successfully');
         } catch (error) {
-            console.error('[SoundManager] Error initializing:', error);
+            ErrorHandlerService.handle(error, { showUI: false, silentLog: true });
         }
     }
 
@@ -133,7 +134,7 @@ class SoundManagerClass {
             this.sounds.set(type, sound);
             return sound;
         } catch (error) {
-            console.error(`[SoundManager] Error loading sound ${type}:`, error);
+            ErrorHandlerService.handle(error, { showUI: false, silentLog: true });
             return undefined;
         }
     }
@@ -182,7 +183,7 @@ class SoundManagerClass {
             }
             await sound.playAsync();
         } catch (error) {
-            console.error(`[SoundManager] Error playing sound ${type}:`, error);
+            ErrorHandlerService.handle(error, { showUI: false, silentLog: true });
         }
     }
 
@@ -195,7 +196,7 @@ class SoundManagerClass {
             await AsyncStorage.setItem(STORAGE_KEY, enabled.toString());
             console.log(`[SoundManager] Sound ${enabled ? 'enabled' : 'disabled'}`);
         } catch (error) {
-            console.error('[SoundManager] Error saving enabled state:', error);
+            ErrorHandlerService.handle(error, { showUI: false, silentLog: true });
         }
     }
 
@@ -226,7 +227,7 @@ class SoundManagerClass {
             this.initialized = false;
             console.log('[SoundManager] Cleaned up successfully');
         } catch (error) {
-            console.error('[SoundManager] Error during cleanup:', error);
+            ErrorHandlerService.handle(error, { showUI: false, silentLog: true });
         }
     }
 }
