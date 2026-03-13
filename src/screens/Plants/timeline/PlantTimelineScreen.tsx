@@ -31,7 +31,7 @@ export default function PlantTimelineScreen() {
 
     const activePlant = plants.find(p => p.id === plantId);
 
-    const { photos, plantDetails, loading, isUploading, canTakePhoto, takePhoto } = usePlantProgress(plantId);
+    const { photos, plantDetails, loading, isUploading, canTakePhoto, uploadProgressPhoto } = usePlantProgress(plantId);
 
     const [isPlantDropdownVisible, setIsPlantDropdownVisible] = useState(false);
     const [isTitleModalVisible, setIsTitleModalVisible] = useState(false);
@@ -64,18 +64,31 @@ export default function PlantTimelineScreen() {
 
     const handleTakePhoto = async () => {
         setIsTitleModalVisible(false);
-        try {
-            const resultUrl = await takePhoto(newPhotoTitle.trim() || 'Progress Update');
-            if (resultUrl && typeof resultUrl === 'string') {
-                setNewPhotoTitle('Progress Update');
-                // Show confetti and offer to post
-                setNewPhotoUrl(resultUrl);
-                setShowConfettiModal(true);
-            }
-        } catch (error: any) {
-            showModal('error', 'Camera Error', error.message || 'Could not take a photo.');
-        }
+        navigation.navigate('Camera', { mode: 'photo', source: 'PlantTimeline' });
     };
+
+    // Listen for returned captured media
+    useEffect(() => {
+        const checkCapturedMedia = async () => {
+            if (route.params?.capturedMedia) {
+                const mediaUri = route.params.capturedMedia.uri;
+                // Clear the param immediately so it doesn't re-trigger
+                navigation.setParams({ capturedMedia: undefined });
+
+                try {
+                    const resultUrl = await uploadProgressPhoto(mediaUri, newPhotoTitle.trim() || 'Progress Update');
+                    if (resultUrl && typeof resultUrl === 'string') {
+                        setNewPhotoTitle('Progress Update');
+                        setNewPhotoUrl(resultUrl);
+                        setShowConfettiModal(true);
+                    }
+                } catch (error: any) {
+                    showModal('error', 'Upload Error', error.message || 'Could not upload the photo.');
+                }
+            }
+        };
+        checkCapturedMedia();
+    }, [route.params?.capturedMedia]);
 
     const handleExportPost = async () => {
         if (!user?.id || !newPhotoUrl) return;
