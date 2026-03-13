@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { db } from '../utils/supabase';
 import { getPublicPostUrl } from '../utils/media';
 import { useUserStore } from '../stores/UserStore';
+import { ErrorHandlerService } from '../core/error/services/ErrorHandlerService';
 
 export interface FypPost {
     id: string;
@@ -163,7 +164,7 @@ export function useFypFeed(initialMode: FeedMode = 'fyp') {
 
             setPosts(mergedPosts);
         } catch (err: any) {
-            console.error('[Feed] Fetch error:', err);
+            ErrorHandlerService.handle(err, { showUI: false });
             setPosts([]);
         } finally {
             setLoading(false);

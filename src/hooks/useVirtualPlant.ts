@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { db } from '../utils/supabase';
 import { useUserStore } from '../stores/UserStore';
 import { PotType } from '../components/PotModel';
+import { ErrorHandlerService } from '../core/error/services/ErrorHandlerService';
 
 export interface VirtualPlant {
     id: string;
@@ -68,7 +69,7 @@ export function useVirtualPlant(userId?: string): VirtualPlantData & {
             console.log('[useVirtualPlant] Fetched plant from DB:', data);
             setPlant(data as VirtualPlant | null);
         } catch (err: any) {
-            console.error('[useVirtualPlant] Error fetching plant:', err);
+            ErrorHandlerService.handle(err, { showUI: false });
             setError(err?.message || 'Failed to fetch plant');
         } finally {
             setLoading(false);
@@ -94,7 +95,7 @@ export function useVirtualPlant(userId?: string): VirtualPlantData & {
             setPlant(newPlant);
             return newPlant;
         } catch (err: any) {
-            console.error('[useVirtualPlant] Error creating plant:', err);
+            ErrorHandlerService.handle(err, { showUI: false });
             setError(err?.message || 'Failed to create plant');
             return null;
         } finally {
@@ -115,7 +116,7 @@ export function useVirtualPlant(userId?: string): VirtualPlantData & {
 
             setPlant((prev) => prev ? { ...prev, pot_type: potType } : null);
         } catch (err: any) {
-            console.error('[useVirtualPlant] Error updating pot type:', err);
+            ErrorHandlerService.handle(err, { showUI: false });
             setError(err?.message || 'Failed to update pot type');
         }
     }, [targetUserId, plant]);
@@ -135,7 +136,7 @@ export function useVirtualPlant(userId?: string): VirtualPlantData & {
 
             setPlant((prev) => prev ? { ...prev, seed: newSeed } : null);
         } catch (err: any) {
-            console.error('[useVirtualPlant] Error regenerating seed:', err);
+            ErrorHandlerService.handle(err, { showUI: false });
             setError(err?.message || 'Failed to regenerate seed');
         }
     }, [targetUserId, plant]);

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { db } from '../../../utils/supabase';
+import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
 
 export type UserProfileData = {
     id: string;
@@ -107,6 +108,29 @@ export function useUserProfile(userId: string | undefined) {
                         .getPublicUrl(userData.avatar_path);
                     profileImageUrl = data.publicUrl;
                 }
+
+                const actualTitle = Array.isArray(titleInfo) ? titleInfo[0] : titleInfo;
+
+                setProfile({
+                    id: userId,
+                    username: userData?.username || 'Gardener',
+                    plant_coins: userData?.plant_coins || 0,
+                    xp: statsData?.xp || 0,
+                    level: statsData?.level || 1,
+                    profile_image: profileImageUrl,
+                    bio: userData?.bio || '',
+                    title: actualTitle?.titlename || '',
+                    titlecolor: actualTitle?.color || '#000',
+                    equipped_border: equippedBorderData ? {
+                        id: equippedBorderData.id,
+                        media_url: equippedBorderData.media_url,
+                        name: equippedBorderData.name
+                    } : undefined
+                });
+            } catch (error) {
+                ErrorHandlerService.handle(error, { showUI: false });
+            } finally {
+                setLoading(false);
             }
 
             const actualTitle = Array.isArray(titleInfo) ? titleInfo[0] : titleInfo;

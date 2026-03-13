@@ -6,6 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { StatusBar } from 'expo-status-bar';
+import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
 
 export default function AppearanceScreen() {
     const { theme } = useUnistyles();
@@ -28,7 +29,7 @@ export default function AppearanceScreen() {
             // Force strict string usage
             UnistylesRuntime.setTheme(nextTheme);
         } catch (error) {
-            console.error('[Settings] Failed to change theme:', error);
+            ErrorHandlerService.handle(error);
         }
     };
 

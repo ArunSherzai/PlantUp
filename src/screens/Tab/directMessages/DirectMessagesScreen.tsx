@@ -15,6 +15,7 @@ import { db } from '../../../utils/supabase';
 import { playSound } from '~/utils/SoundManager';
 import { getAvatarSource } from '../../../utils/avatarUtils';
 import MentorBadge from '../../../components/MentorBadge';
+import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -192,7 +193,7 @@ export default function DirectMessagesScreen() {
                     setSearchResults(data);
                 }
             } catch (e) {
-                console.error(e);
+                ErrorHandlerService.handle(e, { showUI: false });
             } finally {
                 setIsSearching(false);
             }
@@ -222,8 +223,7 @@ export default function DirectMessagesScreen() {
                 Alert.alert('Unable to Message', 'You can only message users who follow you back (Mutual Followers).');
             }
         } catch (e) {
-            console.error(e);
-            Alert.alert('Error', 'Something went wrong starting the chat.');
+            ErrorHandlerService.handle(e);
         } finally {
             setIsSearching(false);
         }

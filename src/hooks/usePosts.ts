@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { db } from '../utils/supabase';
 import { getPublicPostUrl } from '../utils/media';
+import { ErrorHandlerService } from '../core/error/services/ErrorHandlerService';
 
 export interface Post {
     id: string;
@@ -99,7 +100,7 @@ export function usePosts(options?: UsePostsOptions) {
                 .in('id', userIds);
 
             if (usersError) {
-                console.error('Error fetching users for feed:', usersError);
+                ErrorHandlerService.handle(usersError, { showUI: false });
                 // Proceed with posts but no user info
             }
 
@@ -137,7 +138,7 @@ export function usePosts(options?: UsePostsOptions) {
             setError(null);
 
         } catch (err: any) {
-            console.error('Error fetching posts:', err);
+            ErrorHandlerService.handle(err, { showUI: false });
             setError(err.message);
         } finally {
             setLoading(false);

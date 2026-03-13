@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Image, TouchableOpacity, TextInput, ScrollView } from 'react-native';
+import { View, Text, Image, TouchableOpacity, TextInput, ScrollView, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useSharedValue,
@@ -9,12 +9,18 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
-import { FontAwesome6 } from '@expo/vector-icons';
+import { FontAwesome6, MaterialCommunityIcons } from '@expo/vector-icons';
+import Feather from '@expo/vector-icons/Feather';
+import * as ImagePicker from 'expo-image-picker';
+import { decode } from 'base64-arraybuffer';
 import { db } from '../../../utils/supabase';
+import { useUserStore } from '../../../stores/UserStore';
 import { styles, vw, vh } from '../styles/plantStyles';
 import { PlantItem } from '../types/plant.types';
 import { useNavigation } from '@react-navigation/native';
 import { playSound } from '~/utils/SoundManager';
+import AlertModal from '../../../components/AlertModal';
+import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
 
 interface Props {
   item: PlantItem;
@@ -36,6 +42,88 @@ export const PlantCard = React.memo(
     const [editedDescription, setEditedDescription] = useState(item.description);
 
     const [plantTypes, setPlantTypes] = useState<{ id: number; name: string }[]>([]);
+
+    const { user } = useUserStore();
+    const [customImageUri, setCustomImageUri] = useState<string | null>(item.image_url || null);
+    const [customImageBase64, setCustomImageBase64] = useState<string | null>(null);
+
+    const [modalVisible, setModalVisible] = useState(false);
+    const [modalConfig, setModalConfig] = useState<{ type: 'success' | 'error' | 'loading'; title: string; message: string }>({
+      type: 'success', title: '', message: ''
+    });
+
+    const showModal = (type: 'success' | 'error' | 'loading', title: string, message: string) => {
+      setModalConfig({ type, title, message });
+      setModalVisible(true);
+    };
+
+    const pickImage = async () => {
+      Alert.alert(
+        'Upload Photo',
+        'Choose a photo source',
+        [
+          {
+            text: 'Camera',
+            onPress: async () => {
+              const { status } = await ImagePicker.requestCameraPermissionsAsync();
+              if (status !== 'granted') {
+                Alert.alert('Permission Denied', 'Camera permissions are required.');
+                return;
+              }
+              const result = await ImagePicker.launchCameraAsync({
+                mediaTypes: 'images',
+                allowsEditing: true,
+                quality: 0.8,
+                base64: true,
+              });
+              if (!result.canceled && result.assets && result.assets[0]) {
+                setCustomImageUri(result.assets[0].uri);
+                setCustomImageBase64(result.assets[0].base64 || null);
+              }
+            }
+          },
+          {
+            text: 'Gallery',
+            onPress: async () => {
+              const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: 'images',
+                allowsEditing: true,
+                quality: 0.8,
+                base64: true,
+              });
+              if (!result.canceled && result.assets && result.assets[0]) {
+                setCustomImageUri(result.assets[0].uri);
+                setCustomImageBase64(result.assets[0].base64 || null);
+              }
+            }
+          },
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          }
+        ]
+      );
+    };
+
+    const uploadCustomImage = async (plantId: string): Promise<string | null> => {
+      if (!customImageUri || !customImageBase64) return null;
+      try {
+        const fileExt = customImageUri.split('.').pop() || 'jpg';
+        const fileName = `${plantId}.${fileExt}`;
+        const { data, error } = await db.public.storage
+          .from('plant-images')
+          .upload(fileName, decode(customImageBase64), {
+            contentType: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
+            upsert: true, // Overwrite if changing avatar
+          });
+
+        if (error) throw error;
+        return data?.path || null;
+      } catch (e) {
+        ErrorHandlerService.handle(e, { showUI: false });
+        return null;
+      }
+    };
 
     // Flip animation
     useEffect(() => {
@@ -66,23 +154,42 @@ export const PlantCard = React.memo(
 
     // Save data
     const handleSave = async () => {
-      const { error } = await db.social
-        .from('Plants')
-        .update({
-          nickname: editedName,
-          description: editedDescription,
-          plant_data_id: editedType,
-        })
-        .eq('id', item.id);
+      let finalImageUrl = item.image_url;
 
-      if (error) {
-        console.log('Update error:', error);
-        return;
+      try {
+        // If a NEW image was selected (we have base64 data)
+        if (customImageBase64 && user) {
+          const uploadedUrl = await uploadCustomImage(item.id);
+          if (uploadedUrl) {
+            finalImageUrl = uploadedUrl;
+          } else {
+            throw new Error('Image upload failed.');
+          }
+        }
+
+        const { error } = await db.social
+          .from('Plants')
+          .update({
+            nickname: editedName,
+            description: editedDescription,
+            plant_data_id: editedType,
+            image_url: finalImageUrl,
+          })
+          .eq('id', item.id);
+
+        if (error) {
+          throw error;
+        }
+
+        playSound('flip');
+        await refreshPlants();
+        // Only clear base64, so if they flip it back we still show the new image or original url
+        setCustomImageBase64(null);
+        showModal('success', 'Saved!', 'Plant updated successfully.');
+      } catch (err: any) {
+        ErrorHandlerService.handle(err, { showUI: false });
+        showModal('error', 'Update Failed', err.message || 'Could not update plant.');
       }
-
-      playSound('flip');
-      await refreshPlants();
-      onActionPress();
     };
 
     const handleDelete = async () => {
@@ -142,7 +249,12 @@ export const PlantCard = React.memo(
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.gradient}>
-              <Image source={item.image} style={styles.image} />
+
+              {item.image_url ? (
+                <Image source={{ uri: item.image_url }} style={styles.image} />
+              ) : (
+                <Image source={item.image} style={styles.image} />
+              )}
 
               <View style={styles.infoColumn}>
                 <Text style={styles.name}>{item.name}</Text>
@@ -156,6 +268,10 @@ export const PlantCard = React.memo(
                   justifyContent: 'space-between',
                   height: '100%',
                 }}>
+                <TouchableOpacity onPress={() => navigation.navigate('PlantTimeline', { plantId: item.id })}>
+                  <MaterialCommunityIcons name="cassette" size={26} color="white" />
+                </TouchableOpacity>
+
                 <TouchableOpacity onPress={() => { playSound('flip'); onActionPress(); }}>
                   <FontAwesome6 name="repeat" size={24} color="white" />
                 </TouchableOpacity>
@@ -175,15 +291,36 @@ export const PlantCard = React.memo(
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.backGradient}>
-            <View style={styles.backContent}>
-              <Text style={styles.backTitle}>Edit Plant</Text>
+            <View style={[styles.backContent, { flex: 1 }]}>
+              {/* Header: avatar + title + change photo */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: vh * 1.2 }}>
+                <TouchableOpacity onPress={pickImage}>
+                  <Image
+                    source={
+                      customImageUri ? { uri: customImageUri }
+                        : item.image_url ? { uri: item.image_url }
+                          : item.image
+                    }
+                    style={{ width: 48, height: 48, borderRadius: 24, borderWidth: 2, borderColor: 'white' }}
+                  />
+                  <View style={{ position: 'absolute', bottom: -2, right: -2, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 10, padding: 3 }}>
+                    <Feather name="camera" size={10} color="white" />
+                  </View>
+                </TouchableOpacity>
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={[styles.backTitle, { marginBottom: 2, fontSize: vw * 5 }]}>Edit Plant</Text>
+                  <TouchableOpacity onPress={pickImage}>
+                    <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }}>Tap photo to change</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
 
-              <View style={styles.backRow}>
+              {/* Form fields - 2 column */}
+              <View style={[styles.backRow, { flex: 1, marginTop: 0 }]}>
                 {/* LEFT SIDE */}
-                <View style={styles.column}>
-                  <View style={styles.field}>
+                <View style={[styles.column, { justifyContent: 'space-between' }]}>
+                  <View style={[styles.field, { marginBottom: vh * 0.8 }]}>
                     <Text style={styles.label}>Name</Text>
-
                     <TextInput
                       style={styles.input}
                       value={editedName}
@@ -191,7 +328,7 @@ export const PlantCard = React.memo(
                     />
                   </View>
 
-                  <View style={styles.field}>
+                  <View style={[styles.field, { marginBottom: 0 }]}>
                     <Text style={styles.label}>Description</Text>
                     <TextInput
                       style={styles.input}
@@ -202,8 +339,8 @@ export const PlantCard = React.memo(
                 </View>
 
                 {/* RIGHT SIDE */}
-                <View style={styles.column}>
-                  <View style={styles.field}>
+                <View style={[styles.column, { justifyContent: 'space-between' }]}>
+                  <View style={[styles.field, { marginBottom: vh * 0.8 }]}>
                     <Text style={styles.label}>Plant Type</Text>
 
                     <View style={{ width: '100%', zIndex: 20 }}>
@@ -236,7 +373,7 @@ export const PlantCard = React.memo(
                             backgroundColor: 'rgba(0,0,0,0.8)',
                             borderRadius: 8,
                             marginTop: 4,
-                            maxHeight: vh * 20, // Increased height
+                            maxHeight: vh * 20,
                             zIndex: 100,
                             padding: 4
                           }}>
@@ -259,7 +396,6 @@ export const PlantCard = React.memo(
                       )}
                     </View>
                   </View>
-                  <Text style={styles.label}></Text>
 
                   <View style={styles.buttonRow}>
                     <TouchableOpacity style={styles.cancelButton} onPress={() => { playSound('flip'); onActionPress(); }}>
@@ -279,6 +415,19 @@ export const PlantCard = React.memo(
             </TouchableOpacity>
           </LinearGradient>
         </Animated.View>
+
+        <AlertModal
+          visible={modalVisible}
+          type={modalConfig.type}
+          title={modalConfig.title}
+          message={modalConfig.message}
+          onClose={() => {
+            setModalVisible(false);
+            if (modalConfig.type === 'success') {
+              onActionPress(); // flip card back
+            }
+          }}
+        />
       </View>
     );
   }

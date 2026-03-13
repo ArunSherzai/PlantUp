@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { db } from '../../../utils/supabase';
 import { useUserStore } from '../../../stores/UserStore';
 import { SoundManager, playSound } from '~/utils/SoundManager';
+import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
 
 import { StatusBar } from 'expo-status-bar';
 
@@ -38,8 +39,7 @@ export default function SettingsScreen() {
                             routes: [{ name: 'Auth' as never }],
                         });
                     } catch (error) {
-                        console.error("Sign out error:", error);
-                        Alert.alert("Error", "Failed to sign out.");
+                        ErrorHandlerService.handle(error);
                     }
                 },
             },

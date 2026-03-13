@@ -13,10 +13,15 @@ import { useNavigation } from '@react-navigation/native';
 import { useState, useEffect } from 'react';
 import { ScrollView, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Feather from '@expo/vector-icons/Feather';
+import * as ImagePicker from 'expo-image-picker';
+import { decode } from 'base64-arraybuffer';
 import FilledButton from '~/features/auth/components/FilledButton';
 import { db } from '~/utils/supabase';
 import { useUserStore } from '~/stores/UserStore';
 import DraggableBottomSheet from '~/components/DraggableBottomSheet';
+import AlertModal from '~/components/AlertModal';
+import { getPublicPlantImageUrl } from '~/utils/media';
+import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
 
 type PlantData = {
   id: number;
@@ -42,6 +47,85 @@ export default function AddPlantScreen() {
   const [isDropdownVisible, setDropdownVisible] = useState(false);
   const [plantDataList, setPlantDataList] = useState<PlantData[]>([]);
   const [isLoadingPlants, setIsLoadingPlants] = useState(true);
+  const [customImageUri, setCustomImageUri] = useState<string | null>(null);
+  const [customImageBase64, setCustomImageBase64] = useState<string | null>(null);
+
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalConfig, setModalConfig] = useState<{ type: 'success' | 'error' | 'loading'; title: string; message: string }>({
+    type: 'success', title: '', message: ''
+  });
+
+  const showModal = (type: 'success' | 'error' | 'loading', title: string, message: string) => {
+    setModalConfig({ type, title, message });
+    setModalVisible(true);
+  };
+
+  const pickImage = async () => {
+    Alert.alert(
+      'Upload Photo',
+      'Choose a photo source',
+      [
+        {
+          text: 'Camera',
+          onPress: async () => {
+            const { status } = await ImagePicker.requestCameraPermissionsAsync();
+            if (status !== 'granted') {
+              Alert.alert('Permission Denied', 'Camera permissions are required.');
+              return;
+            }
+            const result = await ImagePicker.launchCameraAsync({
+              mediaTypes: 'images',
+              allowsEditing: true,
+              quality: 0.8,
+              base64: true,
+            });
+            if (!result.canceled && result.assets && result.assets[0]) {
+              setCustomImageUri(result.assets[0].uri);
+              setCustomImageBase64(result.assets[0].base64 || null);
+            }
+          }
+        },
+        {
+          text: 'Gallery',
+          onPress: async () => {
+            const result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: 'images',
+              allowsEditing: true,
+              quality: 0.8,
+              base64: true,
+            });
+            if (!result.canceled && result.assets && result.assets[0]) {
+              setCustomImageUri(result.assets[0].uri);
+              setCustomImageBase64(result.assets[0].base64 || null);
+            }
+          }
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        }
+      ]
+    );
+  };
+
+  const uploadCustomImage = async (plantId: string): Promise<string | null> => {
+    if (!customImageUri || !customImageBase64) return null;
+    try {
+      const fileExt = customImageUri.split('.').pop() || 'jpg';
+      const fileName = `${plantId}.${fileExt}`;
+      const { data, error } = await db.public.storage
+        .from('plant-images')
+        .upload(fileName, decode(customImageBase64), {
+          contentType: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
+        });
+
+      if (error) throw error;
+      return data?.path || null;
+    } catch (e) {
+      ErrorHandlerService.handle(e, { showUI: false });
+      return null;
+    }
+  };
 
   // Fetch plant data from the database
   useEffect(() => {
@@ -54,7 +138,7 @@ export default function AddPlantScreen() {
           .order('common_name', { ascending: true });
 
         if (error) {
-          console.error('Database error:', error);
+          ErrorHandlerService.handle(error, { showUI: false });
           throw new Error('Failed to load plant data');
         }
 
@@ -72,13 +156,13 @@ export default function AddPlantScreen() {
           description: item.description,
           optimal_temperature: item.optimal_temperature,
           optimal_humidity: item.optimal_humidity,
-          image_url: item.image_url,
+          image_url: getPublicPlantImageUrl(item.image_url) || undefined,
           water_frequency: item.water_frequency,
           sunlight_requirements: item.sunlight_requirements,
         }));
         setPlantDataList(typedData);
       } catch (error) {
-        console.error('Error in fetchPlantData:', error);
+        ErrorHandlerService.handle(error, { showUI: false });
         Alert.alert('Error', error instanceof Error ? error.message : 'Failed to load plant data');
       } finally {
         setIsLoadingPlants(false);
@@ -118,12 +202,12 @@ export default function AddPlantScreen() {
       });
 
       if (sessionError) {
-        console.error('Error getting auth session:', sessionError);
+        ErrorHandlerService.handle(sessionError, { showUI: false });
         throw new Error('Failed to verify authentication. Please log in again.');
       }
 
       if (!user) {
-        console.error('No authenticated user found in session');
+        ErrorHandlerService.handle(new Error('No authenticated user found in session'), { showUI: false });
         throw new Error('No active session. Please log in again.');
       }
 
@@ -131,7 +215,7 @@ export default function AddPlantScreen() {
       console.log('Using user ID from auth session:', userId);
 
       if (!user) {
-        console.error('User not found in database. User ID:', userId);
+        ErrorHandlerService.handle(new Error('User not found in database'), { showUI: false });
         throw new Error('User account not found. Please sign up first.');
       }
 
@@ -147,8 +231,8 @@ export default function AddPlantScreen() {
         throw new Error('Selected plant data not found');
       }
 
-      // Insert the new plant into the Plants table
-      const { data, error } = await db.social
+      // Insert the new plant into the Plants table first (without image)
+      const { data: insertedPlant, error: insertError } = await db.social
         .from('Plants')
         .insert([
           {
@@ -158,20 +242,34 @@ export default function AddPlantScreen() {
             user_id: user.id,
           },
         ])
-        .select();
+        .select()
+        .single();
 
-      if (error) {
-        console.error('Database error details:', error);
+      if (insertError || !insertedPlant) {
+        ErrorHandlerService.handle(insertError, { showUI: false });
         throw new Error('Failed to add plant. Please try again.');
       }
 
-      navigation.goBack();
+      // Upload custom image if provided using the new plant ID
+      if (customImageUri) {
+        const customImageUrl = await uploadCustomImage(insertedPlant.id);
+
+        if (customImageUrl) {
+          const { error: updateError } = await db.social
+            .from('Plants')
+            .update({ image_url: customImageUrl })
+            .eq('id', insertedPlant.id);
+
+          if (updateError) {
+            ErrorHandlerService.handle(updateError, { showUI: false });
+          }
+        }
+      }
+
+      showModal('success', 'Success!', 'Your plant has been successfully uploaded.');
     } catch (error) {
-      console.error('Error in handleSave:', {
-        error,
-        timestamp: new Date().toISOString(),
-      });
-      Alert.alert('Error', error instanceof Error ? error.message : 'An unknown error occurred');
+      ErrorHandlerService.handle(error, { showUI: false });
+      showModal('error', 'Error', error instanceof Error ? error.message : 'An unknown error occurred');
     } finally {
       setIsLoading(false);
     }
@@ -204,6 +302,21 @@ export default function AddPlantScreen() {
             style={styles.formScrollView}
             contentContainerStyle={styles.formContentContainer}
             keyboardShouldPersistTaps="handled">
+            <View style={{ alignItems: 'center', marginBottom: 20 }}>
+              <TouchableOpacity onPress={pickImage} style={styles.imagePickerButton}>
+                {customImageUri ? (
+                  <Image source={{ uri: customImageUri }} style={styles.imagePickerImage} />
+                ) : plantDataId && plantDataList.find((p) => p.id === plantDataId)?.image_url ? (
+                  <Image source={{ uri: plantDataList.find((p) => p.id === plantDataId)?.image_url }} style={styles.imagePickerImage} />
+                ) : (
+                  <Image source={require('../../../../assets/images/plant4.png')} style={styles.imagePickerImage} />
+                )}
+                <View style={styles.editIconContainer}>
+                  <Feather name="edit-2" size={16} color="white" />
+                </View>
+              </TouchableOpacity>
+            </View>
+
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Nickname*</Text>
               <TextInput
@@ -312,6 +425,20 @@ export default function AddPlantScreen() {
             />
           </ScrollView>
         </DraggableBottomSheet>
+
+        {/* Custom Result Modal */}
+        <AlertModal
+          visible={modalVisible}
+          type={modalConfig.type}
+          title={modalConfig.title}
+          message={modalConfig.message}
+          onClose={() => {
+            setModalVisible(false);
+            if (modalConfig.type === 'success') {
+              navigation.goBack();
+            }
+          }}
+        />
       </View>
     </GestureHandlerRootView>
   );
@@ -355,6 +482,37 @@ const styles = StyleSheet.create((theme) => ({
   formContentContainer: {
     padding: 20,
     paddingBottom: 40,
+  },
+  imagePickerButton: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: theme.colors.background,
+    borderWidth: 2,
+    borderColor: theme.colors.greyedOut,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  imagePickerImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 60,
+  },
+  imagePickerPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editIconContainer: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    padding: 6,
+    width: '100%',
+    alignItems: 'center',
   },
   inputContainer: {
     marginBottom: 25,

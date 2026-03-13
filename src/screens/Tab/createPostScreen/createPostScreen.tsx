@@ -15,7 +15,8 @@ import {
   Keyboard,
 } from 'react-native';
 import { useUnistyles, StyleSheet } from 'react-native-unistyles';
-import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { LinearGradient } from 'expo-linear-gradient';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
@@ -33,6 +34,7 @@ import SensorDisplayCard from '~/components/SensorDisplayCard';
 import { db } from '../../../utils/supabase';
 import { useUserStore } from '../../../stores/UserStore';
 import { playSound } from '~/utils/SoundManager';
+import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
 
 
 const { height, width } = Dimensions.get('window');
@@ -42,7 +44,9 @@ const MAX_SIZE = 50 * 1024 * 1024;
 
 export default function CreatePostScreen() {
   const { theme } = useUnistyles();
-  const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
+  const route = useRoute<any>();
   const scrollViewRef = useRef(null);
 
   const { user, profile } = useUserStore();
@@ -87,6 +91,22 @@ export default function CreatePostScreen() {
     : require('../../../../assets/images/Profilbild.jpg');
 
   const closeMenu = () => setShowAttachmentMenu(false);
+
+  // --- Listen for media returned from Camera screen ---
+  useEffect(() => {
+    const capturedMedia = route.params?.capturedMedia;
+    if (capturedMedia) {
+      setMedia({
+        uri: capturedMedia.uri,
+        type: capturedMedia.type === 'video' ? 'video' : 'image',
+        mimeType: capturedMedia.mimeType,
+        name: capturedMedia.fileName,
+        thumbnailUri: capturedMedia.thumbnailUri,
+      });
+      // Clear param so it doesn't re-trigger
+      navigation.setParams({ capturedMedia: undefined });
+    }
+  }, [route.params?.capturedMedia]);
 
   // --- FUNKTION: FOTO & VIDEO AUSWÄHLEN ---
   const pickMedia = async (mediaType: ImagePicker.MediaTypeOptions = ImagePicker.MediaTypeOptions.All) => {
@@ -174,7 +194,7 @@ export default function CreatePostScreen() {
         .eq('user_id', userId);
 
       if (error) {
-        console.error('[CreatePost] Error fetching plants:', error);
+        ErrorHandlerService.handle(error, { showUI: false });
         throw error;
       }
 
@@ -191,7 +211,7 @@ export default function CreatePostScreen() {
       setPlants(initializedPlants);
       setShowSensorSelection(true);
     } catch (e) {
-      console.error('[CreatePost] Exception in attachSensorData:', e);
+      ErrorHandlerService.handle(e);
       Alert.alert('Error', 'Could not load your plants.');
     } finally {
       setFetchingSensorData(false);
@@ -232,7 +252,7 @@ export default function CreatePostScreen() {
           .limit(10);
 
         if (error) {
-          console.error('[CreatePost] Error fetching Controller records:', error);
+          ErrorHandlerService.handle(error, { showUI: false });
           throw error;
         }
 
@@ -255,7 +275,7 @@ export default function CreatePostScreen() {
         });
 
       } catch (e) {
-        console.error('[CreatePost] Exception fetching records:', e);
+        ErrorHandlerService.handle(e);
         Alert.alert('Error', 'Could not load records.');
 
         setPlants(currentPlants => {
@@ -441,7 +461,7 @@ export default function CreatePostScreen() {
       setCaption('');
       setMedia(null);
     } catch (e: any) {
-      console.error('Post Error:', e);
+      ErrorHandlerService.handle(e);
       Alert.alert('Error', e.message || 'Network request failed');
 
       // --- CLEANUP LOGIC ---
@@ -454,12 +474,12 @@ export default function CreatePostScreen() {
             .remove(uploadedPaths);
 
           if (removeError) {
-            console.error('Cleanup failed:', removeError);
+            ErrorHandlerService.handle(removeError, { showUI: false });
           } else {
             console.log('Cleanup successful.');
           }
         } catch (cleanupErr) {
-          console.error('Cleanup exception:', cleanupErr);
+          ErrorHandlerService.handle(cleanupErr, { showUI: false });
         }
       }
     } finally {
@@ -470,31 +490,32 @@ export default function CreatePostScreen() {
   return (
     <View style={styles.container}>
 
-
-      {/* FIXED BACKGROUND */}
-      <View style={styles.bgContainer}>
+      {/* HEADER BACKGROUND AND TITLE */}
+      <View style={styles.headerBg}>
         <Image
           source={require('../../../../assets/images/createPostBackground.png')}
           style={styles.bgImage}
           resizeMode="cover"
         />
         <View style={styles.overlay} />
+        
+        <View style={[styles.headerContent, { paddingTop: insets.top + 10 }]}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <FontAwesome6 name="chevron-left" size={20} color="white" />
+          </TouchableOpacity>
+          <Text
+            style={styles.headerTitle}
+            adjustsFontSizeToFit
+            numberOfLines={3}
+            minimumFontScale={0.5}
+          >
+            Create{"\n"}a{"\n"}Post!
+          </Text>
+        </View>
       </View>
 
-      {/* HEADER */}
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <FontAwesome6 name="chevron-left" size={22} color="white" />
-            <Text style={styles.cancelText}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-
-      {/* CONTENT - FESTE HÖHE STATT SCROLLVIEW */}
-      <View style={styles.contentContainer}>
-        <Text style={styles.pageTitle}>Create a Post</Text>
-
+      {/* CONTENT - BOTTOM SHEET */}
+      <View style={styles.staticSheetContainer}>
         <View style={styles.whiteSheet}>
           {/* 1. USER INFO */}
           <View style={styles.userRow}>
@@ -521,7 +542,7 @@ export default function CreatePostScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* 2. TEXT INPUT */}
+          {/* 2. TEXT INPUT + PREVIEW (scrollable) */}
           <KeyboardAwareScrollView
             style={styles.inputContainer}
             contentContainerStyle={styles.inputContent}
@@ -538,7 +559,6 @@ export default function CreatePostScreen() {
               onChangeText={setCaption}
               textAlignVertical="top"
             />
-          </KeyboardAwareScrollView>
 
           {/* 3. PREVIEW AREA: MEDIA or THOUGHT */}
           <View style={styles.previewWrapper}>
@@ -678,6 +698,7 @@ export default function CreatePostScreen() {
               </LinearGradient>
             ) : null}
           </View>
+          </KeyboardAwareScrollView>
 
           {/* 4. BUTTON UNTEN */}
           <View style={styles.toolbar}>
@@ -704,18 +725,8 @@ export default function CreatePostScreen() {
 
             <View style={styles.gridContainer}>
 
-              <AttachmentCard
-                icon="image"
-                color="#4A90E2"
-                label="Photo"
-                onPress={() => pickMedia(ImagePicker.MediaTypeOptions.Images)}
-              />
-              <AttachmentCard
-                icon="video"
-                color="#E056FD"
-                label="Video"
-                onPress={() => pickMedia(ImagePicker.MediaTypeOptions.Videos)}
-              />
+
+
               {/* GIF Button Removed */}
               <AttachmentCard
                 icon="file-lines"
@@ -728,6 +739,15 @@ export default function CreatePostScreen() {
                 color="#00C853"
                 label="Sensor"
                 onPress={attachSensorData}
+              />
+              <AttachmentCard
+                icon="camera"
+                color="#FF6B6B"
+                label="Camera"
+                onPress={() => {
+                  closeMenu();
+                  navigation.navigate('Camera', { mode: 'photo', source: 'CreatePost' });
+                }}
               />
             </View>
           </View>
@@ -859,12 +879,11 @@ const styles = StyleSheet.create((theme: any) => ({
     flex: 1,
     backgroundColor: theme.colors.background,
   },
-  bgContainer: {
+  headerBg: {
+    height: '60%',
+    width: '100%',
     position: 'absolute',
     top: 0,
-    left: 0,
-    right: 0,
-    height: 280,
   },
   bgImage: {
     width: '100%',
@@ -872,42 +891,38 @@ const styles = StyleSheet.create((theme: any) => ({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.1)',
+    backgroundColor: 'rgba(0,0,0,0.15)',
   },
-
-  safeArea: {
-    zIndex: 10,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    marginTop: 10,
+  headerContent: {
+    position: 'absolute',
+    top: 0,
+    left: 20,
   },
   backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    marginBottom: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
   },
-  cancelText: {
-    color: theme.colors.typography,
-    fontSize: 18,
-    marginLeft: 8,
-    fontWeight: '600',
+  headerTitle: {
+    fontSize: 42,
+    fontWeight: '900',
+    color: 'white',
+    lineHeight: 46,
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
 
   // Content Container
-  contentContainer: {
+  staticSheetContainer: {
     flex: 1,
-    marginTop: height * 0.15,
-  },
-  pageTitle: {
-    fontSize: 40,
-    fontWeight: '900',
-    color: theme.colors.typography,
-    paddingHorizontal: 20,
-    marginBottom: 5,
-    textShadowColor: 'rgba(0,0,0,0.2)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+    marginTop: height * 0.40,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
   },
 
   whiteSheet: {
@@ -999,7 +1014,7 @@ const styles = StyleSheet.create((theme: any) => ({
   // --- FEED STYLE PREVIEW ---
   feedPreviewContainer: {
     width: '100%',
-    height: height * 0.5,
+    height: height * 0.3,
     borderRadius: 20,
     overflow: 'hidden',
     backgroundColor: 'black',

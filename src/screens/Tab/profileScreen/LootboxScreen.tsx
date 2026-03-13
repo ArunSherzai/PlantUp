@@ -6,6 +6,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../../../navigation/Root';
 import { db } from '~/utils/supabase';
 import { playSound } from '~/utils/SoundManager';
+import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -126,7 +127,7 @@ export default function LootboxScreen() {
 
             return border;
         } catch (err) {
-            console.error('Error in lootbox flow:', err);
+            ErrorHandlerService.handle(err, { showUI: false });
             return null;
         }
     };

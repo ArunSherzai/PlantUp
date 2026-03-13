@@ -11,6 +11,8 @@ import * as Linking from 'expo-linking';
 import { SoundManager } from '~/utils/SoundManager';
 
 import { SystemBars } from 'react-native-edge-to-edge';
+import { GlobalErrorBoundary } from '~/core/error/components/GlobalErrorBoundary';
+
 export default function App() {
   const fontsLoaded = useLoadFonts();
   const [appIsReady, setAppIsReady] = useState(false);
@@ -42,11 +44,14 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
+
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <View onLayout={onLayoutRootView} style={{ flex: 1 }}>
-          <SystemBars hidden />
-          <RootStack />
-        </View>
+        <GlobalErrorBoundary>
+          <View onLayout={onLayoutRootView} style={{ flex: 1 }}>
+            <SystemBars hidden />
+            <RootStack />
+          </View>
+        </GlobalErrorBoundary>
       </GestureHandlerRootView>
     </SafeAreaProvider>
   );

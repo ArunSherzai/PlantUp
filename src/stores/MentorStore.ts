@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { db } from '../utils/supabase';
+import { ErrorHandlerService } from '../core/error/services/ErrorHandlerService';
 import { useUserStore } from './UserStore';
 import { getAvatarSource } from '../utils/avatarUtils';
 import { MENTOR_MIN_LEVEL, MENTOR_MIN_POSTS } from '../utils/mentorUtils';
@@ -124,7 +125,7 @@ export const useMentorStore = create<MentorState>((set, get) => ({
 
             set({ mentors, loading: false });
         } catch (e) {
-            console.error('[MentorStore] Error fetching mentors:', e);
+            ErrorHandlerService.handle(e, { showUI: false });
             set({ loading: false });
         }
     },
@@ -148,7 +149,7 @@ export const useMentorStore = create<MentorState>((set, get) => ({
                 if (error.code === '23505') {
                     console.warn('[MentorStore] Request already exists');
                 } else {
-                    console.error('[MentorStore] Error sending request:', error);
+                    ErrorHandlerService.handle(error, { showUI: false });
                 }
                 return false;
             }
@@ -157,7 +158,7 @@ export const useMentorStore = create<MentorState>((set, get) => ({
             await get().fetchOutgoingRequests();
             return true;
         } catch (e) {
-            console.error('[MentorStore] Exception sending request:', e);
+            ErrorHandlerService.handle(e, { showUI: false });
             return false;
         }
     },
@@ -175,7 +176,7 @@ export const useMentorStore = create<MentorState>((set, get) => ({
                 .single();
 
             if (fetchError || !requestData) {
-                console.error('[MentorStore] Error fetching request:', fetchError);
+                ErrorHandlerService.handle(fetchError || new Error('Request not found'), { showUI: false });
                 return false;
             }
 
@@ -185,7 +186,7 @@ export const useMentorStore = create<MentorState>((set, get) => ({
                 .eq('id', requestId);
 
             if (updateError) {
-                console.error('[MentorStore] Error accepting request:', updateError);
+                ErrorHandlerService.handle(updateError, { showUI: false });
                 return false;
             }
 
@@ -208,7 +209,7 @@ export const useMentorStore = create<MentorState>((set, get) => ({
             await get().fetchIncomingRequests();
             return true;
         } catch (e) {
-            console.error('[MentorStore] Exception accepting request:', e);
+            ErrorHandlerService.handle(e, { showUI: false });
             return false;
         }
     },
@@ -221,7 +222,7 @@ export const useMentorStore = create<MentorState>((set, get) => ({
                 .eq('id', requestId);
 
             if (error) {
-                console.error('[MentorStore] Error rejecting request:', error);
+                ErrorHandlerService.handle(error, { showUI: false });
                 return false;
             }
 
@@ -229,7 +230,7 @@ export const useMentorStore = create<MentorState>((set, get) => ({
             await get().fetchIncomingRequests();
             return true;
         } catch (e) {
-            console.error('[MentorStore] Exception rejecting request:', e);
+            ErrorHandlerService.handle(e, { showUI: false });
             return false;
         }
     },
@@ -270,7 +271,7 @@ export const useMentorStore = create<MentorState>((set, get) => ({
 
             set({ incomingRequests: requests });
         } catch (e) {
-            console.error('[MentorStore] Error fetching incoming requests:', e);
+            ErrorHandlerService.handle(e, { showUI: false });
         }
     },
 
@@ -310,7 +311,7 @@ export const useMentorStore = create<MentorState>((set, get) => ({
 
             set({ outgoingRequests: requests });
         } catch (e) {
-            console.error('[MentorStore] Error fetching outgoing requests:', e);
+            ErrorHandlerService.handle(e, { showUI: false });
         }
     },
 

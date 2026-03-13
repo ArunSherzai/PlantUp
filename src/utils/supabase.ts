@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
+import { ErrorHandlerService } from '../core/error/services/ErrorHandlerService';
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL!;
 const SUPABASE_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
@@ -65,7 +66,7 @@ const fetchRandomEntry = async (tableName: string) => {
     return data;
 
   } catch (err) {
-    console.error('Error:', err);
+    ErrorHandlerService.handle(err, { showUI: false });
   }
 };
 

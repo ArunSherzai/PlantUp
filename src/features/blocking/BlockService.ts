@@ -1,4 +1,5 @@
 import { db } from '../../utils/supabase';
+import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
 
 export const BlockService = {
     /**
@@ -83,7 +84,7 @@ export const BlockService = {
             .eq('blocker_id', user.id);
 
         if (error) {
-            console.error('Error fetching blocked users:', error);
+            ErrorHandlerService.handle(error, { showUI: false });
             return [];
         }
 

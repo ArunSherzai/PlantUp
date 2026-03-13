@@ -122,7 +122,7 @@ export const styles = StyleSheet.create((theme) => ({
   },
 
   backContent: {
-    margin: vw * 4,
+    margin: vw * 3,
   },
 
   backTitle: {

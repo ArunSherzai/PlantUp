@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { db } from '../../../utils/supabase';
+import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
 
 export type SearchUser = {
     id: string;
@@ -74,7 +75,7 @@ export function useUserSearch() {
 
             setSearchResults(enrichedUsers);
         } catch (error) {
-            console.error('Error searching users:', error);
+            ErrorHandlerService.handle(error, { showUI: false });
             setSearchResults([]);
         } finally {
             setLoading(false);

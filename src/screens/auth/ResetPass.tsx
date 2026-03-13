@@ -7,6 +7,7 @@ import * as QueryParams from 'expo-auth-session/build/QueryParams';
 import { db } from '~/utils/supabase';
 import FilledButton from '~/features/auth/components/FilledButton';
 import GradientInput from '~/features/auth/components/GradientInput';
+import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
 
 export default function ResetPass() {
   const { theme } = useUnistyles();
@@ -28,7 +29,7 @@ export default function ResetPass() {
           });
 
           if (error) {
-            console.error('Session restore failed:', error.message);
+            ErrorHandlerService.handle(error, { showUI: false });
           } else {
             console.log('Session restored — user can now reset password');
           }
@@ -52,7 +53,7 @@ export default function ResetPass() {
     });
 
     if (updateError) {
-      console.error('Password update error:', updateError.message);
+      ErrorHandlerService.handle(updateError, { showUI: false });
       setError(updateError.message);
     } else {
       console.log('Password updated successfully');
