@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Image, ScrollView, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { Image, ScrollView, Switch, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { StatusBar } from 'expo-status-bar';
 import { useNavigation } from '@react-navigation/native';
@@ -13,6 +13,7 @@ export default function NotificationsScreen() {
     const { theme } = useUnistyles();
     const navigation = useNavigation<any>();
     const insets = useSafeAreaInsets();
+    const { width, fontScale } = useWindowDimensions();
     const { sprigNotificationsEnabled, toggleSprigNotifications } = useUserStore();
     const items = useInboxStore((state) => state.items);
     const hydrated = useInboxStore((state) => state.hydrated);
@@ -23,6 +24,8 @@ export default function NotificationsScreen() {
     const removeNotification = useInboxStore((state) => state.removeNotification);
     const clearRead = useInboxStore((state) => state.clearRead);
     const [filter, setFilter] = useState<'all' | 'unread' | 'read'>('all');
+    const isCompact = width < 380 || fontScale > 1.15;
+    const isTabletLike = width >= 768;
 
     useEffect(() => {
         hydrate();
@@ -110,15 +113,18 @@ export default function NotificationsScreen() {
 
             <View style={styles.roundedContainer}>
                 <ScrollView contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
-                    <View style={styles.heroCard}>
+                    <View style={[styles.contentInner, isTabletLike && styles.contentInnerTablet]}>
+                    <View style={[styles.heroCard, isCompact && styles.heroCardCompact]}>
                         <Text style={styles.heroEyebrow}>Inbox</Text>
-                        <Text style={styles.heroTitle}>Important stays visible, noise clears out.</Text>
-                        <View style={styles.heroStatsRow}>
-                            <View style={styles.statCard}>
+                        <Text style={[styles.heroTitle, isCompact && styles.heroTitleCompact]}>
+                            Important stays visible, noise clears out.
+                        </Text>
+                        <View style={[styles.heroStatsRow, isCompact && styles.heroStatsRowCompact]}>
+                            <View style={[styles.statCard, isCompact && styles.statCardCompact]}>
                                 <Text style={styles.statValue}>{unreadCount}</Text>
                                 <Text style={styles.statLabel}>Unread</Text>
                             </View>
-                            <View style={styles.statCard}>
+                            <View style={[styles.statCard, isCompact && styles.statCardCompact]}>
                                 <Text style={styles.statValue}>{items.length}</Text>
                                 <Text style={styles.statLabel}>Total</Text>
                             </View>
@@ -146,9 +152,13 @@ export default function NotificationsScreen() {
                         </View>
                     </View>
 
-                    <View style={styles.actionRow}>
+                    <View style={[styles.actionRow, isCompact && styles.actionRowCompact]}>
                         <TouchableOpacity
-                            style={[styles.actionButton, { backgroundColor: theme.colors.surface, borderColor: theme.colors.greyedOut, opacity: unreadCount ? 1 : 0.45 }]}
+                            style={[
+                                styles.actionButton,
+                                isCompact && styles.actionButtonCompact,
+                                { backgroundColor: theme.colors.surface, borderColor: theme.colors.greyedOut, opacity: unreadCount ? 1 : 0.45 },
+                            ]}
                             onPress={markAllAsRead}
                             disabled={!unreadCount}
                         >
@@ -156,7 +166,11 @@ export default function NotificationsScreen() {
                             <Text style={[styles.actionText, { color: theme.colors.text }]}>Mark all read</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                            style={[styles.actionButton, { backgroundColor: theme.colors.surface, borderColor: theme.colors.greyedOut, opacity: readCount ? 1 : 0.45 }]}
+                            style={[
+                                styles.actionButton,
+                                isCompact && styles.actionButtonCompact,
+                                { backgroundColor: theme.colors.surface, borderColor: theme.colors.greyedOut, opacity: readCount ? 1 : 0.45 },
+                            ]}
                             onPress={clearRead}
                             disabled={!readCount}
                         >
@@ -173,6 +187,7 @@ export default function NotificationsScreen() {
                                     key={value}
                                     style={[
                                         styles.filterChip,
+                                        isCompact && styles.filterChipCompact,
                                         {
                                             backgroundColor: active ? theme.colors.primary : theme.colors.surface,
                                             borderColor: active ? theme.colors.primary : theme.colors.greyedOut,
@@ -189,7 +204,7 @@ export default function NotificationsScreen() {
                     </View>
 
                     {!hydrated || filteredItems.length === 0 ? (
-                        <View style={[styles.emptyState, { backgroundColor: theme.colors.surface, borderColor: theme.colors.greyedOut }]}>
+                        <View style={[styles.emptyState, isCompact && styles.emptyStateCompact, { backgroundColor: theme.colors.surface, borderColor: theme.colors.greyedOut }]}>
                             <FontAwesome6 name="inbox" size={28} color={theme.colors.greyedOut} />
                             <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
                                 {hydrated ? 'No notifications here.' : 'Loading inbox...'}
@@ -206,6 +221,7 @@ export default function NotificationsScreen() {
                                 key={item.id}
                                 style={[
                                     styles.notificationCard,
+                                    isCompact && styles.notificationCardCompact,
                                     {
                                         backgroundColor: theme.colors.surface,
                                         borderColor: item.readAt ? theme.colors.greyedOut : accent,
@@ -213,11 +229,11 @@ export default function NotificationsScreen() {
                                 ]}
                             >
                                 <TouchableOpacity
-                                    style={styles.notificationTapArea}
+                                    style={[styles.notificationTapArea, isCompact && styles.notificationTapAreaCompact]}
                                     activeOpacity={0.88}
                                     onPress={() => onOpenItem(item)}
                                 >
-                                    <View style={[styles.iconWrap, { backgroundColor: `${accent}18` }]}>
+                                    <View style={[styles.iconWrap, isCompact && styles.iconWrapCompact, { backgroundColor: `${accent}18` }]}>
                                         {item.avatarUri ? (
                                             <Image source={{ uri: item.avatarUri }} style={styles.avatar} />
                                         ) : (
@@ -226,18 +242,18 @@ export default function NotificationsScreen() {
                                     </View>
 
                                     <View style={styles.itemContent}>
-                                        <View style={styles.itemTopRow}>
-                                            <Text style={[styles.itemTitle, { color: theme.colors.text }]} numberOfLines={1}>
+                                        <View style={[styles.itemTopRow, isCompact && styles.itemTopRowCompact]}>
+                                            <Text style={[styles.itemTitle, isCompact && styles.itemTitleCompact, { color: theme.colors.text }]} numberOfLines={isCompact ? 2 : 1}>
                                                 {item.title}
                                             </Text>
                                             <Text style={[styles.itemMeta, { color: theme.colors.greyedOut }]}>
                                                 {formatTime(item.createdAt)}
                                             </Text>
                                         </View>
-                                        <Text style={[styles.itemBody, { color: theme.colors.text }]} numberOfLines={2}>
+                                        <Text style={[styles.itemBody, isCompact && styles.itemBodyCompact, { color: theme.colors.text }]} numberOfLines={isCompact ? 3 : 2}>
                                             {item.body}
                                         </Text>
-                                        <View style={styles.itemFooter}>
+                                        <View style={[styles.itemFooter, isCompact && styles.itemFooterCompact]}>
                                             <Text style={[styles.kindPill, { color: accent, borderColor: `${accent}40` }]}>
                                                 {item.kind === 'follow' ? 'Follow' : item.kind}
                                             </Text>
@@ -253,13 +269,13 @@ export default function NotificationsScreen() {
 
                                 <View style={styles.itemActions}>
                                     <TouchableOpacity
-                                        style={[styles.smallIconButton, { backgroundColor: theme.colors.background, borderColor: theme.colors.greyedOut }]}
+                                        style={[styles.smallIconButton, isCompact && styles.smallIconButtonCompact, { backgroundColor: theme.colors.background, borderColor: theme.colors.greyedOut }]}
                                         onPress={() => item.readAt ? markAsUnread(item.id) : markAsRead(item.id)}
                                     >
                                         <FontAwesome6 name={item.readAt ? 'envelope' : 'check'} size={14} color={theme.colors.text} />
                                     </TouchableOpacity>
                                     <TouchableOpacity
-                                        style={[styles.smallIconButton, { backgroundColor: theme.colors.background, borderColor: theme.colors.greyedOut }]}
+                                        style={[styles.smallIconButton, isCompact && styles.smallIconButtonCompact, { backgroundColor: theme.colors.background, borderColor: theme.colors.greyedOut }]}
                                         onPress={() => removeNotification(item.id)}
                                     >
                                         <FontAwesome6 name="trash" size={14} color="#D34B4B" />
@@ -268,6 +284,7 @@ export default function NotificationsScreen() {
                             </View>
                         );
                     })}
+                    </View>
                 </ScrollView>
             </View>
         </View>
@@ -321,11 +338,21 @@ const styles = StyleSheet.create((theme: any) => ({
         padding: 20,
         paddingBottom: 80,
     },
+    contentInner: {
+        width: '100%',
+        alignSelf: 'center',
+    },
+    contentInnerTablet: {
+        maxWidth: 720,
+    },
     heroCard: {
         backgroundColor: '#103B3B',
         borderRadius: 24,
         padding: 18,
         marginBottom: 18,
+    },
+    heroCardCompact: {
+        padding: 16,
     },
     heroEyebrow: {
         color: '#9FE3D5',
@@ -342,10 +369,17 @@ const styles = StyleSheet.create((theme: any) => ({
         fontWeight: '800',
         marginBottom: 14,
     },
+    heroTitleCompact: {
+        fontSize: 21,
+        lineHeight: 27,
+    },
     heroStatsRow: {
         flexDirection: 'row',
         gap: 12,
         marginBottom: 12,
+    },
+    heroStatsRowCompact: {
+        flexDirection: 'column',
     },
     statCard: {
         flex: 1,
@@ -353,6 +387,9 @@ const styles = StyleSheet.create((theme: any) => ({
         borderRadius: 18,
         paddingVertical: 14,
         paddingHorizontal: 16,
+    },
+    statCardCompact: {
+        minHeight: 84,
     },
     statValue: {
         color: '#fff',
@@ -393,17 +430,26 @@ const styles = StyleSheet.create((theme: any) => ({
     },
     actionRow: {
         flexDirection: 'row',
+        flexWrap: 'wrap',
         gap: 12,
         marginBottom: 14,
     },
+    actionRowCompact: {
+        gap: 10,
+    },
     actionButton: {
         flex: 1,
+        minWidth: 140,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
         paddingVertical: 14,
         borderRadius: 16,
         borderWidth: 1,
+    },
+    actionButtonCompact: {
+        width: '100%',
+        flexBasis: '100%',
     },
     actionText: {
         fontSize: 14,
@@ -412,6 +458,7 @@ const styles = StyleSheet.create((theme: any) => ({
     },
     filterRow: {
         flexDirection: 'row',
+        flexWrap: 'wrap',
         gap: 10,
         marginBottom: 16,
     },
@@ -420,6 +467,11 @@ const styles = StyleSheet.create((theme: any) => ({
         paddingVertical: 10,
         borderRadius: 999,
         borderWidth: 1,
+    },
+    filterChipCompact: {
+        minWidth: 92,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     filterText: {
         fontSize: 13,
@@ -432,6 +484,10 @@ const styles = StyleSheet.create((theme: any) => ({
         paddingHorizontal: 24,
         borderRadius: 18,
         borderWidth: 1,
+    },
+    emptyStateCompact: {
+        paddingVertical: 36,
+        paddingHorizontal: 18,
     },
     emptyTitle: {
         fontSize: 18,
@@ -453,11 +509,18 @@ const styles = StyleSheet.create((theme: any) => ({
         borderWidth: 1,
         marginBottom: 12,
     },
+    notificationCardCompact: {
+        alignItems: 'flex-start',
+        padding: 12,
+    },
     notificationTapArea: {
         flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
         marginRight: 8,
+    },
+    notificationTapAreaCompact: {
+        alignItems: 'flex-start',
     },
     iconWrap: {
         width: 48,
@@ -467,6 +530,12 @@ const styles = StyleSheet.create((theme: any) => ({
         alignItems: 'center',
         overflow: 'hidden',
         marginRight: 12,
+    },
+    iconWrapCompact: {
+        width: 44,
+        height: 44,
+        borderRadius: 14,
+        marginTop: 2,
     },
     avatar: {
         width: '100%',
@@ -482,10 +551,16 @@ const styles = StyleSheet.create((theme: any) => ({
         marginBottom: 4,
         gap: 10,
     },
+    itemTopRowCompact: {
+        alignItems: 'flex-start',
+    },
     itemTitle: {
         flex: 1,
         fontSize: 15,
         fontWeight: '800',
+    },
+    itemTitleCompact: {
+        paddingRight: 8,
     },
     itemMeta: {
         fontSize: 12,
@@ -495,10 +570,17 @@ const styles = StyleSheet.create((theme: any) => ({
         fontSize: 14,
         lineHeight: 19,
     },
+    itemBodyCompact: {
+        lineHeight: 20,
+    },
     itemFooter: {
         flexDirection: 'row',
         alignItems: 'center',
         marginTop: 10,
+    },
+    itemFooterCompact: {
+        flexWrap: 'wrap',
+        rowGap: 8,
     },
     kindPill: {
         fontSize: 12,
@@ -531,5 +613,10 @@ const styles = StyleSheet.create((theme: any) => ({
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 1,
+    },
+    smallIconButtonCompact: {
+        width: 38,
+        height: 38,
+        borderRadius: 19,
     },
 }));
