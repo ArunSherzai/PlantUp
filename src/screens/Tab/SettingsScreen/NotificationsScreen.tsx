@@ -1,24 +1,98 @@
-import React from 'react';
-import { View, Text, Switch, TouchableOpacity, Image } from 'react-native';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Image, ScrollView, Switch, Text, TouchableOpacity, View } from 'react-native';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
+import { StatusBar } from 'expo-status-bar';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useUserStore } from '../../../stores/UserStore';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
-import { StatusBar } from 'expo-status-bar';
+import { useInboxStore, type InboxItem } from '../../../stores/InboxStore';
+import { useUserStore } from '../../../stores/UserStore';
 
 export default function NotificationsScreen() {
     const { theme } = useUnistyles();
-    const navigation = useNavigation();
+    const navigation = useNavigation<any>();
     const insets = useSafeAreaInsets();
     const { sprigNotificationsEnabled, toggleSprigNotifications } = useUserStore();
+    const items = useInboxStore((state) => state.items);
+    const hydrated = useInboxStore((state) => state.hydrated);
+    const hydrate = useInboxStore((state) => state.hydrate);
+    const markAsRead = useInboxStore((state) => state.markAsRead);
+    const markAsUnread = useInboxStore((state) => state.markAsUnread);
+    const markAllAsRead = useInboxStore((state) => state.markAllAsRead);
+    const removeNotification = useInboxStore((state) => state.removeNotification);
+    const clearRead = useInboxStore((state) => state.clearRead);
+    const [filter, setFilter] = useState<'all' | 'unread' | 'read'>('all');
+
+    useEffect(() => {
+        hydrate();
+    }, [hydrate]);
+
+    const unreadCount = useMemo(() => items.filter((item) => !item.readAt).length, [items]);
+    const readCount = items.length - unreadCount;
+    const filteredItems = useMemo(() => {
+        if (filter === 'unread') return items.filter((item) => !item.readAt);
+        if (filter === 'read') return items.filter((item) => !!item.readAt);
+        return items;
+    }, [filter, items]);
+
+    const onOpenItem = async (item: InboxItem) => {
+        if (!item.readAt) {
+            await markAsRead(item.id);
+        }
+
+        if (item.navigationTarget) {
+            navigation.navigate(item.navigationTarget.name, item.navigationTarget.params);
+        }
+    };
+
+    const getAccent = (kind: InboxItem['kind']) => {
+        switch (kind) {
+            case 'critical':
+                return '#E55050';
+            case 'warning':
+                return '#F0A83B';
+            case 'chat':
+                return '#3B82F6';
+            case 'follow':
+                return '#7C52E8';
+            default:
+                return theme.colors.primary;
+        }
+    };
+
+    const getIcon = (kind: InboxItem['kind']) => {
+        switch (kind) {
+            case 'critical':
+                return 'triangle-exclamation';
+            case 'warning':
+                return 'bell';
+            case 'chat':
+                return 'envelope';
+            case 'follow':
+                return 'user-plus';
+            default:
+                return 'seedling';
+        }
+    };
+
+    const formatTime = (value: string) => {
+        const date = new Date(value);
+        const diffMs = Date.now() - date.getTime();
+        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+        const diffDays = Math.floor(diffHours / 24);
+
+        if (diffHours < 1) return 'Now';
+        if (diffHours < 24) return `${diffHours}h ago`;
+        if (diffDays < 7) return `${diffDays}d ago`;
+        return date.toLocaleDateString();
+    };
 
     return (
         <View style={styles.container}>
             <StatusBar style="light" translucent backgroundColor="transparent" />
-            {/* Header Background */}
-            <View style={[styles.headerBg, { height: 140 + insets.top }]}>
+
+            <View style={[styles.headerBg, { height: 160 + insets.top }]}>
                 <Image
                     source={require('../../../../assets/images/profileScreenBackground.png')}
                     style={styles.headerGradient}
@@ -35,19 +109,31 @@ export default function NotificationsScreen() {
             </View>
 
             <View style={styles.roundedContainer}>
-                <View style={styles.contentContainer}>
-                    <View style={styles.section}>
-                        <View style={styles.row}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                <FontAwesome6
-                                    name="bell"
-                                    size={18}
-                                    color={theme.colors.text}
-                                    style={{ marginRight: 10 }}
-                                />
-                                <Text style={styles.label}>Sprig Notifications</Text>
+                <ScrollView contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
+                    <View style={styles.heroCard}>
+                        <Text style={styles.heroEyebrow}>Inbox</Text>
+                        <Text style={styles.heroTitle}>Important stays visible, noise clears out.</Text>
+                        <View style={styles.heroStatsRow}>
+                            <View style={styles.statCard}>
+                                <Text style={styles.statValue}>{unreadCount}</Text>
+                                <Text style={styles.statLabel}>Unread</Text>
                             </View>
+                            <View style={styles.statCard}>
+                                <Text style={styles.statValue}>{items.length}</Text>
+                                <Text style={styles.statLabel}>Total</Text>
+                            </View>
+                        </View>
+                        <Text style={styles.heroBody}>
+                            Chat is grouped per conversation, plant alerts per plant, and older read items are trimmed automatically.
+                        </Text>
+                    </View>
 
+                    <View style={[styles.sectionCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.greyedOut }]}>
+                        <View style={styles.row}>
+                            <View style={styles.rowLeft}>
+                                <FontAwesome6 name="bell" size={18} color={theme.colors.text} style={{ marginRight: 10 }} />
+                                <Text style={[styles.label, { color: theme.colors.text }]}>Sprig Notifications</Text>
+                            </View>
                             <Switch
                                 value={sprigNotificationsEnabled}
                                 onValueChange={toggleSprigNotifications}
@@ -59,7 +145,130 @@ export default function NotificationsScreen() {
                             />
                         </View>
                     </View>
-                </View>
+
+                    <View style={styles.actionRow}>
+                        <TouchableOpacity
+                            style={[styles.actionButton, { backgroundColor: theme.colors.surface, borderColor: theme.colors.greyedOut, opacity: unreadCount ? 1 : 0.45 }]}
+                            onPress={markAllAsRead}
+                            disabled={!unreadCount}
+                        >
+                            <FontAwesome6 name="check-double" size={14} color={theme.colors.text} />
+                            <Text style={[styles.actionText, { color: theme.colors.text }]}>Mark all read</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.actionButton, { backgroundColor: theme.colors.surface, borderColor: theme.colors.greyedOut, opacity: readCount ? 1 : 0.45 }]}
+                            onPress={clearRead}
+                            disabled={!readCount}
+                        >
+                            <FontAwesome6 name="broom" size={14} color={theme.colors.text} />
+                            <Text style={[styles.actionText, { color: theme.colors.text }]}>Clear read</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.filterRow}>
+                        {(['all', 'unread', 'read'] as const).map((value) => {
+                            const active = filter === value;
+                            return (
+                                <TouchableOpacity
+                                    key={value}
+                                    style={[
+                                        styles.filterChip,
+                                        {
+                                            backgroundColor: active ? theme.colors.primary : theme.colors.surface,
+                                            borderColor: active ? theme.colors.primary : theme.colors.greyedOut,
+                                        },
+                                    ]}
+                                    onPress={() => setFilter(value)}
+                                >
+                                    <Text style={[styles.filterText, { color: active ? '#fff' : theme.colors.text }]}>
+                                        {value === 'all' ? 'All' : value === 'unread' ? 'Unread' : 'Read'}
+                                    </Text>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </View>
+
+                    {!hydrated || filteredItems.length === 0 ? (
+                        <View style={[styles.emptyState, { backgroundColor: theme.colors.surface, borderColor: theme.colors.greyedOut }]}>
+                            <FontAwesome6 name="inbox" size={28} color={theme.colors.greyedOut} />
+                            <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
+                                {hydrated ? 'No notifications here.' : 'Loading inbox...'}
+                            </Text>
+                            <Text style={styles.emptyBody}>
+                                New warnings, messages and follows will show up here.
+                            </Text>
+                        </View>
+                    ) : filteredItems.map((item) => {
+                        const accent = getAccent(item.kind);
+
+                        return (
+                            <View
+                                key={item.id}
+                                style={[
+                                    styles.notificationCard,
+                                    {
+                                        backgroundColor: theme.colors.surface,
+                                        borderColor: item.readAt ? theme.colors.greyedOut : accent,
+                                    },
+                                ]}
+                            >
+                                <TouchableOpacity
+                                    style={styles.notificationTapArea}
+                                    activeOpacity={0.88}
+                                    onPress={() => onOpenItem(item)}
+                                >
+                                    <View style={[styles.iconWrap, { backgroundColor: `${accent}18` }]}>
+                                        {item.avatarUri ? (
+                                            <Image source={{ uri: item.avatarUri }} style={styles.avatar} />
+                                        ) : (
+                                            <FontAwesome6 name={getIcon(item.kind)} size={18} color={accent} />
+                                        )}
+                                    </View>
+
+                                    <View style={styles.itemContent}>
+                                        <View style={styles.itemTopRow}>
+                                            <Text style={[styles.itemTitle, { color: theme.colors.text }]} numberOfLines={1}>
+                                                {item.title}
+                                            </Text>
+                                            <Text style={[styles.itemMeta, { color: theme.colors.greyedOut }]}>
+                                                {formatTime(item.createdAt)}
+                                            </Text>
+                                        </View>
+                                        <Text style={[styles.itemBody, { color: theme.colors.text }]} numberOfLines={2}>
+                                            {item.body}
+                                        </Text>
+                                        <View style={styles.itemFooter}>
+                                            <Text style={[styles.kindPill, { color: accent, borderColor: `${accent}40` }]}>
+                                                {item.kind === 'follow' ? 'Follow' : item.kind}
+                                            </Text>
+                                            {item.count > 1 && (
+                                                <Text style={[styles.countBadge, { color: theme.colors.text }]}>
+                                                    +{item.count - 1}
+                                                </Text>
+                                            )}
+                                            {!item.readAt && <View style={[styles.unreadDot, { backgroundColor: accent }]} />}
+                                        </View>
+                                    </View>
+                                </TouchableOpacity>
+
+                                <View style={styles.itemActions}>
+                                    <TouchableOpacity
+                                        style={[styles.smallIconButton, { backgroundColor: theme.colors.background, borderColor: theme.colors.greyedOut }]}
+                                        onPress={() => item.readAt ? markAsUnread(item.id) : markAsRead(item.id)}
+                                    >
+                                        <FontAwesome6 name={item.readAt ? 'envelope' : 'check'} size={14} color={theme.colors.text} />
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[styles.smallIconButton, { backgroundColor: theme.colors.background, borderColor: theme.colors.greyedOut }]}
+                                        onPress={() => removeNotification(item.id)}
+                                    >
+                                        <FontAwesome6 name="trash" size={14} color="#D34B4B" />
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        );
+                    })}
+                </ScrollView>
             </View>
         </View>
     );
@@ -82,7 +291,7 @@ const styles = StyleSheet.create((theme: any) => ({
     },
     headerOverlay: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0,0,0,0.1)',
+        backgroundColor: 'rgba(0,0,0,0.16)',
     },
     headerContent: {
         paddingHorizontal: 20,
@@ -102,6 +311,7 @@ const styles = StyleSheet.create((theme: any) => ({
     },
     roundedContainer: {
         flex: 1,
+        marginTop: 118,
         backgroundColor: theme.colors.background,
         borderTopLeftRadius: 30,
         borderTopRightRadius: 30,
@@ -109,19 +319,217 @@ const styles = StyleSheet.create((theme: any) => ({
     },
     contentContainer: {
         padding: 20,
+        paddingBottom: 80,
     },
-    section: {
-        marginBottom: 25,
-        paddingBottom: 20,
+    heroCard: {
+        backgroundColor: '#103B3B',
+        borderRadius: 24,
+        padding: 18,
+        marginBottom: 18,
+    },
+    heroEyebrow: {
+        color: '#9FE3D5',
+        fontSize: 12,
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        marginBottom: 8,
+    },
+    heroTitle: {
+        color: '#fff',
+        fontSize: 24,
+        lineHeight: 30,
+        fontWeight: '800',
+        marginBottom: 14,
+    },
+    heroStatsRow: {
+        flexDirection: 'row',
+        gap: 12,
+        marginBottom: 12,
+    },
+    statCard: {
+        flex: 1,
+        backgroundColor: 'rgba(255,255,255,0.12)',
+        borderRadius: 18,
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+    },
+    statValue: {
+        color: '#fff',
+        fontSize: 28,
+        fontWeight: '900',
+        marginBottom: 4,
+    },
+    statLabel: {
+        color: '#B9D6D3',
+        fontSize: 12,
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        letterSpacing: 0.8,
+    },
+    heroBody: {
+        color: '#D4E6E4',
+        fontSize: 13,
+        lineHeight: 19,
+    },
+    sectionCard: {
+        borderRadius: 18,
+        padding: 16,
+        marginBottom: 14,
+        borderWidth: 1,
     },
     row: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
     },
+    rowLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
     label: {
         fontSize: 16,
-        color: theme.colors.text,
-        fontWeight: '500',
+        fontWeight: '700',
+    },
+    actionRow: {
+        flexDirection: 'row',
+        gap: 12,
+        marginBottom: 14,
+    },
+    actionButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 14,
+        borderRadius: 16,
+        borderWidth: 1,
+    },
+    actionText: {
+        fontSize: 14,
+        fontWeight: '700',
+        marginLeft: 8,
+    },
+    filterRow: {
+        flexDirection: 'row',
+        gap: 10,
+        marginBottom: 16,
+    },
+    filterChip: {
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 999,
+        borderWidth: 1,
+    },
+    filterText: {
+        fontSize: 13,
+        fontWeight: '700',
+    },
+    emptyState: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 48,
+        paddingHorizontal: 24,
+        borderRadius: 18,
+        borderWidth: 1,
+    },
+    emptyTitle: {
+        fontSize: 18,
+        fontWeight: '800',
+        marginTop: 14,
+        marginBottom: 6,
+    },
+    emptyBody: {
+        fontSize: 14,
+        color: '#8B9493',
+        textAlign: 'center',
+        lineHeight: 20,
+    },
+    notificationCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderRadius: 20,
+        padding: 14,
+        borderWidth: 1,
+        marginBottom: 12,
+    },
+    notificationTapArea: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginRight: 8,
+    },
+    iconWrap: {
+        width: 48,
+        height: 48,
+        borderRadius: 16,
+        justifyContent: 'center',
+        alignItems: 'center',
+        overflow: 'hidden',
+        marginRight: 12,
+    },
+    avatar: {
+        width: '100%',
+        height: '100%',
+    },
+    itemContent: {
+        flex: 1,
+    },
+    itemTopRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 4,
+        gap: 10,
+    },
+    itemTitle: {
+        flex: 1,
+        fontSize: 15,
+        fontWeight: '800',
+    },
+    itemMeta: {
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    itemBody: {
+        fontSize: 14,
+        lineHeight: 19,
+    },
+    itemFooter: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 10,
+    },
+    kindPill: {
+        fontSize: 12,
+        fontWeight: '700',
+        textTransform: 'capitalize',
+        borderWidth: 1,
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 999,
+        overflow: 'hidden',
+    },
+    countBadge: {
+        marginLeft: 8,
+        fontSize: 12,
+        fontWeight: '700',
+    },
+    unreadDot: {
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        marginLeft: 10,
+    },
+    itemActions: {
+        gap: 8,
+    },
+    smallIconButton: {
+        width: 34,
+        height: 34,
+        borderRadius: 17,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
     },
 }));

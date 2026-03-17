@@ -7,6 +7,7 @@ import { useUserStore } from '../stores/UserStore';
 import { useTutorialStore } from '../stores/TutorialStore';
 import { NotificationService } from '../services/NotificationService';
 import { AppState } from 'react-native';
+import { useInboxStore } from '../stores/InboxStore';
 
 export function usePlantTipSystem() {
     const {
@@ -57,6 +58,32 @@ export function usePlantTipSystem() {
         // Prevent re-triggering same tip
         if (tip && activeTip?.message === tip.message) {
             return;
+        }
+
+        if (tip && AppState.currentState === 'active') {
+            useInboxStore.getState().addNotification({
+                kind: tip.severity === 'critical' ? 'critical' : tip.severity === 'warning' ? 'warning' : 'general',
+                title: tip.severity === 'critical'
+                    ? 'Sprig Emergency!'
+                    : tip.severity === 'warning'
+                        ? 'Sprig Warning'
+                        : 'PlantUp Advice',
+                body: tip.message,
+                groupKey: tip.plantId && tip.severity !== 'info'
+                    ? `${tip.severity}:${tip.plantId}`
+                    : undefined,
+                navigationTarget: tip.plantId
+                    ? {
+                        name: 'PlantStats',
+                        params: {
+                            plantId: tip.plantId,
+                            onlyShowSelected: true,
+                        },
+                    }
+                    : {
+                        name: 'TabNavigator',
+                    },
+            });
         }
 
         // Send Push Notification if app is in background

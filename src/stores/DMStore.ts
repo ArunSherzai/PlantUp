@@ -7,6 +7,7 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 import { playSendSound, playReceiveSound } from '../utils/soundEffects';
 import { useMessageNotificationStore } from './MessageNotificationStore';
 import { NotificationService } from '../services/NotificationService';
+import { useInboxStore } from './InboxStore';
 
 export interface ChatMessage {
     id: string;
@@ -482,6 +483,22 @@ export const useDMStore = create<DMState>((set, get) => ({
                                     avatar: avatar ? { uri: avatar } : undefined,
                                     conversationId: newMessage.conversation_id,
                                 });
+                                useInboxStore.getState().addNotification({
+                                    kind: 'chat',
+                                    title: senderName,
+                                    body: newMessage.content,
+                                    avatarUri: avatar,
+                                    groupKey: `chat:${newMessage.conversation_id}`,
+                                    navigationTarget: {
+                                        name: 'MessageDetail',
+                                        params: {
+                                            id: newMessage.conversation_id,
+                                            name: senderName,
+                                            avatar: avatar ? { uri: avatar } : require('../../assets/images/Profilbild.jpg'),
+                                            userId: newMessage.sender_id,
+                                        },
+                                    },
+                                });
                             } else {
                                 // 2. OS Push Notification (NotificationService) - ONLY when app is background/closed
                                 NotificationService.sendNotification(
@@ -572,6 +589,17 @@ export const useDMStore = create<DMState>((set, get) => ({
                             avatar: followerAvatar ? { uri: followerAvatar } : undefined,
                             userId: follow.follower_id,
                             type: 'follow',
+                        });
+                        useInboxStore.getState().addNotification({
+                            kind: 'follow',
+                            title: 'New Follower',
+                            body: `${followerName} is now following you!`,
+                            avatarUri: followerAvatar,
+                            groupKey: `follow:${follow.follower_id}`,
+                            navigationTarget: {
+                                name: 'PublicProfile',
+                                params: { userId: follow.follower_id },
+                            },
                         });
                     } else {
                         // OS Push Notification (Background)

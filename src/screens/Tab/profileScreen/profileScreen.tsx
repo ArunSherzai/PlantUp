@@ -30,6 +30,7 @@ import { useMemo, memo } from 'react';
 import MentorBadge from '../../../components/MentorBadge';
 import { isMentor } from '../../../utils/mentorUtils';
 import { FlatList } from 'react-native';
+import { useInboxStore } from '../../../stores/InboxStore';
 
 
 // --- Sub-components to prevent full screen re-renders ---
@@ -70,6 +71,7 @@ export default function ProfileScreen() {
   const rewardsMap = useUserStore(state => state.rewardsMap);
   const fetchRewardsMap = useUserStore(state => state.fetchRewardsMap);
   const startTutorial = useTutorialStore(state => state.startTutorial);
+  const unreadInboxCount = useInboxStore(state => state.unreadCount());
 
   const [activeTab, setActiveTab] = useState('leveling');
   const [isBioExpanded, setIsBioExpanded] = useState(false);
@@ -377,6 +379,22 @@ export default function ProfileScreen() {
         <View style={[styles.headerContent, { paddingTop: insets.top }]}>
           {/* Header Top Row: Borders & Settings */}
           <View style={styles.headerTopRow}>
+            <TouchableOpacity
+              style={[styles.iconButton, { marginRight: 8 }]}
+              onPress={() => navigation.navigate('Notifications')}
+            >
+              <View>
+                <FontAwesome6 name="bell" size={22} color={theme.colors.textDark} />
+                {unreadInboxCount > 0 && (
+                  <View style={styles.headerBadge}>
+                    <Text style={styles.headerBadgeText}>
+                      {unreadInboxCount > 99 ? '99+' : unreadInboxCount}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </TouchableOpacity>
+
             {/* Border Inventory Button */}
             <TouchableOpacity
               style={[styles.iconButton, { marginRight: 8 }]}
@@ -609,6 +627,23 @@ const styles = StyleSheet.create({
   },
   iconButton: {
     padding: 8,
+  },
+  headerBadge: {
+    position: 'absolute',
+    top: -8,
+    right: -12,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#E55050',
+  },
+  headerBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '800',
   },
   headerTitle: {
     fontSize: vw * 10,
