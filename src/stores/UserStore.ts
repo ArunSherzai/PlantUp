@@ -5,6 +5,7 @@ import { BlockService } from '../features/blocking/BlockService';
 import { getLevelFromXP } from '../utils/leveling';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ErrorHandlerService } from '../core/error/services/ErrorHandlerService';
+import { getTodayQuestKey, trackQuestAction } from '../features/quests/questProgress';
 
 type Border = {
   id: string;
@@ -139,6 +140,11 @@ export const useUserStore = create<State>((set, get) => ({
   setUser: (user) => {
     set({ user });
     if (user) {
+      trackQuestAction({
+        actionCode: 'WEEKLY_LOGIN_STREAK',
+        eventKey: getTodayQuestKey(),
+      });
+
       // 1. Prioritize essential profile data for immediate UI interaction
       get().fetchProfile();
 

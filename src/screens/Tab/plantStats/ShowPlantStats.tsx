@@ -27,6 +27,7 @@ import { calculateAverages, lastXdays } from '~/features/plantstats/api/history'
 import { calculateHealth } from '~/features/plantstats/api/healthScore';
 import { calculateHealthFull } from '~/features/plantstats/api/healthScore';
 import type { HealthResult } from '~/features/mentor';
+import { getTodayQuestKey, trackQuestAction } from '~/features/quests/questProgress';
 
 // --- CONSTANTS ---
 const CACHE_KEY_PREFIX = 'plant_history_';
@@ -239,45 +240,32 @@ export default function ShowPlantStats() {
     return { chartData: cData, maxY: mY, sensorTrends };
   }, [historyData, selectedOptionLabel, barColor]);
 
-  // 🟢 2. QUEST CHECKER: Fire and forget (doesn't block UI)
-  const runQuestCheck = async (uid: string) => {
-    try {
-      const { data: quests } = await db.gamification
-        .from('User_quests')
-        .select(`id, progress, status, quest:Quests (action_code, target_count)`)
-        .eq('user_id', uid)
-        .eq('status', 'active'); // ✅ only active quests
+  const trackPlantStatsQuestViews = useCallback(async (plantId: string, range: TimeRangeKey) => {
+    const today = getTodayQuestKey();
 
-      if (!quests) return;
+    await trackQuestAction({
+      actionCode: 'CHECK_STATUS',
+      eventKey: `${today}:${plantId}:status`,
+      plantId,
+    });
 
-      const updates = quests
-        .filter((q: any) => {
-          const target = q.quest?.target_count ?? 0;
-          const current = q.progress ?? 0;
-
-          return (
-            q.quest?.action_code === 'CHECK_STATUS' && current < target // ✅ only update if not already reached
-          );
-        })
-        .map((uq: any) => {
-          const newProgress = (uq.progress ?? 0) + 1;
-          const target = uq.quest?.target_count ?? 0;
-
-          return db.gamification
-            .from('User_quests')
-            .update({
-              progress: newProgress,
-              status: newProgress >= target ? 'completed' : 'active',
-              completed_at: newProgress >= target ? new Date().toISOString() : null,
-            })
-            .eq('id', uq.id);
-        });
-
-      await Promise.all(updates);
-    } catch (err) {
-      ErrorHandlerService.handle(err, { showUI: false });
+    const currentHour = new Date().getHours();
+    if (currentHour >= 20) {
+      await trackQuestAction({
+        actionCode: 'CHECK_NIGHT_STATS',
+        eventKey: `${today}:${plantId}:night`,
+        plantId,
+      });
     }
-  };
+
+    if (range === 'Last Week') {
+      await trackQuestAction({
+        actionCode: 'CHECK_WEEKLY_CHART',
+        eventKey: `${today}:${plantId}:weekly-chart`,
+        plantId,
+      });
+    }
+  }, []);
 
   // 🟢 4. CORE DATA LOGIC
   const fetchPlantData = useCallback(async (plantId: string, range: TimeRangeKey) => {
@@ -356,8 +344,8 @@ export default function ShowPlantStats() {
 
         // 2. PARALLEL EXECUTION: Fire all tasks at once
         await Promise.allSettled([
-          fetchPlantData(targetPlant.id, timeRange), // Main Data
-          runQuestCheck(user.id), // Background Task
+          fetchPlantData(targetPlant.id, timeRange),
+          trackPlantStatsQuestViews(targetPlant.id, timeRange),
         ]);
       } else {
         setLoading(false);
@@ -366,7 +354,7 @@ export default function ShowPlantStats() {
       ErrorHandlerService.handle(e, { showUI: false });
       setLoading(false);
     }
-  }, [initialPlantId, fetchPlantData]); // Removed timeRange dependency to prevent loop
+  }, [initialPlantId, fetchPlantData, timeRange, trackPlantStatsQuestViews]);
 
   useEffect(() => {
     initializeScreen();
@@ -376,8 +364,9 @@ export default function ShowPlantStats() {
   useEffect(() => {
     if (selectedPlant?.id) {
       fetchPlantData(selectedPlant.id, timeRange);
+      trackPlantStatsQuestViews(selectedPlant.id, timeRange);
     }
-  }, [timeRange]);
+  }, [fetchPlantData, selectedPlant?.id, timeRange, trackPlantStatsQuestViews]);
 
   const health = latest ? calculateHealth(latest) : null;
 
