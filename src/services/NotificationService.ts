@@ -3,10 +3,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image, Platform } from 'react-native';
 
 import { useInboxStore, type InboxNotificationKind } from '../stores/InboxStore';
+import { useUserStore } from '../stores/UserStore';
 import { NavigationService } from './NavigationService';
+import { DEFAULT_NOTIFICATION_SOUND_SETTINGS, type NotificationSoundCategory, type NotificationSoundPreference } from '../features/notifications/config/notificationSoundConfig';
 
-// This version only triggers a one-time silent cleanup for old channel setups.
-const NOTIFICATION_SYS_VERSION = 'final_v1';
+const NOTIFICATION_SYS_VERSION = 'final_v3';
 const STORAGE_KEY_VERSION = '@PlantUp:noti_sys_version';
 
 export type NotificationCategory = 'critical' | 'warning' | 'general' | 'chat';
@@ -15,8 +16,11 @@ type DeliveredNotificationCategory = NotificationCategory | 'follow';
 const resolveIcon = (asset: any) => Image.resolveAssetSource(asset).uri;
 
 export class NotificationService {
+    private static listenersRegistered = false;
+
     static async initialize() {
         await useInboxStore.getState().hydrate();
+        await useUserStore.getState().loadSettings();
 
         const savedVersion = await AsyncStorage.getItem(STORAGE_KEY_VERSION);
         if (savedVersion !== NOTIFICATION_SYS_VERSION && Platform.OS === 'android') {
@@ -31,48 +35,80 @@ export class NotificationService {
         }
 
         if (Platform.OS === 'android') {
-            await notifee.createChannel({
-                id: 'critical',
-                name: 'Plant Critical Alerts',
-                description: 'Urgent alerts when your plants are dying',
-                importance: AndroidImportance.HIGH,
-                vibration: true,
-                vibrationPattern: [300, 500],
-                lightColor: AndroidColor.RED,
-                sound: 'critical_sprig',
-            });
-
-            await notifee.createChannel({
-                id: 'warning',
-                name: 'Plant Warnings',
-                importance: AndroidImportance.HIGH,
-                sound: 'sprig_warning',
-            });
-
-            await notifee.createChannel({
-                id: 'general',
-                name: 'General Tips & Tricks',
-                importance: AndroidImportance.DEFAULT,
-                sound: 'advices_ping',
-            });
-
-            await notifee.createChannel({
-                id: 'chat',
-                name: 'Chat Messages',
-                importance: AndroidImportance.HIGH,
-                sound: 'rec',
-            });
+            const soundSettings = useUserStore.getState().notificationSoundSettings || DEFAULT_NOTIFICATION_SOUND_SETTINGS;
+            await this.ensureAndroidChannels(soundSettings);
         }
 
-        notifee.onForegroundEvent(({ type, detail }) => {
-            this.handleEvent(type, detail);
-        });
+        if (!this.listenersRegistered) {
+            notifee.onForegroundEvent(({ type, detail }) => {
+                this.handleEvent(type, detail);
+            });
 
-        notifee.onBackgroundEvent(async ({ type, detail }) => {
-            this.handleEvent(type, detail);
-        });
+            notifee.onBackgroundEvent(async ({ type, detail }) => {
+                this.handleEvent(type, detail);
+            });
+
+            this.listenersRegistered = true;
+        }
 
         return true;
+    }
+
+    private static getChannelId(category: NotificationSoundCategory, sound: NotificationSoundPreference) {
+        return `plantup_${category}_${sound}`;
+    }
+
+    private static toAndroidSoundName(sound: NotificationSoundPreference) {
+        return sound === 'off' ? undefined : sound;
+    }
+
+    private static async ensureAndroidChannels(soundSettings: Record<NotificationSoundCategory, NotificationSoundPreference>) {
+        await notifee.createChannel({
+            id: this.getChannelId('critical', soundSettings.critical),
+            name: 'Plant Critical Alerts',
+            description: 'Urgent alerts when your plants are dying',
+            importance: AndroidImportance.HIGH,
+            vibration: true,
+            vibrationPattern: [300, 500],
+            lightColor: AndroidColor.RED,
+            sound: this.toAndroidSoundName(soundSettings.critical),
+        });
+
+        await notifee.createChannel({
+            id: this.getChannelId('warning', soundSettings.warning),
+            name: 'Plant Warnings',
+            importance: AndroidImportance.HIGH,
+            sound: this.toAndroidSoundName(soundSettings.warning),
+        });
+
+        await notifee.createChannel({
+            id: this.getChannelId('general', soundSettings.general),
+            name: 'General Tips & Tricks',
+            importance: AndroidImportance.DEFAULT,
+            sound: this.toAndroidSoundName(soundSettings.general),
+        });
+
+        await notifee.createChannel({
+            id: this.getChannelId('chat', soundSettings.chat),
+            name: 'Chat Messages',
+            importance: AndroidImportance.HIGH,
+            sound: this.toAndroidSoundName(soundSettings.chat),
+        });
+    }
+
+    static async applySoundSettings(nextSettings?: Partial<Record<NotificationSoundCategory, NotificationSoundPreference>>) {
+        if (nextSettings) {
+            useUserStore.setState((state) => ({
+                notificationSoundSettings: {
+                    ...state.notificationSoundSettings,
+                    ...nextSettings,
+                },
+            }));
+        }
+
+        if (Platform.OS === 'android') {
+            await this.resetChannels(true);
+        }
     }
 
     private static handleEvent(type: EventType, detail: any) {
@@ -110,6 +146,15 @@ export class NotificationService {
                     }
                     break;
                 case 'general':
+                    if (data.plantId) {
+                        NavigationService.navigate('PlantStats', {
+                            plantId: data.plantId,
+                            onlyShowSelected: true,
+                        });
+                    } else {
+                        NavigationService.navigate('TabNavigator');
+                    }
+                    break;
                 default:
                     NavigationService.navigate('TabNavigator');
                     break;
@@ -186,22 +231,24 @@ export class NotificationService {
     }
 
     private static getAndroidConfig(category: DeliveredNotificationCategory, data: any = {}) {
+        const soundSettings = useUserStore.getState().notificationSoundSettings || DEFAULT_NOTIFICATION_SOUND_SETTINGS;
+
         switch (category) {
             case 'critical':
                 return {
-                    channelId: 'critical',
+                    channelId: this.getChannelId('critical', soundSettings.critical),
                     largeIcon: resolveIcon(require('../../assets/images/sadSprigIcon.png')),
                     circularLargeIcon: false,
                 };
             case 'warning':
                 return {
-                    channelId: 'warning',
+                    channelId: this.getChannelId('warning', soundSettings.warning),
                     largeIcon: resolveIcon(require('../../assets/images/warningSprig.png')),
                     circularLargeIcon: false,
                 };
             case 'chat':
                 return {
-                    channelId: 'chat',
+                    channelId: this.getChannelId('chat', soundSettings.chat),
                     largeIcon: data?.senderAvatar,
                     circularLargeIcon: true,
                 };
@@ -209,7 +256,7 @@ export class NotificationService {
             case 'general':
             default:
                 return {
-                    channelId: 'general',
+                    channelId: this.getChannelId('general', soundSettings.general),
                     largeIcon: resolveIcon(require('../../assets/images/nerdSprig.png')),
                     circularLargeIcon: false,
                 };
@@ -241,6 +288,8 @@ export class NotificationService {
                 return data?.plantId ? `${category}:${data.plantId}` : undefined;
             case 'follow':
                 return data?.followerId ? `follow:${data.followerId}` : undefined;
+            case 'general':
+                return data?.plantId ? `general:${data.plantId}` : undefined;
             default:
                 return undefined;
         }
@@ -276,6 +325,19 @@ export class NotificationService {
                 return {
                     name: 'PublicProfile',
                     params: { userId: data.followerId },
+                };
+            case 'general':
+                if (data?.plantId) {
+                    return {
+                        name: 'PlantStats',
+                        params: {
+                            plantId: data.plantId,
+                            onlyShowSelected: true,
+                        },
+                    };
+                }
+                return {
+                    name: 'TabNavigator',
                 };
             default:
                 return {

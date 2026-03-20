@@ -20,6 +20,7 @@ export type SoundType =
     | 'reload'
     | 'send'
     | 'receive'
+    | 'rec'
     | 'xp_boost'
     | 'xp_multiplier'
     | 'xp_fill'
@@ -35,6 +36,7 @@ export type SoundType =
     | 'bin'
     | 'purchase'
     | 'advice_ping'
+    | 'advices_ping'
     | 'critical_sprig'
     | 'sprig_warning';
 
@@ -45,6 +47,7 @@ const SOUND_FILES: Record<SoundType, any> = {
     reload: require('../../assets/sounds/reload.wav'),
     send: require('../../assets/sounds/send.wav'),
     receive: require('../../assets/sounds/rec.wav'),
+    rec: require('../../assets/sounds/rec.wav'),
     xp_boost: require('../../assets/sounds/xp_boost.mp3'),
     xp_multiplier: require('../../assets/sounds/xp_multiplier.wav'),
     xp_fill: require('../../assets/sounds/xp_fill.wav'),
@@ -60,6 +63,7 @@ const SOUND_FILES: Record<SoundType, any> = {
     bin: require('../../assets/sounds/Bin.wav'),
     purchase: require('../../assets/sounds/cash-register-kaching-sound-effect-125042.wav'),
     advice_ping: require('../../assets/sounds/advices_ping.mp3'),
+    advices_ping: require('../../assets/sounds/advices_ping.mp3'),
     critical_sprig: require('../../assets/sounds/critical_sprig.wav'),
     sprig_warning: require('../../assets/sounds/sprig_warning.wav'),
 };
@@ -253,3 +257,5 @@ export const SoundManager = new SoundManagerClass();
 export const playSound = (type: SoundType, options?: { volume?: number }): void => {
     SoundManager.play(type, options);
 };
+
+

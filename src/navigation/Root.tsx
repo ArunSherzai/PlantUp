@@ -17,6 +17,7 @@ export type RootStackParamList = {
   Settings: undefined;
   Appearance: undefined;
   Notifications: undefined;
+  NotificationSounds: undefined;
   Account: undefined;
   TutorialSettings: undefined;
   CreatePost: { capturedMedia?: any } | undefined;
@@ -81,6 +82,7 @@ import TitleInventoryScreen from '~/screens/Tab/profileScreen/TitleInventoryScre
 import ShowPlantStats from '~/screens/Tab/plantStats/ShowPlantStats';
 import AppearanceScreen from '~/screens/Tab/SettingsScreen/AppearanceScreen';
 import NotificationsScreen from '~/screens/Tab/SettingsScreen/NotificationsScreen';
+import NotificationSoundsScreen from '~/screens/Tab/SettingsScreen/NotificationSoundsScreen';
 import AccountScreen from '~/screens/Tab/SettingsScreen/AccountScreen';
 import TutorialSettingsScreen from '~/screens/Tab/SettingsScreen/TutorialSettingsScreen';
 import Plant3DTestScreen from '~/screens/Tab/Plant3DTestScreen/Plant3DTestScreen';
@@ -147,6 +149,11 @@ export default function RootStack() {
             <Stack.Screen
               name="Notifications"
               component={NotificationsScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="NotificationSounds"
+              component={NotificationSoundsScreen}
               options={{ headerShown: false }}
             />
             <Stack.Screen
@@ -295,3 +302,5 @@ export default function RootStack() {
     </NavigationContainer>
   );
 }
+
+

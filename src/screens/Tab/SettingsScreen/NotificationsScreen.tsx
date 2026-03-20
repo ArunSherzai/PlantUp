@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Image, ScrollView, Switch, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Image, Modal, ScrollView, Switch, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { StatusBar } from 'expo-status-bar';
 import { useNavigation } from '@react-navigation/native';
@@ -24,6 +24,7 @@ export default function NotificationsScreen() {
     const removeNotification = useInboxStore((state) => state.removeNotification);
     const clearRead = useInboxStore((state) => state.clearRead);
     const [filter, setFilter] = useState<'all' | 'unread' | 'read'>('all');
+    const [selectedItem, setSelectedItem] = useState<InboxItem | null>(null);
     const isCompact = width < 380 || fontScale > 1.15;
     const isTabletLike = width >= 768;
 
@@ -43,6 +44,8 @@ export default function NotificationsScreen() {
         if (!item.readAt) {
             await markAsRead(item.id);
         }
+
+        setSelectedItem(null);
 
         if (item.navigationTarget) {
             navigation.navigate(item.navigationTarget.name, item.navigationTarget.params);
@@ -91,6 +94,12 @@ export default function NotificationsScreen() {
         return date.toLocaleDateString();
     };
 
+    const shouldShowFullTextAction = (item: InboxItem) => {
+        const titleLimit = isCompact ? 55 : 42;
+        const bodyLimit = isCompact ? 150 : 110;
+        return item.title.length > titleLimit || item.body.length > bodyLimit;
+    };
+
     return (
         <View style={styles.container}>
             <StatusBar style="light" translucent backgroundColor="transparent" />
@@ -114,179 +123,214 @@ export default function NotificationsScreen() {
             <View style={styles.roundedContainer}>
                 <ScrollView contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
                     <View style={[styles.contentInner, isTabletLike && styles.contentInnerTablet]}>
-                    <View style={[styles.heroCard, isCompact && styles.heroCardCompact]}>
-                        <Text style={styles.heroEyebrow}>Inbox</Text>
-                        <Text style={[styles.heroTitle, isCompact && styles.heroTitleCompact]}>
-                            Important stays visible, noise clears out.
-                        </Text>
-                        <View style={[styles.heroStatsRow, isCompact && styles.heroStatsRowCompact]}>
-                            <View style={[styles.statCard, isCompact && styles.statCardCompact]}>
-                                <Text style={styles.statValue}>{unreadCount}</Text>
-                                <Text style={styles.statLabel}>Unread</Text>
+                        <View style={[styles.heroCard, isCompact && styles.heroCardCompact]}>
+                            <Text style={styles.heroEyebrow}>Inbox</Text>
+                            <Text style={[styles.heroTitle, isCompact && styles.heroTitleCompact]}>
+                                Important stays visible, noise clears out.
+                            </Text>
+                            <View style={[styles.heroStatsRow, isCompact && styles.heroStatsRowCompact]}>
+                                <View style={[styles.statCard, isCompact && styles.statCardCompact]}>
+                                    <Text style={styles.statValue}>{unreadCount}</Text>
+                                    <Text style={styles.statLabel}>Unread</Text>
+                                </View>
+                                <View style={[styles.statCard, isCompact && styles.statCardCompact]}>
+                                    <Text style={styles.statValue}>{items.length}</Text>
+                                    <Text style={styles.statLabel}>Total</Text>
+                                </View>
                             </View>
-                            <View style={[styles.statCard, isCompact && styles.statCardCompact]}>
-                                <Text style={styles.statValue}>{items.length}</Text>
-                                <Text style={styles.statLabel}>Total</Text>
+                            <Text style={styles.heroBody}>
+                                Chat is grouped per conversation, plant alerts per plant, and older read items are trimmed automatically.
+                            </Text>
+                        </View>
+
+                        <View style={[styles.sectionCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.greyedOut }]}>
+                            <View style={styles.row}>
+                                <View style={styles.rowLeft}>
+                                    <FontAwesome6 name="bell" size={18} color={theme.colors.text} style={{ marginRight: 10 }} />
+                                    <Text style={[styles.label, { color: theme.colors.text }]}>Sprig Notifications</Text>
+                                </View>
+                                <Switch
+                                    value={sprigNotificationsEnabled}
+                                    onValueChange={toggleSprigNotifications}
+                                    trackColor={{
+                                        false: theme.colors.greyedOut,
+                                        true: theme.colors.primary,
+                                    }}
+                                    thumbColor="#fff"
+                                />
                             </View>
                         </View>
-                        <Text style={styles.heroBody}>
-                            Chat is grouped per conversation, plant alerts per plant, and older read items are trimmed automatically.
-                        </Text>
-                    </View>
 
-                    <View style={[styles.sectionCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.greyedOut }]}>
-                        <View style={styles.row}>
-                            <View style={styles.rowLeft}>
-                                <FontAwesome6 name="bell" size={18} color={theme.colors.text} style={{ marginRight: 10 }} />
-                                <Text style={[styles.label, { color: theme.colors.text }]}>Sprig Notifications</Text>
-                            </View>
-                            <Switch
-                                value={sprigNotificationsEnabled}
-                                onValueChange={toggleSprigNotifications}
-                                trackColor={{
-                                    false: theme.colors.greyedOut,
-                                    true: theme.colors.primary,
-                                }}
-                                thumbColor="#fff"
-                            />
+                        <View style={[styles.actionRow, isCompact && styles.actionRowCompact]}>
+                            <TouchableOpacity
+                                style={[
+                                    styles.actionButton,
+                                    isCompact && styles.actionButtonCompact,
+                                    { backgroundColor: theme.colors.surface, borderColor: theme.colors.greyedOut, opacity: unreadCount ? 1 : 0.45 },
+                                ]}
+                                onPress={markAllAsRead}
+                                disabled={!unreadCount}
+                            >
+                                <FontAwesome6 name="check-double" size={14} color={theme.colors.text} />
+                                <Text style={[styles.actionText, { color: theme.colors.text }]}>Mark all read</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[
+                                    styles.actionButton,
+                                    isCompact && styles.actionButtonCompact,
+                                    { backgroundColor: theme.colors.surface, borderColor: theme.colors.greyedOut, opacity: readCount ? 1 : 0.45 },
+                                ]}
+                                onPress={clearRead}
+                                disabled={!readCount}
+                            >
+                                <FontAwesome6 name="broom" size={14} color={theme.colors.text} />
+                                <Text style={[styles.actionText, { color: theme.colors.text }]}>Clear read</Text>
+                            </TouchableOpacity>
                         </View>
-                    </View>
 
-                    <View style={[styles.actionRow, isCompact && styles.actionRowCompact]}>
-                        <TouchableOpacity
-                            style={[
-                                styles.actionButton,
-                                isCompact && styles.actionButtonCompact,
-                                { backgroundColor: theme.colors.surface, borderColor: theme.colors.greyedOut, opacity: unreadCount ? 1 : 0.45 },
-                            ]}
-                            onPress={markAllAsRead}
-                            disabled={!unreadCount}
-                        >
-                            <FontAwesome6 name="check-double" size={14} color={theme.colors.text} />
-                            <Text style={[styles.actionText, { color: theme.colors.text }]}>Mark all read</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[
-                                styles.actionButton,
-                                isCompact && styles.actionButtonCompact,
-                                { backgroundColor: theme.colors.surface, borderColor: theme.colors.greyedOut, opacity: readCount ? 1 : 0.45 },
-                            ]}
-                            onPress={clearRead}
-                            disabled={!readCount}
-                        >
-                            <FontAwesome6 name="broom" size={14} color={theme.colors.text} />
-                            <Text style={[styles.actionText, { color: theme.colors.text }]}>Clear read</Text>
-                        </TouchableOpacity>
-                    </View>
+                        <View style={styles.filterRow}>
+                            {(['all', 'unread', 'read'] as const).map((value) => {
+                                const active = filter === value;
+                                return (
+                                    <TouchableOpacity
+                                        key={value}
+                                        style={[
+                                            styles.filterChip,
+                                            isCompact && styles.filterChipCompact,
+                                            {
+                                                backgroundColor: active ? theme.colors.primary : theme.colors.surface,
+                                                borderColor: active ? theme.colors.primary : theme.colors.greyedOut,
+                                            },
+                                        ]}
+                                        onPress={() => setFilter(value)}
+                                    >
+                                        <Text style={[styles.filterText, { color: active ? '#fff' : theme.colors.text }]}>
+                                            {value === 'all' ? 'All' : value === 'unread' ? 'Unread' : 'Read'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
 
-                    <View style={styles.filterRow}>
-                        {(['all', 'unread', 'read'] as const).map((value) => {
-                            const active = filter === value;
+                        {!hydrated || filteredItems.length === 0 ? (
+                            <View style={[styles.emptyState, isCompact && styles.emptyStateCompact, { backgroundColor: theme.colors.surface, borderColor: theme.colors.greyedOut }]}>
+                                <FontAwesome6 name="inbox" size={28} color={theme.colors.greyedOut} />
+                                <Text style={[styles.emptyTitle, { color: theme.colors.text }]}> 
+                                    {hydrated ? 'No notifications here.' : 'Loading inbox...'}
+                                </Text>
+                                <Text style={styles.emptyBody}>
+                                    New warnings, messages and follows will show up here.
+                                </Text>
+                            </View>
+                        ) : filteredItems.map((item) => {
+                            const accent = getAccent(item.kind);
+                            const showFullTextAction = shouldShowFullTextAction(item);
+
                             return (
-                                <TouchableOpacity
-                                    key={value}
+                                <View
+                                    key={item.id}
                                     style={[
-                                        styles.filterChip,
-                                        isCompact && styles.filterChipCompact,
+                                        styles.notificationCard,
+                                        isCompact && styles.notificationCardCompact,
                                         {
-                                            backgroundColor: active ? theme.colors.primary : theme.colors.surface,
-                                            borderColor: active ? theme.colors.primary : theme.colors.greyedOut,
+                                            backgroundColor: theme.colors.surface,
+                                            borderColor: item.readAt ? theme.colors.greyedOut : accent,
                                         },
                                     ]}
-                                    onPress={() => setFilter(value)}
                                 >
-                                    <Text style={[styles.filterText, { color: active ? '#fff' : theme.colors.text }]}>
-                                        {value === 'all' ? 'All' : value === 'unread' ? 'Unread' : 'Read'}
-                                    </Text>
-                                </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[styles.notificationTapArea, isCompact && styles.notificationTapAreaCompact]}
+                                        activeOpacity={0.88}
+                                        onPress={() => onOpenItem(item)}
+                                    >
+                                        <View style={[styles.iconWrap, isCompact && styles.iconWrapCompact, { backgroundColor: `${accent}18` }]}>
+                                            {item.avatarUri ? (
+                                                <Image source={{ uri: item.avatarUri }} style={styles.avatar} />
+                                            ) : (
+                                                <FontAwesome6 name={getIcon(item.kind)} size={18} color={accent} />
+                                            )}
+                                        </View>
+
+                                        <View style={styles.itemContent}>
+                                            <View style={[styles.itemTopRow, isCompact && styles.itemTopRowCompact]}>
+                                                <Text style={[styles.itemTitle, isCompact && styles.itemTitleCompact, { color: theme.colors.text }]} numberOfLines={isCompact ? 2 : 1}>
+                                                    {item.title}
+                                                </Text>
+                                                <Text style={[styles.itemMeta, { color: theme.colors.greyedOut }]}>
+                                                    {formatTime(item.createdAt)}
+                                                </Text>
+                                            </View>
+                                            <Text style={[styles.itemBody, isCompact && styles.itemBodyCompact, { color: theme.colors.text }]} numberOfLines={isCompact ? 3 : 2}>
+                                                {item.body}
+                                            </Text>
+                                            <View style={[styles.itemFooter, isCompact && styles.itemFooterCompact]}>
+                                                <Text style={[styles.kindPill, { color: accent, borderColor: `${accent}40` }]}>
+                                                    {item.kind === 'follow' ? 'Follow' : item.kind}
+                                                </Text>
+                                                {showFullTextAction && (
+                                                    <TouchableOpacity onPress={() => setSelectedItem(item)} style={[styles.detailButton, { borderColor: `${accent}40` }]}>
+                                                        <Text style={[styles.detailButtonText, { color: accent }]}>Read full</Text>
+                                                    </TouchableOpacity>
+                                                )}
+                                                {item.count > 1 && (
+                                                    <Text style={[styles.countBadge, { color: theme.colors.text }]}>
+                                                        +{item.count - 1}
+                                                    </Text>
+                                                )}
+                                                {!item.readAt && <View style={[styles.unreadDot, { backgroundColor: accent }]} />}
+                                            </View>
+                                        </View>
+                                    </TouchableOpacity>
+
+                                    <View style={styles.itemActions}>
+                                        <TouchableOpacity
+                                            style={[styles.smallIconButton, isCompact && styles.smallIconButtonCompact, { backgroundColor: theme.colors.background, borderColor: theme.colors.greyedOut }]}
+                                            onPress={() => item.readAt ? markAsUnread(item.id) : markAsRead(item.id)}
+                                        >
+                                            <FontAwesome6 name={item.readAt ? 'envelope' : 'check'} size={14} color={theme.colors.text} />
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            style={[styles.smallIconButton, isCompact && styles.smallIconButtonCompact, { backgroundColor: theme.colors.background, borderColor: theme.colors.greyedOut }]}
+                                            onPress={() => removeNotification(item.id)}
+                                        >
+                                            <FontAwesome6 name="trash" size={14} color="#D34B4B" />
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
                             );
                         })}
                     </View>
-
-                    {!hydrated || filteredItems.length === 0 ? (
-                        <View style={[styles.emptyState, isCompact && styles.emptyStateCompact, { backgroundColor: theme.colors.surface, borderColor: theme.colors.greyedOut }]}>
-                            <FontAwesome6 name="inbox" size={28} color={theme.colors.greyedOut} />
-                            <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
-                                {hydrated ? 'No notifications here.' : 'Loading inbox...'}
-                            </Text>
-                            <Text style={styles.emptyBody}>
-                                New warnings, messages and follows will show up here.
-                            </Text>
-                        </View>
-                    ) : filteredItems.map((item) => {
-                        const accent = getAccent(item.kind);
-
-                        return (
-                            <View
-                                key={item.id}
-                                style={[
-                                    styles.notificationCard,
-                                    isCompact && styles.notificationCardCompact,
-                                    {
-                                        backgroundColor: theme.colors.surface,
-                                        borderColor: item.readAt ? theme.colors.greyedOut : accent,
-                                    },
-                                ]}
-                            >
-                                <TouchableOpacity
-                                    style={[styles.notificationTapArea, isCompact && styles.notificationTapAreaCompact]}
-                                    activeOpacity={0.88}
-                                    onPress={() => onOpenItem(item)}
-                                >
-                                    <View style={[styles.iconWrap, isCompact && styles.iconWrapCompact, { backgroundColor: `${accent}18` }]}>
-                                        {item.avatarUri ? (
-                                            <Image source={{ uri: item.avatarUri }} style={styles.avatar} />
-                                        ) : (
-                                            <FontAwesome6 name={getIcon(item.kind)} size={18} color={accent} />
-                                        )}
-                                    </View>
-
-                                    <View style={styles.itemContent}>
-                                        <View style={[styles.itemTopRow, isCompact && styles.itemTopRowCompact]}>
-                                            <Text style={[styles.itemTitle, isCompact && styles.itemTitleCompact, { color: theme.colors.text }]} numberOfLines={isCompact ? 2 : 1}>
-                                                {item.title}
-                                            </Text>
-                                            <Text style={[styles.itemMeta, { color: theme.colors.greyedOut }]}>
-                                                {formatTime(item.createdAt)}
-                                            </Text>
-                                        </View>
-                                        <Text style={[styles.itemBody, isCompact && styles.itemBodyCompact, { color: theme.colors.text }]} numberOfLines={isCompact ? 3 : 2}>
-                                            {item.body}
-                                        </Text>
-                                        <View style={[styles.itemFooter, isCompact && styles.itemFooterCompact]}>
-                                            <Text style={[styles.kindPill, { color: accent, borderColor: `${accent}40` }]}>
-                                                {item.kind === 'follow' ? 'Follow' : item.kind}
-                                            </Text>
-                                            {item.count > 1 && (
-                                                <Text style={[styles.countBadge, { color: theme.colors.text }]}>
-                                                    +{item.count - 1}
-                                                </Text>
-                                            )}
-                                            {!item.readAt && <View style={[styles.unreadDot, { backgroundColor: accent }]} />}
-                                        </View>
-                                    </View>
-                                </TouchableOpacity>
-
-                                <View style={styles.itemActions}>
-                                    <TouchableOpacity
-                                        style={[styles.smallIconButton, isCompact && styles.smallIconButtonCompact, { backgroundColor: theme.colors.background, borderColor: theme.colors.greyedOut }]}
-                                        onPress={() => item.readAt ? markAsUnread(item.id) : markAsRead(item.id)}
-                                    >
-                                        <FontAwesome6 name={item.readAt ? 'envelope' : 'check'} size={14} color={theme.colors.text} />
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={[styles.smallIconButton, isCompact && styles.smallIconButtonCompact, { backgroundColor: theme.colors.background, borderColor: theme.colors.greyedOut }]}
-                                        onPress={() => removeNotification(item.id)}
-                                    >
-                                        <FontAwesome6 name="trash" size={14} color="#D34B4B" />
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-                        );
-                    })}
-                    </View>
                 </ScrollView>
             </View>
+
+            <Modal transparent visible={!!selectedItem} animationType="fade" onRequestClose={() => setSelectedItem(null)}>
+                <View style={styles.modalOverlay}>
+                    <View style={[styles.modalCard, { backgroundColor: theme.colors.surface }]}> 
+                        <View style={styles.modalHeader}>
+                            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>{selectedItem?.title}</Text>
+                            <TouchableOpacity onPress={() => setSelectedItem(null)} style={[styles.modalCloseButton, { borderColor: theme.colors.greyedOut }]}> 
+                                <FontAwesome6 name="xmark" size={16} color={theme.colors.text} />
+                            </TouchableOpacity>
+                        </View>
+                        <Text style={[styles.modalMeta, { color: theme.colors.greyedOut }]}>
+                            {selectedItem ? formatTime(selectedItem.createdAt) : ''}
+                        </Text>
+                        <ScrollView style={styles.modalBodyWrap} contentContainerStyle={styles.modalBodyContent}>
+                            <Text style={[styles.modalBody, { color: theme.colors.text }]}>{selectedItem?.body}</Text>
+                        </ScrollView>
+                        <View style={styles.modalActions}>
+                            {selectedItem?.navigationTarget && (
+                                <TouchableOpacity onPress={() => void onOpenItem(selectedItem)} style={[styles.modalPrimaryButton, { backgroundColor: theme.colors.primary }]}> 
+                                    <Text style={styles.modalPrimaryButtonText}>Open</Text>
+                                </TouchableOpacity>
+                            )}
+                            <TouchableOpacity onPress={() => setSelectedItem(null)} style={[styles.modalSecondaryButton, { borderColor: theme.colors.greyedOut }]}> 
+                                <Text style={[styles.modalSecondaryButtonText, { color: theme.colors.text }]}>Close</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -577,6 +621,8 @@ const styles = StyleSheet.create((theme: any) => ({
         flexDirection: 'row',
         alignItems: 'center',
         marginTop: 10,
+        flexWrap: 'wrap',
+        rowGap: 8,
     },
     itemFooterCompact: {
         flexWrap: 'wrap',
@@ -591,6 +637,17 @@ const styles = StyleSheet.create((theme: any) => ({
         paddingVertical: 4,
         borderRadius: 999,
         overflow: 'hidden',
+    },
+    detailButton: {
+        marginLeft: 8,
+        borderWidth: 1,
+        borderRadius: 999,
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+    },
+    detailButtonText: {
+        fontSize: 12,
+        fontWeight: '700',
     },
     countBadge: {
         marginLeft: 8,
@@ -618,5 +675,83 @@ const styles = StyleSheet.create((theme: any) => ({
         width: 38,
         height: 38,
         borderRadius: 19,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.45)',
+        justifyContent: 'center',
+        padding: 20,
+    },
+    modalCard: {
+        borderRadius: 24,
+        padding: 20,
+        maxHeight: '80%',
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: 12,
+    },
+    modalTitle: {
+        flex: 1,
+        fontSize: 20,
+        fontWeight: '800',
+        lineHeight: 26,
+    },
+    modalCloseButton: {
+        width: 34,
+        height: 34,
+        borderRadius: 17,
+        borderWidth: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    modalMeta: {
+        fontSize: 12,
+        fontWeight: '600',
+        marginTop: 8,
+        marginBottom: 14,
+    },
+    modalBodyWrap: {
+        maxHeight: 260,
+    },
+    modalBodyContent: {
+        paddingBottom: 8,
+    },
+    modalBody: {
+        fontSize: 15,
+        lineHeight: 23,
+    },
+    modalActions: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: 12,
+        marginTop: 18,
+    },
+    modalPrimaryButton: {
+        minWidth: 110,
+        paddingHorizontal: 18,
+        paddingVertical: 12,
+        borderRadius: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    modalPrimaryButtonText: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: '800',
+    },
+    modalSecondaryButton: {
+        minWidth: 110,
+        paddingHorizontal: 18,
+        paddingVertical: 12,
+        borderRadius: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+    },
+    modalSecondaryButtonText: {
+        fontSize: 14,
+        fontWeight: '700',
     },
 }));

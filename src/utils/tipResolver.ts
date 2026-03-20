@@ -33,6 +33,9 @@ export interface PlantThresholds {
 export interface TipObject {
     message: string;
     severity: 'critical' | 'warning' | 'info';
+    title?: string;
+    dedupeKey?: string;
+    source?: 'alert' | 'general' | 'fallback';
     /**
      * Optional: the plant this tip refers to.
      * Used to deep link from notifications into the correct PlantStats screen.

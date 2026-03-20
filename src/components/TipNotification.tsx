@@ -2,7 +2,9 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, TouchableOpacity, Dimensions, PanResponder, Image } from 'react-native';
 import { useUnistyles } from 'react-native-unistyles';
 import { TipObject } from '../utils/tipResolver';
-import { playSound } from '~/utils/SoundManager';
+import { playSound, type SoundType } from '~/utils/SoundManager';
+import { useUserStore } from '../stores/UserStore';
+import { getNotificationSoundCategoryForTipSeverity } from '../features/notifications/config/notificationSoundConfig';
 
 interface TipNotificationProps {
     tip: TipObject | null;
@@ -13,18 +15,16 @@ const { width } = Dimensions.get('window');
 
 export default function TipNotification({ tip, onClose }: TipNotificationProps) {
     const { theme } = useUnistyles();
-    const slideAnim = useRef(new Animated.Value(-150)).current; // Start off-screen (top)
+    const notificationSoundSettings = useUserStore((state) => state.notificationSoundSettings);
+    const slideAnim = useRef(new Animated.Value(-150)).current;
 
-    // PanResponder for swipe gestures
     const panResponder = useRef(
         PanResponder.create({
             onStartShouldSetPanResponder: () => true,
             onMoveShouldSetPanResponder: (_, gestureState) => {
-                // Only capture vertical swipes or significant horizontal swipes
                 return Math.abs(gestureState.dy) > 10 || Math.abs(gestureState.dx) > 10;
             },
             onPanResponderRelease: (_, gestureState) => {
-                // Swipe Up (negative dy) or Swipe Left/Right to dismiss
                 if (gestureState.dy < -20 || Math.abs(gestureState.dx) > 50) {
                     hide();
                 }
@@ -34,27 +34,28 @@ export default function TipNotification({ tip, onClose }: TipNotificationProps) 
 
     useEffect(() => {
         if (tip) {
-            // Play notification sound
-            playSound('sprig_noti');
+            const soundCategory = getNotificationSoundCategoryForTipSeverity(tip.severity);
+            const configuredSound = notificationSoundSettings[soundCategory];
 
-            // Slide in
+            if (configuredSound && configuredSound !== 'off') {
+                playSound(configuredSound as SoundType);
+            }
+
             Animated.spring(slideAnim, {
-                toValue: 50, // Position from top
+                toValue: 50,
                 useNativeDriver: true,
                 friction: 8,
             }).start();
 
-            // Auto-hide after 20 seconds
             const timer = setTimeout(() => {
                 hide();
             }, 20000);
 
             return () => clearTimeout(timer);
         } else {
-            // Ensure it's hidden if message is null
             slideAnim.setValue(-150);
         }
-    }, [tip]);
+    }, [tip, notificationSoundSettings]);
 
     const hide = () => {
         Animated.timing(slideAnim, {
