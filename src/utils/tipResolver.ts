@@ -3,6 +3,7 @@ export interface PlantDataInput {
     soilMoisture: number;
     lightLevel: number;
     temperature: number;
+    humidityLevel?: number | null;
     ecValue: number;
 }
 
@@ -15,6 +16,10 @@ export interface PlantThresholds {
     ideal_soil_moisture_min_winter: number;
     ideal_soil_moisture_max_summer: number;
     ideal_soil_moisture_max_winter: number;
+    ideal_humidity_min_winter: number;
+    ideal_humidity_min_summer: number;
+    ideal_humidity_max_winter: number;
+    ideal_humidity_max_summer: number;
     ideal_light_min_winter: number;
     ideal_light_min_summer: number;
     ideal_light_max_winter: number;
@@ -33,6 +38,95 @@ export interface TipObject {
      * Used to deep link from notifications into the correct PlantStats screen.
      */
     plantId?: string;
+}
+
+type SensorIssue = TipObject;
+
+function isFiniteNumber(value: number | null | undefined): value is number {
+    return typeof value === 'number' && Number.isFinite(value);
+}
+
+function isPlausiblePercentage(value: number | null | undefined): boolean {
+    return isFiniteNumber(value) && value >= 0 && value <= 100;
+}
+
+function isPlausibleTemperature(value: number | null | undefined): boolean {
+    return isFiniteNumber(value) && value >= -30 && value <= 60;
+}
+
+function isPlausibleLight(value: number | null | undefined): boolean {
+    return isFiniteNumber(value) && value >= 0 && value <= 200000;
+}
+
+function isPlausibleEc(value: number | null | undefined): boolean {
+    return isFiniteNumber(value) && value >= 0 && value <= 10;
+}
+
+function getSensorIssues(
+    plantData: PlantDataInput,
+    thresholds: PlantThresholds | null,
+): SensorIssue[] {
+    const issues: SensorIssue[] = [];
+    const {
+        plantName,
+        soilMoisture,
+        lightLevel,
+        temperature,
+        humidityLevel,
+        ecValue,
+    } = plantData;
+
+    if (!isPlausiblePercentage(soilMoisture)) {
+        issues.push({
+            message: `Sensor issue: ${plantName} reported an invalid soil moisture reading (${soilMoisture}). Please recalibrate or check the sensor.`,
+            severity: 'critical',
+        });
+    }
+
+    if (humidityLevel != null && !isPlausiblePercentage(humidityLevel)) {
+        issues.push({
+            message: `Sensor issue: ${plantName} reported an invalid humidity reading (${humidityLevel}). Please recalibrate or check the sensor.`,
+            severity: 'warning',
+        });
+    }
+
+    if (!isPlausibleTemperature(temperature)) {
+        issues.push({
+            message: `Sensor issue: ${plantName} reported an implausible temperature (${temperature}°C). Please check the sensor placement.`,
+            severity: 'critical',
+        });
+    }
+
+    if (!isPlausibleLight(lightLevel)) {
+        issues.push({
+            message: `Sensor issue: ${plantName} reported an invalid light reading (${lightLevel}). Please verify the sensor.`,
+            severity: 'warning',
+        });
+    }
+
+    if (!isPlausibleEc(ecValue)) {
+        issues.push({
+            message: `Sensor issue: ${plantName} reported an invalid nutrient reading (${ecValue}). Please verify the EC sensor or units.`,
+            severity: 'critical',
+        });
+    }
+
+    if (!thresholds && issues.length === 0 && !isPlausiblePercentage(soilMoisture)) {
+        issues.push({
+            message: `Sensor issue: ${plantName} reported an invalid soil moisture reading.`,
+            severity: 'critical',
+        });
+    }
+
+    return issues;
+}
+
+function pickHighestPriorityIssue(issues: SensorIssue[]): SensorIssue | null {
+    if (issues.length === 0) return null;
+    return issues.sort((a, b) => {
+        const score = (tip: SensorIssue) => (tip.severity === 'critical' ? 2 : tip.severity === 'warning' ? 1 : 0);
+        return score(b) - score(a);
+    })[0];
 }
 
 export const GENERAL_TIPS = [
@@ -70,8 +164,12 @@ export function getTriggeredTip(
         soilMoisture,
         lightLevel,
         temperature,
+        humidityLevel,
         ecValue
     } = plantData;
+
+    const sensorIssue = pickHighestPriorityIssue(getSensorIssues(plantData, thresholds));
+    if (sensorIssue) return sensorIssue;
 
     // Default thresholds if none provided (fallback to previous hardcoded values)
     if (!thresholds) {
@@ -101,7 +199,26 @@ export function getTriggeredTip(
         return { message: `Your ${plantName} is too wet (${soilMoisture}%). Target: <${maxMoisture}%.`, severity: 'warning' };
     }
 
-    // 2. Light Logic
+    // 2. Humidity Logic
+    const minHumidity = summer ? thresholds.ideal_humidity_min_summer : thresholds.ideal_humidity_min_winter;
+    const maxHumidity = summer ? thresholds.ideal_humidity_max_summer : thresholds.ideal_humidity_max_winter;
+
+    if (humidityLevel != null) {
+        if (humidityLevel < minHumidity - 15) {
+            return { message: `CRITICAL: The air around ${plantName} is far too dry (${humidityLevel}%). Raise humidity soon.`, severity: 'critical' };
+        }
+        if (humidityLevel < minHumidity) {
+            return { message: `The air around ${plantName} is too dry (${humidityLevel}%). Target: >${minHumidity}%.`, severity: 'warning' };
+        }
+        if (humidityLevel > maxHumidity + 15) {
+            return { message: `CRITICAL: The air around ${plantName} is excessively humid (${humidityLevel}%). Improve airflow.`, severity: 'critical' };
+        }
+        if (humidityLevel > maxHumidity) {
+            return { message: `The air around ${plantName} is too humid (${humidityLevel}%). Target: <${maxHumidity}%.`, severity: 'warning' };
+        }
+    }
+
+    // 3. Light Logic
     const minLight = summer ? thresholds.ideal_light_min_summer : thresholds.ideal_light_min_winter;
     const maxLight = summer ? thresholds.ideal_light_max_summer : thresholds.ideal_light_max_winter;
 
@@ -112,7 +229,7 @@ export function getTriggeredTip(
         return { message: `Your ${plantName} has too much light. Current: ${lightLevel}, Target: <${maxLight}.`, severity: 'warning' };
     }
 
-    // 3. Temperature Logic
+    // 4. Temperature Logic
     const minTemp = summer ? thresholds.ideal_temperature_min_summer : thresholds.ideal_temperature_min_winter;
     const maxTemp = summer ? thresholds.ideal_temperature_max_summer : thresholds.ideal_temperature_max_winter;
 
@@ -129,7 +246,7 @@ export function getTriggeredTip(
         return { message: `Your ${plantName} is too hot (${temperature}°C). Keep it below ${maxTemp}°C.`, severity: 'warning' };
     }
 
-    // 4. EC Logic
+    // 5. EC Logic
     const minEc = summer ? thresholds.ideal_ec_min_summer : thresholds.ideal_ec_min_winter;
     const maxEc = summer ? thresholds.ideal_ec_max_summer : thresholds.ideal_ec_max_winter;
 

@@ -25,6 +25,12 @@ export function usePlantTipSystem() {
 
     const { sprigNotificationsEnabled } = useUserStore();
 
+    const getTipPriority = (tip: TipObject): number => {
+        if (tip.severity === 'critical') return 3;
+        if (tip.severity === 'warning') return 2;
+        return 1;
+    };
+
     // Clear active tip immediately if disabled
     useEffect(() => {
         if (!sprigNotificationsEnabled) {
@@ -145,6 +151,9 @@ export function usePlantTipSystem() {
 
             if (!plants || plants.length === 0) return;
 
+            let bestTip: TipObject | null = null;
+            let bestInfoTip: TipObject | null = null;
+
             // Check each plant
             for (const plant of plants) {
                 const { data: latestController } = await db.micro
@@ -176,16 +185,16 @@ export function usePlantTipSystem() {
                     }
                 }
 
-                if (needsProgressPhoto) {
-                    const tip: TipObject = {
-                        message: `Time to take a progress photo for ${plant.nickname || 'your plant'}!`,
-                        severity: 'info'
-                    };
-                    setAndSaveTip(tip);
-                    return true;
+                if (!latestController) {
+                    if (needsProgressPhoto && !bestInfoTip) {
+                        bestInfoTip = {
+                            message: `Time to take a progress photo for ${plant.nickname || 'your plant'}!`,
+                            severity: 'info',
+                            plantId: plant.id,
+                        };
+                    }
+                    continue;
                 }
-
-                if (!latestController) continue;
 
                 // Prepare data for resolver
                 const plantData: PlantDataInput = {
@@ -193,6 +202,7 @@ export function usePlantTipSystem() {
                     soilMoisture: latestController.soil_moisture,
                     lightLevel: latestController.light,
                     temperature: latestController.temperature,
+                    humidityLevel: latestController.humidity,
                     ecValue: latestController.electrical_conductivity,
                 };
 
@@ -207,15 +217,33 @@ export function usePlantTipSystem() {
                 const tip = getTriggeredTip(plantData, thresholds);
 
                 if (tip) {
-                    // Attach plantId so we can deep-link from notifications into this plant's stats
                     const enrichedTip: TipObject = {
                         ...tip,
                         plantId: plant.id,
                     };
-                    setAndSaveTip(enrichedTip);
-                    // Return true if a tip was found/set
-                    return true;
+
+                    if (!bestTip || getTipPriority(enrichedTip) > getTipPriority(bestTip)) {
+                        bestTip = enrichedTip;
+                    }
                 }
+
+                if (needsProgressPhoto && !bestInfoTip) {
+                    bestInfoTip = {
+                        message: `Time to take a progress photo for ${plant.nickname || 'your plant'}!`,
+                        severity: 'info',
+                        plantId: plant.id,
+                    };
+                }
+            }
+
+            if (bestTip) {
+                setAndSaveTip(bestTip);
+                return true;
+            }
+
+            if (bestInfoTip) {
+                setAndSaveTip(bestInfoTip);
+                return true;
             }
 
             // If we loop through all and find nothing, clear active tip
@@ -233,8 +261,8 @@ export function usePlantTipSystem() {
         // Run immediately on mount
         checkPlantHealth();
 
-        // Then run every 1 minute
-        const interval = setInterval(checkPlantHealth, 60 * 10000);
+        // Then run every 10 minutes
+        const interval = setInterval(checkPlantHealth, 10 * 60 * 1000);
 
         return () => clearInterval(interval);
         // eslint-disable-next-line react-hooks/exhaustive-deps

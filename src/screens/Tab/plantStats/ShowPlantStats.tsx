@@ -333,7 +333,7 @@ export default function ShowPlantStats() {
 
       const { data: plants } = await db.social
         .from('Plants')
-        .select('id, nickname')
+        .select('id, nickname, plant_data:Plant_data(common_name)')
         .eq('user_id', user.id);
 
       const targetPlant = plants?.find((p) => p.id === initialPlantId) || plants?.[0];
@@ -368,14 +368,18 @@ export default function ShowPlantStats() {
     }
   }, [fetchPlantData, selectedPlant?.id, timeRange, trackPlantStatsQuestViews]);
 
-  const health = latest ? calculateHealth(latest) : null;
-
   // Full HealthResult for the Mentor card (includes deviations, trends)
+  const selectedPlantType = Array.isArray(selectedPlant?.plant_data)
+    ? selectedPlant.plant_data[0]?.common_name
+    : selectedPlant?.plant_data?.common_name;
+
   const fullHealth: HealthResult | null = latest
-    ? calculateHealthFull(latest as unknown as Record<string, number | null>, undefined, {
+    ? calculateHealthFull(latest as unknown as Record<string, number | null>, selectedPlantType, {
         history: historyData as unknown as Array<Record<string, any>>,
       })
     : null;
+
+  const health = fullHealth?.health_percent ?? (latest ? calculateHealth(latest) : null);
 
   if (loading) return <LoadingScreen />;
 
