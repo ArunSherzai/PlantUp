@@ -5,6 +5,8 @@ import { BlockService } from '../features/blocking/BlockService';
 import { getLevelFromXP } from '../utils/leveling';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ErrorHandlerService } from '../core/error/services/ErrorHandlerService';
+import { getTodayQuestKey, trackQuestAction } from '../features/quests/questProgress';
+import { DEFAULT_NOTIFICATION_SOUND_SETTINGS, type NotificationSoundCategory, type NotificationSoundPreference } from '../features/notifications/config/notificationSoundConfig';
 
 type Border = {
   id: string;
@@ -86,8 +88,10 @@ type State = {
   fetchUnclaimedRewards: () => Promise<void>;
   claimReward: (level: number) => Promise<boolean>;
   sprigNotificationsEnabled: boolean;
+  notificationSoundSettings: Record<NotificationSoundCategory, NotificationSoundPreference>;
   loadSettings: () => Promise<void>;
   toggleSprigNotifications: (enabled: boolean) => Promise<void>;
+  updateNotificationSound: (category: NotificationSoundCategory, sound: NotificationSoundPreference) => Promise<void>;
   buyShopItem: (itemId: string, price: number) => Promise<{ success: boolean; message: string }>;
   buyLootbox: (price: number) => Promise<{ success: boolean; message: string; rewardType?: string; rewardValue?: string }>;
   fetchRewardsMap: () => Promise<void>;
@@ -115,12 +119,30 @@ export const useUserStore = create<State>((set, get) => ({
   isFetchingProfile: false,
   lastStreakCheckDate: null,
   sprigNotificationsEnabled: true,
+  notificationSoundSettings: DEFAULT_NOTIFICATION_SOUND_SETTINGS,
 
   loadSettings: async () => {
     try {
-      const value = await AsyncStorage.getItem('sprigNotificationsEnabled');
-      if (value !== null) {
-        set({ sprigNotificationsEnabled: JSON.parse(value) });
+      const [enabledValue, soundValue] = await Promise.all([
+        AsyncStorage.getItem('sprigNotificationsEnabled'),
+        AsyncStorage.getItem('notificationSoundSettings'),
+      ]);
+
+      const nextState: Partial<State> = {};
+
+      if (enabledValue !== null) {
+        nextState.sprigNotificationsEnabled = JSON.parse(enabledValue);
+      }
+
+      if (soundValue !== null) {
+        nextState.notificationSoundSettings = {
+          ...DEFAULT_NOTIFICATION_SOUND_SETTINGS,
+          ...JSON.parse(soundValue),
+        };
+      }
+
+      if (Object.keys(nextState).length > 0) {
+        set(nextState as Partial<State>);
       }
     } catch (e) {
       ErrorHandlerService.handle(e, { showUI: false });
@@ -136,9 +158,29 @@ export const useUserStore = create<State>((set, get) => ({
     }
   },
 
+  updateNotificationSound: async (category: NotificationSoundCategory, sound: NotificationSoundPreference) => {
+    const nextSettings = {
+      ...get().notificationSoundSettings,
+      [category]: sound,
+    };
+
+    set({ notificationSoundSettings: nextSettings });
+
+    try {
+      await AsyncStorage.setItem('notificationSoundSettings', JSON.stringify(nextSettings));
+    } catch (e) {
+      ErrorHandlerService.handle(e, { showUI: false });
+    }
+  },
+
   setUser: (user) => {
     set({ user });
     if (user) {
+      trackQuestAction({
+        actionCode: 'WEEKLY_LOGIN_STREAK',
+        eventKey: getTodayQuestKey(),
+      });
+
       // 1. Prioritize essential profile data for immediate UI interaction
       get().fetchProfile();
 
@@ -987,3 +1029,5 @@ export const useUserStore = create<State>((set, get) => ({
     return get().blockedUserIds.has(userId);
   }
 }));
+
+

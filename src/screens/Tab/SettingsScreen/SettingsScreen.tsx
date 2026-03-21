@@ -133,6 +133,17 @@ export default function SettingsScreen() {
                         </View>
                     </TouchableOpacity>
 
+                    {/* Notification Sounds */}
+                    <TouchableOpacity style={styles.menuItem} onPress={() => navigateTo('NotificationSounds')}>
+                        <View style={styles.menuItemLeft}>
+                            <View style={[styles.iconContainer, { backgroundColor: theme.colors.surface }]}>
+                                <FontAwesome6 name="music" size={18} color={theme.colors.text} />
+                            </View>
+                            <Text style={styles.menuItemText}>Notification Sounds</Text>
+                        </View>
+                        <FontAwesome6 name="chevron-right" size={16} color={theme.colors.greyedOut} />
+                    </TouchableOpacity>
+
                     {/* Account */}
                     <TouchableOpacity style={styles.menuItem} onPress={() => navigateTo('Account')}>
                         <View style={styles.menuItemLeft}>
@@ -275,3 +286,5 @@ const styles = StyleSheet.create((theme: any) => ({
         fontSize: 16,
     },
 }));
+
+

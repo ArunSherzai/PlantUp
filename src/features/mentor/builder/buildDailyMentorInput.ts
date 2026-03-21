@@ -47,7 +47,7 @@ function inferGrowthStage(
  * Build the compact DailyMentorInput for a given user + plant + date.
  *
  * Steps:
- *  1. Fetch plant metadata (nickname, type, created_at, environment).
+ *  1. Fetch plant metadata (nickname, type, environment).
  *  2. Fetch latest sensor reading.
  *  3. Fetch recent history (for trends).
  *  4. Compute HealthResult.
@@ -61,7 +61,7 @@ export async function buildDailyMentorInput(
   // 1. Plant metadata
   const { data: plant, error: plantErr } = await db.social
     .from('Plants')
-    .select('id, nickname, description, plant_data_id, created_at')
+    .select('id, nickname, description, plant_data_id')
     .eq('id', plantId)
     .eq('user_id', userId)
     .maybeSingle();
@@ -104,11 +104,7 @@ export async function buildDailyMentorInput(
   // 4. Compute health
   const profile = getProfile(plantTypeName);
   const season = deriveSeason(date);
-
-  const ageDays = plant.created_at
-    ? Math.floor((Date.now() - new Date(plant.created_at).getTime()) / 86_400_000)
-    : undefined;
-
+  const ageDays = undefined;
   const growthStage = inferGrowthStage(ageDays);
 
   const healthResult: HealthResult = latest
