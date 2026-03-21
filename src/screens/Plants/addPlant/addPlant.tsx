@@ -309,7 +309,7 @@ export default function AddPlantScreen() {
                 ) : plantDataId && plantDataList.find((p) => p.id === plantDataId)?.image_url ? (
                   <Image source={{ uri: plantDataList.find((p) => p.id === plantDataId)?.image_url }} style={styles.imagePickerImage} />
                 ) : (
-                  <Image source={require('../../../../assets/images/plant4.png')} style={styles.imagePickerImage} />
+                  <Image style={styles.imagePickerImage} />
                 )}
                 <View style={styles.editIconContainer}>
                   <Feather name="edit-2" size={16} color="white" />

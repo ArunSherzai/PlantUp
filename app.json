@@ -87,12 +87,19 @@
         "backgroundColor": "#00000000",
         "style": "light",
         "hidden": true
-      }
+      },
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "extra": {
       "eas": {
-        "projectId": "12345678-1234-1234-1234-1234567890ab"
+        "projectId": "e3a26cb7-0177-42d4-8593-846b65ee085d"
       }
-    }
+    },
+    "owner": "abehari"
   }
 }

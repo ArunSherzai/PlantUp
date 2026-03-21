@@ -32,7 +32,7 @@ export function usePlants(userId?: string) {
       name: p.nickname,
       description: p.description,
       image_url: getPublicPlantImageUrl(p.image_url) || undefined,
-      image: require('../../../../assets/images/plant4.png'),
+      image: "",
       gradientColors: customGradients[idx % customGradients.length],
     }));
 

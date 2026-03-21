@@ -60,7 +60,7 @@ export default function UserPlantsScreen() {
                         />
                     ) : (
                         <Image
-                            source={item.image || require('../../../../assets/images/plant4.png')}
+                            source={item.image || ""}
                             style={styles.plantImage}
                             resizeMode="contain"
                         />
@@ -102,7 +102,7 @@ export default function UserPlantsScreen() {
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
                         <Image
-                            source={require('../../../../assets/images/plant4.png')} // Fallback illustration
+                            // Fallback illustration
                             style={{ width: 100, height: 100, opacity: 0.5, marginBottom: 10 }}
                             resizeMode="contain"
                         />

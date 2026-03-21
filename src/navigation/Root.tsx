@@ -75,7 +75,9 @@ import PublicProfileScreen from '~/screens/Tab/profileScreen/PublicProfileScreen
 import DirectMessagesScreen from '~/screens/Tab/directMessages/DirectMessagesScreen';
 import ShopScreen from '~/screens/Tab/shop/ShopScreen';
 import SpriteComponent from '~/components/SpriteComponent';
-import { View } from 'react-native';
+import { View, ActivityIndicator } from 'react-native';
+import { useUserStore } from '~/stores/UserStore';
+import { db } from '~/utils/supabase';
 import BorderInventoryScreen from '~/screens/Tab/profileScreen/BorderInventoryScreen';
 import TitleInventoryScreen from '~/screens/Tab/profileScreen/TitleInventoryScreen';
 import ShowPlantStats from '~/screens/Tab/plantStats/ShowPlantStats';
@@ -97,10 +99,39 @@ import { StatusBar } from 'expo-status-bar';
 
 export default function RootStack() {
   const { theme } = useUnistyles();
+  const { user, setUser } = useUserStore();
+  const [isAuthLoading, setIsAuthLoading] = React.useState(true);
 
   useEffect(() => {
     NotificationService.initialize();
+
+    // 1. Check initial session
+    db.public.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser(session.user);
+      }
+      setIsAuthLoading(false);
+    });
+
+    // 2. Listen to auth changes
+    const { data: { subscription } } = db.public.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setUser(session.user);
+      } else {
+        setUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
+
+  if (isAuthLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background }}>
+        <ActivityIndicator size="large" color={theme.colors.accent} />
+      </View>
+    );
+  }
 
   return (
     <NavigationContainer
@@ -126,13 +157,14 @@ export default function RootStack() {
           }}>
 
           {/* STANDARD NAVIGATION FLOW */}
-          <Stack.Group>
-            <Stack.Screen name="Auth" component={AuthStack} options={{ headerShown: false }} />
-            <Stack.Screen
-              name="TabNavigator"
-              component={TabNavigator}
-              options={{ headerShown: false }}
-            />
+          {user ? (
+            <>
+              <Stack.Group>
+              <Stack.Screen
+                name="TabNavigator"
+                component={TabNavigator}
+                options={{ headerShown: false }}
+              />
 
             <Stack.Screen
               name="Settings"
@@ -287,6 +319,10 @@ export default function RootStack() {
             />
             {/* If you have other dialog-like screens, add them here */}
           </Stack.Group>
+          </>
+          ) : (
+            <Stack.Screen name="Auth" component={AuthStack} options={{ headerShown: false }} />
+          )}
 
         </Stack.Navigator>
         <SpriteComponent />
