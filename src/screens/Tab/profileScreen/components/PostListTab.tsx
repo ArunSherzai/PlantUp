@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, ActivityIndicator, StyleSheet, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useUnistyles } from 'react-native-unistyles';
 import { Post, usePosts } from '../../../../hooks/usePosts';
@@ -7,6 +7,7 @@ import { FontAwesome5 } from '@expo/vector-icons';
 import MasonryFeedGrid from '../../../../components/MasonryFeedGrid';
 import { useUserStore } from '../../../../stores/UserStore';
 import { deletePost } from '../../../../features/social/api/deletePost';
+import DeletePostModal from './DeletePostModal';
 
 interface PostListTabProps {
     userId?: string;
@@ -19,6 +20,9 @@ export default function PostListTab({ userId, likedBy, emptyMessage = 'No posts 
     const navigation = useNavigation<any>();
     const currentUser = useUserStore((state) => state.user);
     const { posts: allPosts, loading, error, refreshPosts } = usePosts({ userId, likedBy });
+    const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [deleteError, setDeleteError] = useState<string | null>(null);
 
     const posts = allPosts.filter(p => !p.is_blocked);
     const canDeletePosts = !!currentUser?.id && !!userId && currentUser.id === userId && !likedBy;
@@ -26,31 +30,36 @@ export default function PostListTab({ userId, likedBy, emptyMessage = 'No posts 
     const handleDeletePost = (post: Post) => {
         if (!currentUser?.id) return;
 
-        Alert.alert(
-            'Delete post?',
-            'This will permanently remove the post from your profile.',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Delete',
-                    style: 'destructive',
-                    onPress: async () => {
-                        const result = await deletePost(post.id, currentUser.id);
+        setDeleteError(null);
+        setSelectedPost(post);
+    };
 
-                        if (!result.success) {
-                            Alert.alert('Could not delete post', result.message || 'Please try again.');
-                            return;
-                        }
+    const closeDeleteModal = () => {
+        if (isDeleting) return;
 
-                        if (result.message) {
-                            Alert.alert('Post deleted', result.message);
-                        }
+        setSelectedPost(null);
+        setDeleteError(null);
+    };
 
-                        refreshPosts();
-                    }
-                }
-            ]
-        );
+    const confirmDeletePost = async () => {
+        if (!currentUser?.id || !selectedPost) return;
+
+        setIsDeleting(true);
+        setDeleteError(null);
+
+        try {
+            const result = await deletePost(selectedPost.id, currentUser.id);
+
+            if (!result.success) {
+                setDeleteError(result.message || 'Please try again.');
+                return;
+            }
+
+            setSelectedPost(null);
+            await refreshPosts();
+        } finally {
+            setIsDeleting(false);
+        }
     };
 
     if (loading && posts.length === 0) {
@@ -85,7 +94,15 @@ export default function PostListTab({ userId, likedBy, emptyMessage = 'No posts 
             <MasonryFeedGrid
                 posts={posts}
                 onPostPress={(post) => navigation.navigate('FeedPostDetail', { post })}
+                onPostMenuPress={canDeletePosts ? handleDeletePost : undefined}
                 onPostLongPress={canDeletePosts ? handleDeletePost : undefined}
+            />
+            <DeletePostModal
+                visible={!!selectedPost}
+                deleting={isDeleting}
+                errorMessage={deleteError}
+                onClose={closeDeleteModal}
+                onConfirm={confirmDeletePost}
             />
             <View style={{ height: 100 }} />
         </View>
