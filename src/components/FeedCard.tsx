@@ -42,9 +42,10 @@ interface FeedCardProps {
     hideCaption?: boolean;
     postType?: string;
     sensorData?: string;
+    onLongPress?: () => void;
 }
 
-const FeedCard = ({ imageUri, caption, hashtags, isVideo, style, onPress, username, userAvatar, aspectRatio, hideCaption, postType, sensorData }: FeedCardProps) => {
+const FeedCard = ({ imageUri, caption, hashtags, isVideo, style, onPress, username, userAvatar, aspectRatio, hideCaption, postType, sensorData, onLongPress }: FeedCardProps) => {
     const { theme } = useUnistyles();
     const hasMedia = (imageUri?.uri || (typeof imageUri === 'number')) && postType !== 'sensorData';
 
@@ -64,6 +65,7 @@ const FeedCard = ({ imageUri, caption, hashtags, isVideo, style, onPress, userna
                 style
             ]}
             onPress={onPress}
+            onLongPress={onLongPress}
             activeOpacity={0.9}
         >
             {postType === 'sensorData' && parsedSensorData ? (

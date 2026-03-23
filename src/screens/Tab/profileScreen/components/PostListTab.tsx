@@ -1,10 +1,12 @@
 import React from 'react';
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ActivityIndicator, StyleSheet, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useUnistyles } from 'react-native-unistyles';
-import { usePosts } from '../../../../hooks/usePosts';
+import { Post, usePosts } from '../../../../hooks/usePosts';
 import { FontAwesome5 } from '@expo/vector-icons';
 import MasonryFeedGrid from '../../../../components/MasonryFeedGrid';
+import { useUserStore } from '../../../../stores/UserStore';
+import { deletePost } from '../../../../features/social/api/deletePost';
 
 interface PostListTabProps {
     userId?: string;
@@ -15,9 +17,41 @@ interface PostListTabProps {
 export default function PostListTab({ userId, likedBy, emptyMessage = 'No posts found.' }: PostListTabProps) {
     const { theme } = useUnistyles();
     const navigation = useNavigation<any>();
-    const { posts: allPosts, loading, error } = usePosts({ userId, likedBy });
+    const currentUser = useUserStore((state) => state.user);
+    const { posts: allPosts, loading, error, refreshPosts } = usePosts({ userId, likedBy });
 
     const posts = allPosts.filter(p => !p.is_blocked);
+    const canDeletePosts = !!currentUser?.id && !!userId && currentUser.id === userId && !likedBy;
+
+    const handleDeletePost = (post: Post) => {
+        if (!currentUser?.id) return;
+
+        Alert.alert(
+            'Delete post?',
+            'This will permanently remove the post from your profile.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: async () => {
+                        const result = await deletePost(post.id, currentUser.id);
+
+                        if (!result.success) {
+                            Alert.alert('Could not delete post', result.message || 'Please try again.');
+                            return;
+                        }
+
+                        if (result.message) {
+                            Alert.alert('Post deleted', result.message);
+                        }
+
+                        refreshPosts();
+                    }
+                }
+            ]
+        );
+    };
 
     if (loading && posts.length === 0) {
         return (
@@ -51,6 +85,7 @@ export default function PostListTab({ userId, likedBy, emptyMessage = 'No posts 
             <MasonryFeedGrid
                 posts={posts}
                 onPostPress={(post) => navigation.navigate('FeedPostDetail', { post })}
+                onPostLongPress={canDeletePosts ? handleDeletePost : undefined}
             />
             <View style={{ height: 100 }} />
         </View>

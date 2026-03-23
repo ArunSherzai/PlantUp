@@ -67,28 +67,40 @@ export default function PlantTimelineScreen() {
         navigation.navigate('Camera', { mode: 'photo', source: 'PlantTimeline' });
     };
 
-    // Listen for returned captured media
+    // Listen for media returned from the shared camera/editor flow
     useEffect(() => {
-        const checkCapturedMedia = async () => {
-            if (route.params?.capturedMedia) {
-                const mediaUri = route.params.capturedMedia.uri;
-                // Clear the param immediately so it doesn't re-trigger
-                navigation.setParams({ capturedMedia: undefined });
-
-                try {
-                    const resultUrl = await uploadProgressPhoto(mediaUri, newPhotoTitle.trim() || 'Progress Update');
-                    if (resultUrl && typeof resultUrl === 'string') {
-                        setNewPhotoTitle('Progress Update');
-                        setNewPhotoUrl(resultUrl);
-                        setShowConfettiModal(true);
-                    }
-                } catch (error: any) {
-                    showModal('error', 'Upload Error', error.message || 'Could not upload the photo.');
+        const uploadReturnedMedia = async (mediaUri: string) => {
+            try {
+                const resultUrl = await uploadProgressPhoto(mediaUri, newPhotoTitle.trim() || 'Progress Update');
+                if (resultUrl && typeof resultUrl === 'string') {
+                    setNewPhotoTitle('Progress Update');
+                    setNewPhotoUrl(resultUrl);
+                    setShowConfettiModal(true);
                 }
+            } catch (error: any) {
+                showModal('error', 'Upload Error', error.message || 'Could not upload the photo.');
             }
         };
+
+        const checkCapturedMedia = async () => {
+            const returnedMediaUri =
+                route.params?.capturedMedia?.uri ||
+                route.params?.editedImageUri;
+
+            if (!returnedMediaUri) {
+                return;
+            }
+
+            // Clear params immediately so the upload doesn't re-trigger on re-render/focus
+            navigation.setParams({
+                capturedMedia: undefined,
+                editedImageUri: undefined,
+            });
+
+            await uploadReturnedMedia(returnedMediaUri);
+        };
         checkCapturedMedia();
-    }, [route.params?.capturedMedia]);
+    }, [navigation, newPhotoTitle, route.params?.capturedMedia, route.params?.editedImageUri, uploadProgressPhoto]);
 
     const handleExportPost = async () => {
         if (!user?.id || !newPhotoUrl) return;
