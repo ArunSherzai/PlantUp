@@ -30,7 +30,7 @@ import {
   fetchMentorAdvice,
   shouldFetchMentor,
   hasAlreadyFetchedToday,
-  MentorResponse,
+  getLocalMentorCache,
 } from '../api/mentorApi';
 import type { HealthResult, MentorAdvice } from '../types/mentor.types';
 
@@ -121,8 +121,7 @@ export default function DailyMentorCard({ plantId, health, onClose }: Props) {
     let mounted = true;
     (async () => {
       try {
-        // Always try to load from local cache first (free)
-        const result = await fetchMentorAdvice(plantId);
+        const result = await getLocalMentorCache(plantId);
         if (mounted && result?.advice) {
           setAdvice(result.advice);
           setAlreadyFetched(true);

@@ -36,6 +36,7 @@ import { RootStackParamList } from '~/navigation/Root';
 
 import { Audio } from 'expo-av';
 import { playSound } from '~/utils/SoundManager';
+import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
 
 export default function ShopScreen() {
     const { theme } = useUnistyles();
@@ -97,7 +98,7 @@ export default function ShopScreen() {
                 }
             }
         } catch (error) {
-            alert('Something went wrong.');
+            ErrorHandlerService.handle(error);
         } finally {
             setLoadingId(null);
         }

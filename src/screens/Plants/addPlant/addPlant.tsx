@@ -21,6 +21,7 @@ import { useUserStore } from '~/stores/UserStore';
 import DraggableBottomSheet from '~/components/DraggableBottomSheet';
 import AlertModal from '~/components/AlertModal';
 import { getPublicPlantImageUrl } from '~/utils/media';
+import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
 
 type PlantData = {
   id: number;
@@ -121,7 +122,7 @@ export default function AddPlantScreen() {
       if (error) throw error;
       return data?.path || null;
     } catch (e) {
-      console.error('Image upload failed', e);
+      ErrorHandlerService.handle(e, { showUI: false });
       return null;
     }
   };
@@ -137,7 +138,7 @@ export default function AddPlantScreen() {
           .order('common_name', { ascending: true });
 
         if (error) {
-          console.error('Database error:', error);
+          ErrorHandlerService.handle(error, { showUI: false });
           throw new Error('Failed to load plant data');
         }
 
@@ -161,7 +162,7 @@ export default function AddPlantScreen() {
         }));
         setPlantDataList(typedData);
       } catch (error) {
-        console.error('Error in fetchPlantData:', error);
+        ErrorHandlerService.handle(error, { showUI: false });
         Alert.alert('Error', error instanceof Error ? error.message : 'Failed to load plant data');
       } finally {
         setIsLoadingPlants(false);
@@ -201,12 +202,12 @@ export default function AddPlantScreen() {
       });
 
       if (sessionError) {
-        console.error('Error getting auth session:', sessionError);
+        ErrorHandlerService.handle(sessionError, { showUI: false });
         throw new Error('Failed to verify authentication. Please log in again.');
       }
 
       if (!user) {
-        console.error('No authenticated user found in session');
+        ErrorHandlerService.handle(new Error('No authenticated user found in session'), { showUI: false });
         throw new Error('No active session. Please log in again.');
       }
 
@@ -214,7 +215,7 @@ export default function AddPlantScreen() {
       console.log('Using user ID from auth session:', userId);
 
       if (!user) {
-        console.error('User not found in database. User ID:', userId);
+        ErrorHandlerService.handle(new Error('User not found in database'), { showUI: false });
         throw new Error('User account not found. Please sign up first.');
       }
 
@@ -245,7 +246,7 @@ export default function AddPlantScreen() {
         .single();
 
       if (insertError || !insertedPlant) {
-        console.error('Database error details:', insertError);
+        ErrorHandlerService.handle(insertError, { showUI: false });
         throw new Error('Failed to add plant. Please try again.');
       }
 
@@ -260,17 +261,14 @@ export default function AddPlantScreen() {
             .eq('id', insertedPlant.id);
 
           if (updateError) {
-            console.error('Failed to update plant with image url', updateError);
+            ErrorHandlerService.handle(updateError, { showUI: false });
           }
         }
       }
 
       showModal('success', 'Success!', 'Your plant has been successfully uploaded.');
     } catch (error) {
-      console.error('Error in handleSave:', {
-        error,
-        timestamp: new Date().toISOString(),
-      });
+      ErrorHandlerService.handle(error, { showUI: false });
       showModal('error', 'Error', error instanceof Error ? error.message : 'An unknown error occurred');
     } finally {
       setIsLoading(false);

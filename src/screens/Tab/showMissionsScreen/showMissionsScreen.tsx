@@ -30,6 +30,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import RewardDetailsModal from '../../../components/RewardDetailsModal';
 import { playSound } from '~/utils/SoundManager';
 import { useTutorialStore } from '../../../stores/TutorialStore';
+import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
 
 
 const { height, width } = Dimensions.get('window');
@@ -115,7 +116,7 @@ export default function ShowMissionsScreen() {
 
       setQuests(formattedData as any);
     } catch (e) {
-      console.error('Error fetching quests:', e);
+      ErrorHandlerService.handle(e, { showUI: false });
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -244,8 +245,7 @@ export default function ShowMissionsScreen() {
       });
 
     } catch (e) {
-      console.error('Error claiming:', e);
-      Alert.alert('Error', 'Failed to claim quest.');
+      ErrorHandlerService.handle(e);
     } finally {
       setLoading(false);
     }

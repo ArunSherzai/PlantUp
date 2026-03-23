@@ -1,9 +1,13 @@
 import { create } from 'zustand';
+import { AppState } from 'react-native';
 import { db } from '../utils/supabase';
 import { useUserStore } from './UserStore';
+import { ErrorHandlerService } from '../core/error/services/ErrorHandlerService';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { playSendSound, playReceiveSound } from '../utils/soundEffects';
 import { useMessageNotificationStore } from './MessageNotificationStore';
+import { NotificationService } from '../services/NotificationService';
+import { useInboxStore } from './InboxStore';
 
 export interface ChatMessage {
     id: string;
@@ -42,24 +46,28 @@ interface DMState {
     subscribeToConversation: (conversationId: string) => void;
     unsubscribeFromConversation: (conversationId: string) => void;
     markAsRead: (conversationId: string) => Promise<void>;
-    subscribeToInbox: () => void;
+    subscribeToInbox: () => Promise<void>;
     unsubscribeFromInbox: () => void;
     handleNewInboxMessage: (newMessage: ChatMessage) => void;
     upsertConversation: (row: Partial<Conversation>) => void;
+
+    // Status tracking
+    inboxStatus: string;
+    chatStatus: string;
+    getChannelStatuses: () => { inbox: string; chat: string };
 }
 
 // Keep track of active subscriptions outside the store to avoid serialization issues if any
-let activeChannel: RealtimeChannel | null = null;
-let activeChannelId: string | null = null;
 let inboxChannels: RealtimeChannel[] = [];
-// Track processed events to prevent duplicates from multiple subscriptions or echoes
-const processedEvents = new Set<string>();
+let retryTimeout: NodeJS.Timeout | null = null;
 
 export const useDMStore = create<DMState>((set, get) => ({
     conversations: [],
     messages: {},
     loading: false,
     activeConversationId: null,
+    inboxStatus: 'DISCONNECTED',
+    chatStatus: 'DISCONNECTED',
 
     fetchConversations: async () => {
         const user = useUserStore.getState().user;
@@ -160,7 +168,7 @@ export const useDMStore = create<DMState>((set, get) => ({
             set({ conversations, loading: false });
 
         } catch (e) {
-            console.error('[DMStore] Error fetching conversations:', e);
+            ErrorHandlerService.handle(e, { showUI: false });
             set({ loading: false });
         }
     },
@@ -175,13 +183,13 @@ export const useDMStore = create<DMState>((set, get) => ({
             });
 
             if (error) {
-                console.error('Error creating conversation:', error);
+                ErrorHandlerService.handle(error, { showUI: false });
                 return null;
             }
 
             return data as string; // UUID
         } catch (err) {
-            console.error('Exception creating conversation:', err);
+            ErrorHandlerService.handle(err, { showUI: false });
             return null;
         }
     },
@@ -203,7 +211,7 @@ export const useDMStore = create<DMState>((set, get) => ({
                 .range(offset, offset + 14); // Fetch 15 at a time
 
             if (error) {
-                console.error('[DMStore] Error fetching messages:', error);
+                ErrorHandlerService.handle(error, { showUI: false });
                 throw error;
             }
 
@@ -224,7 +232,7 @@ export const useDMStore = create<DMState>((set, get) => ({
             });
 
         } catch (e) {
-            console.error('[DMStore] Exception fetching messages:', e);
+            ErrorHandlerService.handle(e, { showUI: false });
             set({ loading: false });
         }
     },
@@ -248,7 +256,7 @@ export const useDMStore = create<DMState>((set, get) => ({
                 });
 
             if (error) {
-                console.error('[DMStore] Error sending message:', error);
+                ErrorHandlerService.handle(error, { showUI: false });
                 return false;
             }
             console.log('[DMStore] Message sent successfully');
@@ -258,18 +266,18 @@ export const useDMStore = create<DMState>((set, get) => ({
 
             return true;
         } catch (e) {
-            console.error('[DMStore] Exception sending message:', e);
+            ErrorHandlerService.handle(e, { showUI: false });
             return false;
         }
     },
 
     subscribeToConversation: (conversationId: string) => {
-        // Unsubscribe from previous if different
-        if (activeChannelId === conversationId && activeChannel) return;
-        if (activeChannel) {
-            db.public.removeChannel(activeChannel);
-            activeChannel = null;
-            activeChannelId = null;
+        set({
+            activeConversationId: conversationId,
+            chatStatus: get().inboxStatus === 'SUBSCRIBED' ? 'SUBSCRIBED' : get().inboxStatus
+        });
+        if (get().inboxStatus !== 'SUBSCRIBED') {
+            console.warn('[DMStore] Navigated to chat, but global Inbox is not SUBSCRIBED yet. Status:', get().inboxStatus);
         }
 
         console.log('[DMStore] Subscribing to conversation:', conversationId);
@@ -312,14 +320,14 @@ export const useDMStore = create<DMState>((set, get) => ({
             .subscribe((status, err) => {
                 console.log('[DMStore] Chat subscription status:', status);
                 if (err) {
-                    console.error('[DMStore] Chat subscription error:', err);
+                    ErrorHandlerService.handle(err, { showUI: false });
                 }
                 if (status === 'SUBSCRIBED') {
                     console.log('[DMStore] ✅ Successfully subscribed to chat:', conversationId);
                 } else if (status === 'CLOSED') {
                     console.log('[DMStore] ❌ Chat subscription closed:', conversationId);
                 } else if (status === 'CHANNEL_ERROR') {
-                    console.error('[DMStore] ❌ Chat subscription error:', conversationId);
+                    ErrorHandlerService.handle(new Error(`Chat subscription error for ${conversationId}`), { showUI: false });
                 }
             });
 
@@ -328,11 +336,10 @@ export const useDMStore = create<DMState>((set, get) => ({
     },
 
     unsubscribeFromConversation: (conversationId: string) => {
-        if (activeChannel && activeChannelId === conversationId) {
-            db.public.removeChannel(activeChannel);
-            activeChannel = null;
-            activeChannelId = null;
-        }
+        set({
+            activeConversationId: null,
+            chatStatus: get().inboxStatus === 'SUBSCRIBED' ? 'IDLE (READY)' : 'IDLE'
+        });
     },
 
     markAsRead: async (conversationId: string) => {
@@ -347,7 +354,7 @@ export const useDMStore = create<DMState>((set, get) => ({
                 .is('read_at', null)
                 .neq('sender_id', user.id);
         } catch (e) {
-            console.error('[DMStore] Error marking as read:', e);
+            ErrorHandlerService.handle(e, { showUI: false });
         }
     },
 
@@ -385,114 +392,254 @@ export const useDMStore = create<DMState>((set, get) => ({
         });
     },
 
-    subscribeToInbox: () => {
-        const user = useUserStore.getState().user;
-        if (!user) return;
-
-        // Prevent duplicate subscriptions
-        if (inboxChannels.length > 0) {
-            console.log('[DMStore] Inbox already subscribed');
+    subscribeToInbox: async () => {
+        if (inboxChannels.length > 0 && get().inboxStatus === 'SUBSCRIBED') {
             return;
         }
 
-        console.log(`[DMStore] SUBSCRIBING inbox for ${user.id}`);
+        // Cleanup
+        if (inboxChannels.length > 0) {
+            inboxChannels.forEach(ch => {
+                console.log('[DMStore] Cleaning up old inbox channel:', ch.topic);
+                db.public.removeChannel(ch);
+            });
+            inboxChannels = [];
+        }
 
+        const user = useUserStore.getState().user;
+        if (!user) {
+            console.log('[DMStore] Skipping subscription: No user session');
+            return;
+        }
+
+        // Explicitly set realtime auth token before subscribing
+        // This fixes the race condition where subscribeToInbox fires before
+        // the global getSession().then() in supabase.ts has resolved
+        try {
+            const { data: { session } } = await db.public.auth.getSession();
+            if (session?.access_token) {
+                db.public.realtime.setAuth(session.access_token);
+                console.log('[DMStore] ✅ Realtime auth token set before subscription');
+            } else {
+                console.warn('[DMStore] ⚠️ No session token available, subscription may fail');
+            }
+        } catch (e) {
+            console.warn('[DMStore] Error getting session for realtime auth:', e);
+        }
+
+        console.log(`[DMStore] 📡 Attempting Global Inbox Subscription (v4) for: ${user.id}`);
+
+        // MUST use db.public (the main client) for channel/removeChannel
+        // but we filter for 'social_media_schema' inside the .on()
         const channel = db.public
-            .channel(`dm_inbox:${user.id}`)
+            .channel(`realtime_inbox:${user.id}`)
             .on(
                 'postgres_changes',
                 {
-                    event: 'UPDATE',
+                    event: 'INSERT',
                     schema: 'social_media_schema',
-                    table: 'dm_conversations',
-                    // filter: `or(user_low.eq.${user.id},user_high.eq.${user.id})`,
+                    table: 'dm_messages',
                 },
-                (payload) => {
-                    console.log('[DMStore] 📬 INBOX EVENT RECEIVED');
-                    const updatedConvo = payload.new as any;
-                    const eventKey = `${updatedConvo.id}-${updatedConvo.last_message_time}`;
+                async (payload: { new: ChatMessage }) => {
+                    console.log('[DMStore] 📨 Realtime Message arrived:', payload.new.id);
+                    const newMessage = payload.new;
 
-                    if (processedEvents.has(eventKey)) {
-                        console.log('[DMStore] 🛑 Skipping duplicate event:', eventKey);
-                        return;
-                    }
-                    processedEvents.add(eventKey);
-                    // Clear after 5 seconds to free memory
-                    setTimeout(() => processedEvents.delete(eventKey), 5000);
+                    // 1. Update Message Cache for ALL incoming messages
+                    set(state => {
+                        const conversationId = newMessage.conversation_id;
+                        const currentMsgs = state.messages[conversationId] || [];
+                        if (currentMsgs.find(m => m.id === newMessage.id)) return state;
 
-                    console.log('[DMStore] Payload:', JSON.stringify(payload.new, null, 2));
-                    const user = useUserStore.getState().user;
+                        return {
+                            messages: {
+                                ...state.messages,
+                                [conversationId]: [newMessage, ...currentMsgs]
+                            }
+                        };
+                    });
 
-                    console.log('[DMStore] Last message from:', updatedConvo.last_message_sender_id);
-                    console.log('[DMStore] Current user:', user?.id);
-                    console.log('[DMStore] Message text:', updatedConvo.last_message_text);
+                    // 2. Ignore our own messages for Banners and Sounds
+                    if (newMessage.sender_id === user.id) return;
 
-                    // Show notification & Update Badge if message is from another user
-                    let nextUnreadCount = undefined;
+                    const conversations = get().conversations;
+                    const existingConvo = conversations.find(c => c.id === newMessage.conversation_id);
 
-                    if (updatedConvo.last_message_sender_id &&
-                        updatedConvo.last_message_sender_id !== user?.id &&
-                        updatedConvo.last_message_text) {
+                    if (existingConvo) {
+                        const senderName = existingConvo.participants?.[0]?.username || 'New Message';
+                        const avatar = existingConvo.participants?.[0]?.avatar_path;
+                        const nextUnreadCount = (existingConvo.unread_count || 0) + 1;
 
-                        console.log('[DMStore] ✅ New message from OTHER user - showing notification');
+                        const isAppActive = AppState.currentState === 'active';
+                        const isChatActive = get().activeConversationId === newMessage.conversation_id && isAppActive;
 
-                        // Find the conversation to get detailed info
-                        const conversations = get().conversations;
-                        const existingConvo = conversations.find(c => c.id === updatedConvo.id);
-
-                        // DUPLICATE CHECK: Only notify if the time has actually changed or the message text is different
-                        // This prevents re-notifying on metadata updates (like 'read' status changes happening concurrently)
-                        console.log('[DuplicateCheck] Existing Time:', existingConvo?.last_message?.created_at);
-                        console.log('[DuplicateCheck] New Time:', updatedConvo.last_message_time);
-
-                        const existingTime = existingConvo?.last_message?.created_at ? new Date(existingConvo.last_message.created_at).getTime() : 0;
-                        const newTime = updatedConvo.last_message_time ? new Date(updatedConvo.last_message_time).getTime() : 0;
-
-                        const isDuplicate = existingConvo &&
-                            existingTime === newTime &&
-                            existingConvo.last_message?.content === updatedConvo.last_message_text;
-
-                        if (!isDuplicate) {
-                            const senderName = existingConvo?.participants?.[0]?.username || 'New Message';
-                            const avatar = existingConvo?.participants?.[0]?.avatar_path;
-
-                            // Increment badge locally
-                            const currentUnread = existingConvo?.unread_count || 0;
-                            nextUnreadCount = currentUnread + 1;
-
-                            // Play sound
+                        if (!isChatActive) {
                             playReceiveSound();
 
-                            // Show notification banner
-                            useMessageNotificationStore.getState().showNotification({
-                                senderName,
-                                content: updatedConvo.last_message_text,
-                                avatar: avatar ? { uri: avatar } : undefined,
-                                conversationId: updatedConvo.id,
-                            });
+                            if (isAppActive) {
+                                // 1. In-app banner (MessageNotificationStore) - ONLY when app is open
+                                useMessageNotificationStore.getState().showNotification({
+                                    senderName,
+                                    content: newMessage.content,
+                                    avatar: avatar ? { uri: avatar } : undefined,
+                                    conversationId: newMessage.conversation_id,
+                                });
+                                useInboxStore.getState().addNotification({
+                                    kind: 'chat',
+                                    title: senderName,
+                                    body: newMessage.content,
+                                    avatarUri: avatar,
+                                    groupKey: `chat:${newMessage.conversation_id}`,
+                                    navigationTarget: {
+                                        name: 'MessageDetail',
+                                        params: {
+                                            id: newMessage.conversation_id,
+                                            name: senderName,
+                                            avatar: avatar ? { uri: avatar } : require('../../assets/images/Profilbild.jpg'),
+                                            userId: newMessage.sender_id,
+                                        },
+                                    },
+                                });
+                            } else {
+                                // 2. OS Push Notification (NotificationService) - ONLY when app is background/closed
+                                NotificationService.sendNotification(
+                                    senderName,
+                                    newMessage.content,
+                                    'chat',
+                                    {
+                                        conversationId: newMessage.conversation_id,
+                                        senderName,
+                                        senderAvatar: avatar,
+                                        senderUserId: newMessage.sender_id
+                                    }
+                                );
+                            }
                         } else {
-                            console.log('[DMStore] ⚠️ Ignoring duplicate/redundant update');
+                            playReceiveSound();
                         }
+
+                        const updatedConvo = {
+                            ...existingConvo,
+                            unread_count: isChatActive ? existingConvo.unread_count : nextUnreadCount,
+                            last_message: newMessage,
+                            updated_at: newMessage.created_at
+                        };
+                        get().upsertConversation(updatedConvo);
+                    } else {
+                        get().fetchConversations();
+                    }
+                }
+            )
+            // 🔔 Follow Notifications: Listen for new follows targeting this user
+            .on(
+                'postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'social_media_schema',
+                    table: 'follows',
+                },
+                async (payload: any) => {
+                    console.log('[DMStore] 🔔 FOLLOW EVENT RAW PAYLOAD:', JSON.stringify(payload));
+                    const follow = payload.new;
+
+                    if (!follow || !follow.following_id) {
+                        console.warn('[DMStore] ⚠️ Follow payload missing data:', follow);
+                        return;
                     }
 
-                    // Upsert with new unread count if applicable
-                    get().upsertConversation({
-                        ...updatedConvo as Conversation,
-                        ...(nextUnreadCount !== undefined ? { unread_count: nextUnreadCount } : {})
-                    });
+                    // Only care about follows where WE are the one being followed
+                    if (follow.following_id !== user.id) return;
+
+                    console.log('[DMStore] 🔔 New follower detected:', follow.follower_id);
+
+                    const isAppActive = AppState.currentState === 'active';
+
+                    let followerName = 'Someone';
+                    let followerAvatar: string | undefined;
+
+                    // WARNING: Do NOT do async DB fetches in the background on React Native.
+                    // The thread often freezes or crashes, which silently kills the notification.
+                    // Only fetch avatar/name if the app is actually open.
+                    if (isAppActive) {
+                        try {
+                            const { data: followerData } = await db.user
+                                .from('Users')
+                                .select('username, avatar_path')
+                                .eq('id', follow.follower_id)
+                                .single();
+                                
+                            if (followerData) {
+                                followerName = followerData.username || 'Someone';
+                                if (followerData.avatar_path) {
+                                    if (followerData.avatar_path.startsWith('http')) {
+                                        followerAvatar = followerData.avatar_path;
+                                    } else {
+                                        const { data: urlData } = db.public.storage.from('avatar').getPublicUrl(followerData.avatar_path);
+                                        followerAvatar = urlData.publicUrl;
+                                    }
+                                }
+                            }
+                        } catch (e) {
+                            console.warn('[DMStore] Could not fetch follower info:', e);
+                        }
+
+                        // In-app banner
+                        useMessageNotificationStore.getState().showNotification({
+                            senderName: 'New Follower 🌱',
+                            content: `${followerName} is now following you!`,
+                            avatar: followerAvatar ? { uri: followerAvatar } : undefined,
+                            userId: follow.follower_id,
+                            type: 'follow',
+                        });
+                        useInboxStore.getState().addNotification({
+                            kind: 'follow',
+                            title: 'New Follower',
+                            body: `${followerName} is now following you!`,
+                            avatarUri: followerAvatar,
+                            groupKey: `follow:${follow.follower_id}`,
+                            navigationTarget: {
+                                name: 'PublicProfile',
+                                params: { userId: follow.follower_id },
+                            },
+                        });
+                    } else {
+                        // OS Push Notification (Background)
+                        // Trigger IMMEDIATELY without async DB calls
+                        NotificationService.sendNotification(
+                            'New Follower 🌱',
+                            'Someone is now following you!',
+                            'general',
+                            {
+                                category: 'follow',
+                                followerId: follow.follower_id,
+                                followerName: 'Someone',
+                            }
+                        );
+                    }
                 }
             )
             .subscribe((status, err) => {
                 console.log('[DMStore] Inbox subscription status:', status);
                 if (err) {
-                    console.error('[DMStore] Inbox subscription error:', err);
+                    ErrorHandlerService.handle(err, { showUI: false });
                 }
+
+                if (err || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+                    console.warn(`[DMStore] 📡 Connection issue (${status}). Retrying...`);
+                    set({ inboxStatus: 'RECONNECTING' });
+
+                    if (retryTimeout) clearTimeout(retryTimeout);
+                    const jitter = Math.random() * 1000;
+                    retryTimeout = setTimeout(() => {
+                        get().subscribeToInbox();
+                    }, 2500 + jitter);
+                }
+
                 if (status === 'SUBSCRIBED') {
                     console.log('[DMStore] ✅ Successfully subscribed to inbox for user:', user.id);
                 } else if (status === 'CLOSED') {
                     console.log('[DMStore] ❌ Inbox subscription closed');
                 } else if (status === 'CHANNEL_ERROR') {
-                    console.error('[DMStore] ❌ Inbox subscription error');
+                    ErrorHandlerService.handle(new Error('Inbox subscription channel error'), { showUI: false });
                 }
             });
 
@@ -501,10 +648,18 @@ export const useDMStore = create<DMState>((set, get) => ({
 
     unsubscribeFromInbox: () => {
         if (inboxChannels.length > 0) {
-            console.log('[DMStore] Unsubscribing from Inbox');
+            console.log('[DMStore] Closing Inbox Channels');
             inboxChannels.forEach(ch => db.public.removeChannel(ch));
             inboxChannels = [];
+            set({ inboxStatus: 'DISCONNECTED', chatStatus: 'DISCONNECTED' });
         }
+    },
+
+    getChannelStatuses: () => {
+        return {
+            inbox: get().inboxStatus,
+            chat: get().chatStatus
+        };
     },
 
     handleNewInboxMessage: (newMessage: ChatMessage) => {

@@ -19,7 +19,7 @@ export function usePlants(userId?: string) {
 
     const { data, error } = await db.social
       .from('Plants')
-      .select('id, nickname, description, image_url')
+      .select('id, nickname, description, image_url, plant_data_id')
       .eq('user_id', targetId);
 
     if (error) {
@@ -30,6 +30,7 @@ export function usePlants(userId?: string) {
     const mapped: PlantItem[] = data.map((p, idx) => ({
       id: p.id,
       name: p.nickname,
+      type_id: p.plant_data_id ?? undefined,
       description: p.description,
       image_url: getPublicPlantImageUrl(p.image_url) || undefined,
       image: require('../../../../assets/images/plant4.png'),

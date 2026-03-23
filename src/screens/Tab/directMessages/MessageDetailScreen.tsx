@@ -24,6 +24,7 @@ interface UIMessage {
 }
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function MessageDetailScreen({ route, navigation }: Props) {
     const { id, name, avatar, userId: otherUserId } = route.params;
@@ -163,14 +164,21 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
         } else {
             // Real Chat: Initial Load (Offset 0)
             loadRealMessages(0);
-            subscribeToConversation(id);
-            markAsRead(id);
-
-            return () => {
-                unsubscribeFromConversation(id);
-            };
         }
     }, [id]);
+
+    useFocusEffect(
+        React.useCallback(() => {
+            if (!isSprig) {
+                subscribeToConversation(id);
+                markAsRead(id);
+
+                return () => {
+                    unsubscribeFromConversation(id);
+                };
+            }
+        }, [id, isSprig])
+    );
 
     // Sync store messages to UI
     useEffect(() => {

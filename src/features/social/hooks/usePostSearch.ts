@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { db } from '../../../utils/supabase';
 import { getPublicPostUrl } from '../../../utils/media';
+import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
 
 export type SearchPost = {
     id: string;
@@ -85,7 +86,7 @@ export function usePostSearch() {
 
             setPostSearchResults(mergedPosts);
         } catch (error) {
-            console.error('Error searching posts:', error);
+            ErrorHandlerService.handle(error, { showUI: false });
             setPostSearchResults([]);
         } finally {
             setPostLoading(false);

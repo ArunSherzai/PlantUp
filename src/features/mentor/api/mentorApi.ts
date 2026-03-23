@@ -35,6 +35,14 @@ async function getLocalCache(plantId: string, date: string): Promise<MentorRespo
   }
 }
 
+export async function getLocalMentorCache(
+  plantId: string,
+  date?: string,
+): Promise<MentorResponse | null> {
+  const today = date ?? new Date().toISOString().split('T')[0];
+  return getLocalCache(plantId, today);
+}
+
 async function setLocalCache(plantId: string, date: string, data: MentorResponse): Promise<void> {
   try {
     const key = MENTOR_CACHE_KEY + plantId + '_' + date;

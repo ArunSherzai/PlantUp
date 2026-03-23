@@ -34,6 +34,7 @@ import SensorDisplayCard from '~/components/SensorDisplayCard';
 import { db } from '../../../utils/supabase';
 import { useUserStore } from '../../../stores/UserStore';
 import { playSound } from '~/utils/SoundManager';
+import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
 
 
 const { height, width } = Dimensions.get('window');
@@ -193,7 +194,7 @@ export default function CreatePostScreen() {
         .eq('user_id', userId);
 
       if (error) {
-        console.error('[CreatePost] Error fetching plants:', error);
+        ErrorHandlerService.handle(error, { showUI: false });
         throw error;
       }
 
@@ -210,7 +211,7 @@ export default function CreatePostScreen() {
       setPlants(initializedPlants);
       setShowSensorSelection(true);
     } catch (e) {
-      console.error('[CreatePost] Exception in attachSensorData:', e);
+      ErrorHandlerService.handle(e);
       Alert.alert('Error', 'Could not load your plants.');
     } finally {
       setFetchingSensorData(false);
@@ -251,7 +252,7 @@ export default function CreatePostScreen() {
           .limit(10);
 
         if (error) {
-          console.error('[CreatePost] Error fetching Controller records:', error);
+          ErrorHandlerService.handle(error, { showUI: false });
           throw error;
         }
 
@@ -274,7 +275,7 @@ export default function CreatePostScreen() {
         });
 
       } catch (e) {
-        console.error('[CreatePost] Exception fetching records:', e);
+        ErrorHandlerService.handle(e);
         Alert.alert('Error', 'Could not load records.');
 
         setPlants(currentPlants => {
@@ -460,7 +461,7 @@ export default function CreatePostScreen() {
       setCaption('');
       setMedia(null);
     } catch (e: any) {
-      console.error('Post Error:', e);
+      ErrorHandlerService.handle(e);
       Alert.alert('Error', e.message || 'Network request failed');
 
       // --- CLEANUP LOGIC ---
@@ -473,12 +474,12 @@ export default function CreatePostScreen() {
             .remove(uploadedPaths);
 
           if (removeError) {
-            console.error('Cleanup failed:', removeError);
+            ErrorHandlerService.handle(removeError, { showUI: false });
           } else {
             console.log('Cleanup successful.');
           }
         } catch (cleanupErr) {
-          console.error('Cleanup exception:', cleanupErr);
+          ErrorHandlerService.handle(cleanupErr, { showUI: false });
         }
       }
     } finally {

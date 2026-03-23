@@ -59,6 +59,29 @@ interface MentorAdvice {
   confidence: 'high' | 'medium' | 'low';
 }
 
+interface PlantThresholds {
+  ideal_temperature_min_winter: number;
+  ideal_temperature_min_summer: number;
+  ideal_temperature_max_winter: number;
+  ideal_temperature_max_summer: number;
+  ideal_soil_moisture_min_summer: number;
+  ideal_soil_moisture_min_winter: number;
+  ideal_soil_moisture_max_summer: number;
+  ideal_soil_moisture_max_winter: number;
+  ideal_humidity_min_winter: number;
+  ideal_humidity_min_summer: number;
+  ideal_humidity_max_winter: number;
+  ideal_humidity_max_summer: number;
+  ideal_ec_min_winter: number;
+  ideal_ec_min_summer: number;
+  ideal_ec_max_winter: number;
+  ideal_ec_max_summer: number;
+  ideal_light_min_winter: number;
+  ideal_light_min_summer: number;
+  ideal_light_max_winter: number;
+  ideal_light_max_summer: number;
+}
+
 // ---------- helpers ----------------------------------------------------------
 
 function deriveSeason(): 'winter' | 'spring' | 'summer' | 'autumn' {
@@ -76,6 +99,10 @@ function inferGrowthStage(ageDays?: number) {
   return 'mature';
 }
 
+function isSummerSeason(season: DailyMentorInput['season']): boolean {
+  return season === 'summer';
+}
+
 /** Lightweight health scoring (server-side, no profile files). */
 function scoreSensor(value: number, idealMin: number, idealMax: number, min: number, max: number): number {
   if (value >= idealMin && value <= idealMax) return 100;
@@ -83,10 +110,63 @@ function scoreSensor(value: number, idealMin: number, idealMax: number, min: num
   return value >= max ? 0 : ((max - value) / (max - idealMax)) * 100;
 }
 
-function computeHealthServer(r: any): HealthResult {
+function buildThresholdSensorDefs(
+  thresholds: PlantThresholds,
+  season: DailyMentorInput['season'],
+): Array<{ key: string; min: number; idealMin: number; idealMax: number; max: number; weight: number }> {
+  const summer = isSummerSeason(season);
+  return [
+    {
+      key: 'temperature',
+      min: -10,
+      idealMin: summer ? thresholds.ideal_temperature_min_summer : thresholds.ideal_temperature_min_winter,
+      idealMax: summer ? thresholds.ideal_temperature_max_summer : thresholds.ideal_temperature_max_winter,
+      max: 45,
+      weight: 0.22,
+    },
+    {
+      key: 'humidity',
+      min: 0,
+      idealMin: summer ? thresholds.ideal_humidity_min_summer : thresholds.ideal_humidity_min_winter,
+      idealMax: summer ? thresholds.ideal_humidity_max_summer : thresholds.ideal_humidity_max_winter,
+      max: 100,
+      weight: 0.14,
+    },
+    {
+      key: 'soil_moisture',
+      min: 0,
+      idealMin: summer ? thresholds.ideal_soil_moisture_min_summer : thresholds.ideal_soil_moisture_min_winter,
+      idealMax: summer ? thresholds.ideal_soil_moisture_max_summer : thresholds.ideal_soil_moisture_max_winter,
+      max: 100,
+      weight: 0.28,
+    },
+    {
+      key: 'light',
+      min: 0,
+      idealMin: summer ? thresholds.ideal_light_min_summer : thresholds.ideal_light_min_winter,
+      idealMax: summer ? thresholds.ideal_light_max_summer : thresholds.ideal_light_max_winter,
+      max: Math.max(200000, summer ? thresholds.ideal_light_max_summer * 2 : thresholds.ideal_light_max_winter * 2),
+      weight: 0.18,
+    },
+    {
+      key: 'electrical_conductivity',
+      min: 0,
+      idealMin: summer ? thresholds.ideal_ec_min_summer : thresholds.ideal_ec_min_winter,
+      idealMax: summer ? thresholds.ideal_ec_max_summer : thresholds.ideal_ec_max_winter,
+      max: Math.max(10, (summer ? thresholds.ideal_ec_max_summer : thresholds.ideal_ec_max_winter) * 2),
+      weight: 0.18,
+    },
+  ];
+}
+
+function computeHealthServer(
+  r: any,
+  season: DailyMentorInput['season'],
+  thresholds?: PlantThresholds | null,
+): HealthResult {
   const sensorDefs: Array<{
     key: string; min: number; idealMin: number; idealMax: number; max: number; weight: number;
-  }> = [
+  }> = thresholds ? buildThresholdSensorDefs(thresholds, season) : [
     { key: 'temperature',            min: 10, idealMin: 18, idealMax: 28, max: 38, weight: 0.20 },
     { key: 'humidity',               min: 20, idealMin: 40, idealMax: 70, max: 90, weight: 0.15 },
     { key: 'soil_moisture',          min: 10, idealMin: 30, idealMax: 65, max: 90, weight: 0.25 },
@@ -284,13 +364,39 @@ serve(async (req: Request) => {
 
     // Resolve plant type name
     let plantTypeName = 'unknown';
+    let plantThresholds: PlantThresholds | null = null;
     if (plant.plant_data_id) {
       const { data: typeRow } = await dbSocial
         .from('Plant_data')
-        .select('common_name')
+        .select(`
+          common_name,
+          ideal_temperature_min_winter,
+          ideal_temperature_min_summer,
+          ideal_temperature_max_winter,
+          ideal_temperature_max_summer,
+          ideal_soil_moisture_min_summer,
+          ideal_soil_moisture_min_winter,
+          ideal_soil_moisture_max_summer,
+          ideal_soil_moisture_max_winter,
+          ideal_humidity_min_winter,
+          ideal_humidity_min_summer,
+          ideal_humidity_max_winter,
+          ideal_humidity_max_summer,
+          ideal_ec_min_winter,
+          ideal_ec_min_summer,
+          ideal_ec_max_winter,
+          ideal_ec_max_summer,
+          ideal_light_min_winter,
+          ideal_light_min_summer,
+          ideal_light_max_winter,
+          ideal_light_max_summer
+        `)
         .eq('id', plant.plant_data_id)
         .maybeSingle();
       if (typeRow?.common_name) plantTypeName = typeRow.common_name;
+      if (typeRow) {
+        plantThresholds = typeRow as PlantThresholds;
+      }
     }
 
     // Latest reading from microcontroller_schema
@@ -307,7 +413,7 @@ serve(async (req: Request) => {
 
     const season = deriveSeason();
     const growthStage = inferGrowthStage(ageDays);
-    const health = latest ? computeHealthServer(latest) : {
+    const health = latest ? computeHealthServer(latest, season, plantThresholds) : {
       health_percent: 0, status: 'BAD' as const, subscores: {}, deviations: [], trends: {},
     };
 

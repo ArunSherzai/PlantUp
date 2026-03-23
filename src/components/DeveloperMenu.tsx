@@ -10,6 +10,9 @@ import { saveTip } from '../utils/tipHistory';
 import { useTipStore } from '../stores/TipStore';
 import { useMessageNotificationStore } from '../stores/MessageNotificationStore';
 
+import { NotificationService } from '../services/NotificationService';
+import { AppState } from 'react-native';
+
 interface DeveloperMenuProps {
     visible: boolean;
     onClose: () => void;
@@ -19,6 +22,46 @@ export default function DeveloperMenu({ visible, onClose }: DeveloperMenuProps) 
     const { theme } = useUnistyles();
     const navigation = useNavigation<any>();
     const { checkPlantHealth } = usePlantTipSystem();
+
+    const testNotification = (category: 'critical' | 'warning' | 'general' | 'chat') => {
+        onClose();
+        Alert.alert("Notification Scheduled", `A ${category} notification will appear in 10 seconds. Put the app in the background!`);
+        
+        let title = 'Test';
+        let body = 'This is a test message.';
+        switch (category) {
+            case 'critical':
+                title = 'Sprig Emergency!';
+                body = 'Your Monstera is freezing (Critical Test)!';
+                break;
+            case 'warning':
+                title = 'Sprig Warning';
+                body = 'Your Monstera needs more light (Warning Test).';
+                break;
+            case 'general':
+                title = 'PlantUp Advice';
+                body = 'Did you know? Morning watering is best! (General Test)';
+                break;
+            case 'chat':
+                title = 'New Message';
+                body = 'Test User: Hey, nice plant! (Chat Test)';
+                // We'll pass a sample avatar image and conversationId for testing
+                NotificationService.scheduleNotification(title, body, category, 10, {
+                    senderAvatar: 'https://i.pravatar.cc/150?img=12',
+                    senderName: 'Test User',
+                    conversationId: '00000000-0000-0000-0000-000000000000', // Mock UUID
+                });
+                return; 
+        }
+
+        // For critical/warning, we add a mock plantId
+        const data: any = {};
+        if (category === 'critical' || category === 'warning') {
+            data.plantId = 'test-plant-id';
+        }
+
+        NotificationService.scheduleNotification(title, body, category, 10, data);
+    };
 
     const onRunTestSequence = () => {
         const randomTip = getRandomGeneralTip();
@@ -74,6 +117,23 @@ export default function DeveloperMenu({ visible, onClose }: DeveloperMenuProps) 
                         <View style={styles.menuContainer}>
                             <Text style={styles.title}>Developer Tools</Text>
 
+                            <TouchableOpacity style={styles.menuItem} onPress={() => testNotification('critical')}>
+                                <FontAwesome6 name="bell" size={20} color="#FF5252" style={styles.icon} />
+                                <Text style={styles.menuText}>Push: Critical (10s)</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.menuItem} onPress={() => testNotification('warning')}>
+                                <FontAwesome6 name="bell" size={20} color="#FFC107" style={styles.icon} />
+                                <Text style={styles.menuText}>Push: Warning (10s)</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.menuItem} onPress={() => testNotification('general')}>
+                                <FontAwesome6 name="bell" size={20} color="#4CAF50" style={styles.icon} />
+                                <Text style={styles.menuText}>Push: General (10s)</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.menuItem} onPress={() => testNotification('chat')}>
+                                <FontAwesome6 name="bell" size={20} color="#2196F3" style={styles.icon} />
+                                <Text style={styles.menuText}>Push: Chat (10s)</Text>
+                            </TouchableOpacity>
+
                             <TouchableOpacity style={styles.menuItem} onPress={onRunTestSequence}>
                                 <FontAwesome6 name="vial" size={20} color="#69F0AE" style={styles.icon} />
                                 <Text style={styles.menuText}>Test Tips Sequence</Text>
@@ -100,6 +160,15 @@ export default function DeveloperMenu({ visible, onClose }: DeveloperMenuProps) 
                             }}>
                                 <FontAwesome6 name="leaf" size={20} color="#4CAF50" style={styles.icon} />
                                 <Text style={styles.menuText}>Test 3D Plant</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity style={styles.menuItem} onPress={() => {
+                                const { getChannelStatuses } = require('../stores/DMStore').useDMStore.getState();
+                                const status = getChannelStatuses();
+                                Alert.alert("Realtime Status", `Inbox: ${status.inbox}\nChat Detail: ${status.chat}`);
+                            }}>
+                                <FontAwesome6 name="signal" size={20} color="#00BCD4" style={styles.icon} />
+                                <Text style={styles.menuText}>Check Realtime Status</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity style={styles.menuItem} onPress={async () => {

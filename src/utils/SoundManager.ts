@@ -11,6 +11,7 @@
 import { Audio, AVPlaybackStatus } from 'expo-av';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState, AppStateStatus } from 'react-native';
+import { ErrorHandlerService } from '../core/error/services/ErrorHandlerService';
 
 // Sound type definitions
 export type SoundType =
@@ -19,6 +20,7 @@ export type SoundType =
     | 'reload'
     | 'send'
     | 'receive'
+    | 'rec'
     | 'xp_boost'
     | 'xp_multiplier'
     | 'xp_fill'
@@ -32,7 +34,11 @@ export type SoundType =
     | 'swipe'
     | 'flip'
     | 'bin'
-    | 'purchase';
+    | 'purchase'
+    | 'advice_ping'
+    | 'advices_ping'
+    | 'critical_sprig'
+    | 'sprig_warning';
 
 // Sound file mappings - using simple filenames without special characters
 const SOUND_FILES: Record<SoundType, any> = {
@@ -41,6 +47,7 @@ const SOUND_FILES: Record<SoundType, any> = {
     reload: require('../../assets/sounds/reload.wav'),
     send: require('../../assets/sounds/send.wav'),
     receive: require('../../assets/sounds/rec.wav'),
+    rec: require('../../assets/sounds/rec.wav'),
     xp_boost: require('../../assets/sounds/xp_boost.mp3'),
     xp_multiplier: require('../../assets/sounds/xp_multiplier.wav'),
     xp_fill: require('../../assets/sounds/xp_fill.wav'),
@@ -55,6 +62,10 @@ const SOUND_FILES: Record<SoundType, any> = {
     flip: require('../../assets/sounds/flip.wav'),
     bin: require('../../assets/sounds/Bin.wav'),
     purchase: require('../../assets/sounds/cash-register-kaching-sound-effect-125042.wav'),
+    advice_ping: require('../../assets/sounds/advices_ping.mp3'),
+    advices_ping: require('../../assets/sounds/advices_ping.mp3'),
+    critical_sprig: require('../../assets/sounds/critical_sprig.wav'),
+    sprig_warning: require('../../assets/sounds/sprig_warning.wav'),
 };
 
 // Sounds to preload at startup (most frequently used)
@@ -105,7 +116,7 @@ class SoundManagerClass {
             this.initialized = true;
             console.log('[SoundManager] Initialized successfully');
         } catch (error) {
-            console.error('[SoundManager] Error initializing:', error);
+            ErrorHandlerService.handle(error, { showUI: false, silentLog: true });
         }
     }
 
@@ -133,7 +144,7 @@ class SoundManagerClass {
             this.sounds.set(type, sound);
             return sound;
         } catch (error) {
-            console.error(`[SoundManager] Error loading sound ${type}:`, error);
+            ErrorHandlerService.handle(error, { showUI: false, silentLog: true });
             return undefined;
         }
     }
@@ -182,7 +193,7 @@ class SoundManagerClass {
             }
             await sound.playAsync();
         } catch (error) {
-            console.error(`[SoundManager] Error playing sound ${type}:`, error);
+            ErrorHandlerService.handle(error, { showUI: false, silentLog: true });
         }
     }
 
@@ -195,7 +206,7 @@ class SoundManagerClass {
             await AsyncStorage.setItem(STORAGE_KEY, enabled.toString());
             console.log(`[SoundManager] Sound ${enabled ? 'enabled' : 'disabled'}`);
         } catch (error) {
-            console.error('[SoundManager] Error saving enabled state:', error);
+            ErrorHandlerService.handle(error, { showUI: false, silentLog: true });
         }
     }
 
@@ -213,7 +224,15 @@ class SoundManagerClass {
         try {
             // Unload all sounds
             for (const [type, sound] of this.sounds) {
-                await sound.unloadAsync();
+                try {
+                    const status = await sound.getStatusAsync();
+                    if (status.isLoaded) {
+                        await sound.unloadAsync();
+                    }
+                } catch (e) {
+                    // Ignore already unloaded or non-existent player errors
+                    console.log(`[SoundManager] Skip unloading ${type}: player already gone`);
+                }
             }
             this.sounds.clear();
 
@@ -226,7 +245,7 @@ class SoundManagerClass {
             this.initialized = false;
             console.log('[SoundManager] Cleaned up successfully');
         } catch (error) {
-            console.error('[SoundManager] Error during cleanup:', error);
+            ErrorHandlerService.handle(error, { showUI: false, silentLog: true });
         }
     }
 }
@@ -238,3 +257,5 @@ export const SoundManager = new SoundManagerClass();
 export const playSound = (type: SoundType, options?: { volume?: number }): void => {
     SoundManager.play(type, options);
 };
+
+

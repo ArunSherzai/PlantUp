@@ -7,6 +7,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { db } from '../../../utils/supabase';
 import { useUserStore } from '../../../stores/UserStore';
 import { SoundManager, playSound } from '~/utils/SoundManager';
+import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
+import { useInboxStore } from '../../../stores/InboxStore';
 
 import { StatusBar } from 'expo-status-bar';
 
@@ -14,6 +16,7 @@ export default function SettingsScreen() {
     const { theme } = useUnistyles();
     const navigation = useNavigation<any>();
     const insets = useSafeAreaInsets();
+    const unreadInboxCount = useInboxStore((state) => state.unreadCount());
 
     // Sound Effects State
     const [soundEnabled, setSoundEnabled] = useState(SoundManager.isEnabled());
@@ -38,8 +41,7 @@ export default function SettingsScreen() {
                             routes: [{ name: 'Auth' as never }],
                         });
                     } catch (error) {
-                        console.error("Sign out error:", error);
-                        Alert.alert("Error", "Failed to sign out.");
+                        ErrorHandlerService.handle(error);
                     }
                 },
             },
@@ -118,6 +120,26 @@ export default function SettingsScreen() {
                                 <FontAwesome6 name="bell" size={18} color={theme.colors.text} />
                             </View>
                             <Text style={styles.menuItemText}>Notifications</Text>
+                        </View>
+                        <View style={styles.menuItemRight}>
+                            {unreadInboxCount > 0 && (
+                                <View style={styles.unreadBadge}>
+                                    <Text style={styles.unreadBadgeText}>
+                                        {unreadInboxCount > 99 ? '99+' : unreadInboxCount}
+                                    </Text>
+                                </View>
+                            )}
+                            <FontAwesome6 name="chevron-right" size={16} color={theme.colors.greyedOut} />
+                        </View>
+                    </TouchableOpacity>
+
+                    {/* Notification Sounds */}
+                    <TouchableOpacity style={styles.menuItem} onPress={() => navigateTo('NotificationSounds')}>
+                        <View style={styles.menuItemLeft}>
+                            <View style={[styles.iconContainer, { backgroundColor: theme.colors.surface }]}>
+                                <FontAwesome6 name="music" size={18} color={theme.colors.text} />
+                            </View>
+                            <Text style={styles.menuItemText}>Notification Sounds</Text>
                         </View>
                         <FontAwesome6 name="chevron-right" size={16} color={theme.colors.greyedOut} />
                     </TouchableOpacity>
@@ -215,6 +237,10 @@ const styles = StyleSheet.create((theme: any) => ({
         flexDirection: 'row',
         alignItems: 'center',
     },
+    menuItemRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
     iconContainer: {
         width: 40,
         height: 40,
@@ -229,6 +255,21 @@ const styles = StyleSheet.create((theme: any) => ({
         fontSize: 16,
         color: theme.colors.text,
         fontWeight: '500',
+    },
+    unreadBadge: {
+        minWidth: 22,
+        height: 22,
+        borderRadius: 11,
+        paddingHorizontal: 6,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#E55050',
+        marginRight: 12,
+    },
+    unreadBadgeText: {
+        color: '#fff',
+        fontSize: 11,
+        fontWeight: '800',
     },
     dangerButton: {
         backgroundColor: "#FF4444",
@@ -245,3 +286,5 @@ const styles = StyleSheet.create((theme: any) => ({
         fontSize: 16,
     },
 }));
+
+

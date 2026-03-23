@@ -11,6 +11,7 @@ import { usePlantProgress, ProgressPhoto } from '../../../features/plantstats/ho
 import { usePlants } from '../../../features/plantlist/hooks/usePlants';
 import { getPublicPlantImageUrl, getPublicProgressImageUrl } from '../../../utils/media';
 import AlertModal from '../../../components/AlertModal';
+import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
 
 export default function PlantTimelineScreen() {
     const route = useRoute<any>();
@@ -120,7 +121,7 @@ export default function PlantTimelineScreen() {
             setShowConfettiModal(false);
             showModal('success', 'Success', 'Progress shared to your feed!');
         } catch (error: any) {
-            console.error('Failed to post progress:', error);
+            ErrorHandlerService.handle(error, { showUI: false });
             showModal('error', 'Error', error.message || 'Could not share to feed.');
         } finally {
             setIsExporting(false);

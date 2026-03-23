@@ -18,6 +18,20 @@
     "plugins": [
       "expo-font",
       [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#1db954",
+          "sounds": [
+            "./assets/sounds/sprig_noti.wav",
+            "./assets/sounds/advices_ping.mp3",
+            "./assets/sounds/rec.wav",
+            "./assets/sounds/critical_sprig.wav",
+            "./assets/sounds/sprig_warning.wav"
+          ]
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#ffffff",
@@ -33,6 +47,7 @@
       "expo-video",
       "react-native-compressor",
       "expo-asset",
+      "./withJitpackNotifeeExclude.js",
       [
         "expo-camera",
         {
@@ -72,6 +87,11 @@
         "backgroundColor": "#00000000",
         "style": "light",
         "hidden": true
+      }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "12345678-1234-1234-1234-1234567890ab"
       }
     }
   }
