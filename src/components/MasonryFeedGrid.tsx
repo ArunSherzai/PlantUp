@@ -11,6 +11,8 @@ const GAP = width * 0.04; // ~15px on mobile, scales up
 interface MasonryFeedGridProps {
     posts: Post[];
     onPostPress: (post: Post) => void;
+    onPostLongPress?: (post: Post) => void;
+    onPostMenuPress?: (post: Post) => void;
 }
 
 // Helper to group posts
@@ -25,7 +27,7 @@ const groupPosts = (posts: Post[]) => {
     return groups;
 };
 
-const MasonryFeedGrid = React.memo(({ posts, onPostPress }: MasonryFeedGridProps) => {
+const MasonryFeedGrid = React.memo(({ posts, onPostPress, onPostLongPress, onPostMenuPress }: MasonryFeedGridProps) => {
     const groups = useMemo(() => groupPosts(posts), [posts]);
 
     // Helper to extract hashtags
@@ -55,6 +57,8 @@ const MasonryFeedGrid = React.memo(({ posts, onPostPress }: MasonryFeedGridProps
                                     postType={p1.type ?? undefined}
                                     sensorData={p1.caption ?? undefined}
                                     onPress={() => onPostPress(p1)}
+                                    onLongPress={onPostLongPress ? () => onPostLongPress(p1) : undefined}
+                                    onMenuPress={onPostMenuPress ? () => onPostMenuPress(p1) : undefined}
                                     username={p1.Users?.username}
                                     userAvatar={p1.Users?.profile_image ? { uri: p1.Users.profile_image } : null}
                                     aspectRatio={1}
@@ -71,6 +75,8 @@ const MasonryFeedGrid = React.memo(({ posts, onPostPress }: MasonryFeedGridProps
                                     postType={p2.type ?? undefined}
                                     sensorData={p2.caption ?? undefined}
                                     onPress={() => onPostPress(p2)}
+                                    onLongPress={onPostLongPress ? () => onPostLongPress(p2) : undefined}
+                                    onMenuPress={onPostMenuPress ? () => onPostMenuPress(p2) : undefined}
                                     username={p2.Users?.username}
                                     userAvatar={p2.Users?.profile_image ? { uri: p2.Users.profile_image } : null}
                                     aspectRatio={1}
@@ -95,6 +101,8 @@ const MasonryFeedGrid = React.memo(({ posts, onPostPress }: MasonryFeedGridProps
                                     postType={p1.type ?? undefined}
                                     sensorData={p1.caption ?? undefined}
                                     onPress={() => onPostPress(p1)}
+                                    onLongPress={onPostLongPress ? () => onPostLongPress(p1) : undefined}
+                                    onMenuPress={onPostMenuPress ? () => onPostMenuPress(p1) : undefined}
                                     username={p1.Users?.username}
                                     userAvatar={p1.Users?.profile_image ? { uri: p1.Users.profile_image } : null}
                                     aspectRatio={0.71}
@@ -110,6 +118,8 @@ const MasonryFeedGrid = React.memo(({ posts, onPostPress }: MasonryFeedGridProps
                                     postType={p2.type ?? undefined}
                                     sensorData={p2.caption ?? undefined}
                                     onPress={() => onPostPress(p2)}
+                                    onLongPress={onPostLongPress ? () => onPostLongPress(p2) : undefined}
+                                    onMenuPress={onPostMenuPress ? () => onPostMenuPress(p2) : undefined}
                                     username={p2.Users?.username}
                                     userAvatar={p2.Users?.profile_image ? { uri: p2.Users.profile_image } : null}
                                     aspectRatio={1.53}
@@ -130,6 +140,8 @@ const MasonryFeedGrid = React.memo(({ posts, onPostPress }: MasonryFeedGridProps
                                     postType={p3.type ?? undefined}
                                     sensorData={p3.caption ?? undefined}
                                     onPress={() => onPostPress(p3)}
+                                    onLongPress={onPostLongPress ? () => onPostLongPress(p3) : undefined}
+                                    onMenuPress={onPostMenuPress ? () => onPostMenuPress(p3) : undefined}
                                     username={p3.Users?.username}
                                     userAvatar={p3.Users?.profile_image ? { uri: p3.Users.profile_image } : null}
                                     aspectRatio={1.53}
@@ -146,6 +158,8 @@ const MasonryFeedGrid = React.memo(({ posts, onPostPress }: MasonryFeedGridProps
                                     postType={p4.type ?? undefined}
                                     sensorData={p4.caption ?? undefined}
                                     onPress={() => onPostPress(p4)}
+                                    onLongPress={onPostLongPress ? () => onPostLongPress(p4) : undefined}
+                                    onMenuPress={onPostMenuPress ? () => onPostMenuPress(p4) : undefined}
                                     username={p4.Users?.username}
                                     userAvatar={p4.Users?.profile_image ? { uri: p4.Users.profile_image } : null}
                                     aspectRatio={0.71}

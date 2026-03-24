@@ -4,6 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { db } from '../../../utils/supabase';
 import { useUserStore } from '../../../stores/UserStore';
 import { decode } from 'base64-arraybuffer';
+import * as FileSystem from 'expo-file-system';
 import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
 
 export interface ProgressPhoto {
@@ -150,6 +151,58 @@ export function usePlantProgress(plantId: string) {
         }
     };
 
+    const uploadProgressPhoto = async (imageUri: string, title: string = 'Progress Update') => {
+        if (!user) {
+            throw new Error('You must be logged in to upload a photo.');
+        }
+
+        try {
+            setIsUploading(true);
+            const base64FileData = await FileSystem.readAsStringAsync(imageUri, { encoding: FileSystem.EncodingType.Base64 });
+            const fileExt = imageUri.split('.').pop() || 'jpg';
+            const fileName = `${plantId}/${Date.now()}.${fileExt}`;
+
+            // Upload to Supabase Storage
+            const { data: uploadData, error: uploadError } = await db.public.storage
+                .from('plant-progress')
+                .upload(fileName, decode(base64FileData), {
+                    contentType: `image/${fileExt === 'jpg' || fileExt === 'jpeg' ? 'jpeg' : fileExt}`,
+                    upsert: false,
+                });
+
+            if (uploadError) {
+                throw new Error(`Failed to upload image: ${uploadError.message}`);
+            }
+
+            // Insert record into DB
+            const imageUrl = uploadData?.path || '';
+
+            const { error: dbError } = await db.social
+                .from('Plant_progress_photos')
+                .insert([
+                    {
+                        plant_id: plantId,
+                        user_id: user.id,
+                        title,
+                        image_url: imageUrl,
+                    }
+                ]);
+
+            if (dbError) {
+                throw new Error(`Failed to save record: ${dbError.message}`);
+            }
+
+            await fetchPhotos(); // Refresh list after success
+            return imageUrl;
+
+        } catch (error: any) {
+            console.error('Error uploading photo:', error);
+            throw error;
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
     return {
         photos,
         plantDetails,
@@ -157,6 +210,7 @@ export function usePlantProgress(plantId: string) {
         isUploading,
         canTakePhoto,
         takePhoto,
+        uploadProgressPhoto,
         refreshPhotos: fetchPhotos
     };
 }

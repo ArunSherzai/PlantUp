@@ -32,7 +32,7 @@ export default function PlantTimelineScreen() {
 
     const activePlant = plants.find(p => p.id === plantId);
 
-    const { photos, plantDetails, loading, isUploading, canTakePhoto, takePhoto } = usePlantProgress(plantId);
+    const { photos, plantDetails, loading, isUploading, canTakePhoto, uploadProgressPhoto } = usePlantProgress(plantId);
 
     const [isPlantDropdownVisible, setIsPlantDropdownVisible] = useState(false);
     const [isTitleModalVisible, setIsTitleModalVisible] = useState(false);
@@ -65,18 +65,43 @@ export default function PlantTimelineScreen() {
 
     const handleTakePhoto = async () => {
         setIsTitleModalVisible(false);
-        try {
-            const resultUrl = await takePhoto(newPhotoTitle.trim() || 'Progress Update');
-            if (resultUrl && typeof resultUrl === 'string') {
-                setNewPhotoTitle('Progress Update');
-                // Show confetti and offer to post
-                setNewPhotoUrl(resultUrl);
-                setShowConfettiModal(true);
-            }
-        } catch (error: any) {
-            showModal('error', 'Camera Error', error.message || 'Could not take a photo.');
-        }
+        navigation.navigate('Camera', { mode: 'photo', source: 'PlantTimeline' });
     };
+
+    // Listen for media returned from the shared camera/editor flow
+    useEffect(() => {
+        const uploadReturnedMedia = async (mediaUri: string) => {
+            try {
+                const resultUrl = await uploadProgressPhoto(mediaUri, newPhotoTitle.trim() || 'Progress Update');
+                if (resultUrl && typeof resultUrl === 'string') {
+                    setNewPhotoTitle('Progress Update');
+                    setNewPhotoUrl(resultUrl);
+                    setShowConfettiModal(true);
+                }
+            } catch (error: any) {
+                showModal('error', 'Upload Error', error.message || 'Could not upload the photo.');
+            }
+        };
+
+        const checkCapturedMedia = async () => {
+            const returnedMediaUri =
+                route.params?.capturedMedia?.uri ||
+                route.params?.editedImageUri;
+
+            if (!returnedMediaUri) {
+                return;
+            }
+
+            // Clear params immediately so the upload doesn't re-trigger on re-render/focus
+            navigation.setParams({
+                capturedMedia: undefined,
+                editedImageUri: undefined,
+            });
+
+            await uploadReturnedMedia(returnedMediaUri);
+        };
+        checkCapturedMedia();
+    }, [navigation, newPhotoTitle, route.params?.capturedMedia, route.params?.editedImageUri, uploadProgressPhoto]);
 
     const handleExportPost = async () => {
         if (!user?.id || !newPhotoUrl) return;

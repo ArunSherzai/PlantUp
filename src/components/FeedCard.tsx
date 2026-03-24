@@ -42,9 +42,11 @@ interface FeedCardProps {
     hideCaption?: boolean;
     postType?: string;
     sensorData?: string;
+    onLongPress?: () => void;
+    onMenuPress?: () => void;
 }
 
-const FeedCard = ({ imageUri, caption, hashtags, isVideo, style, onPress, username, userAvatar, aspectRatio, hideCaption, postType, sensorData }: FeedCardProps) => {
+const FeedCard = ({ imageUri, caption, hashtags, isVideo, style, onPress, username, userAvatar, aspectRatio, hideCaption, postType, sensorData, onLongPress, onMenuPress }: FeedCardProps) => {
     const { theme } = useUnistyles();
     const hasMedia = (imageUri?.uri || (typeof imageUri === 'number')) && postType !== 'sensorData';
 
@@ -64,6 +66,7 @@ const FeedCard = ({ imageUri, caption, hashtags, isVideo, style, onPress, userna
                 style
             ]}
             onPress={onPress}
+            onLongPress={onLongPress}
             activeOpacity={0.9}
         >
             {postType === 'sensorData' && parsedSensorData ? (
@@ -121,9 +124,15 @@ const FeedCard = ({ imageUri, caption, hashtags, isVideo, style, onPress, userna
                                 <FontAwesome6 name="play" size={vw * 3} color="white" />
                             </View>
                         )}
-                        <TouchableOpacity style={[styles.menuButton, { top: 8, right: 8 }]}>
-                            <FontAwesome6 name="ellipsis" size={vw * 4} color="white" />
-                        </TouchableOpacity>
+                        {onMenuPress ? (
+                            <TouchableOpacity
+                                style={[styles.menuButton, { top: 8, right: 8 }]}
+                                onPress={onMenuPress}
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            >
+                                <FontAwesome6 name="ellipsis" size={vw * 4} color="white" />
+                            </TouchableOpacity>
+                        ) : null}
 
                         {/* Creator Info Overlay */}
                         {username && (
@@ -197,9 +206,15 @@ const FeedCard = ({ imageUri, caption, hashtags, isVideo, style, onPress, userna
                     </View>
 
                     {/* Menu button */}
-                    <TouchableOpacity style={[styles.menuButton, { top: 8, right: 8 }]}>
-                        <FontAwesome6 name="ellipsis" size={vw * 4} color={theme.colors.text} style={{ opacity: 0.6 }} />
-                    </TouchableOpacity>
+                    {onMenuPress ? (
+                        <TouchableOpacity
+                            style={[styles.menuButton, { top: 8, right: 8 }]}
+                            onPress={onMenuPress}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
+                            <FontAwesome6 name="ellipsis" size={vw * 4} color={theme.colors.text} style={{ opacity: 0.6 }} />
+                        </TouchableOpacity>
+                    ) : null}
 
                     {/* Creator Info Overlay */}
                     {username && (
