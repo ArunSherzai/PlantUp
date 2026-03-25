@@ -20,8 +20,14 @@ import { db } from '~/utils/supabase';
 import { useUserStore } from '~/stores/UserStore';
 import DraggableBottomSheet from '~/components/DraggableBottomSheet';
 import AlertModal from '~/components/AlertModal';
+import ConnectPlantBoxModal from '~/components/ConnectPlantBoxModal';
 import { getPublicPlantImageUrl } from '~/utils/media';
 import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
+import {
+  connectPlantBoxToPlant,
+  formatPlantBoxLastSeen,
+  validatePlantBoxId,
+} from '~/features/plantlist/api/plantBox';
 
 type PlantData = {
   id: number;
@@ -49,10 +55,19 @@ export default function AddPlantScreen() {
   const [isLoadingPlants, setIsLoadingPlants] = useState(true);
   const [customImageUri, setCustomImageUri] = useState<string | null>(null);
   const [customImageBase64, setCustomImageBase64] = useState<string | null>(null);
+  const [connectPlantBoxVisible, setConnectPlantBoxVisible] = useState(false);
+  const [pendingSensorBoxId, setPendingSensorBoxId] = useState<string | null>(null);
+  const [pendingSensorLastSeenAt, setPendingSensorLastSeenAt] = useState<string | null>(null);
 
   const [modalVisible, setModalVisible] = useState(false);
-  const [modalConfig, setModalConfig] = useState<{ type: 'success' | 'error' | 'loading'; title: string; message: string }>({
-    type: 'success', title: '', message: ''
+  const [modalConfig, setModalConfig] = useState<{
+    type: 'success' | 'error' | 'loading';
+    title: string;
+    message: string;
+  }>({
+    type: 'success',
+    title: '',
+    message: '',
   });
 
   const showModal = (type: 'success' | 'error' | 'loading', title: string, message: string) => {
@@ -61,51 +76,47 @@ export default function AddPlantScreen() {
   };
 
   const pickImage = async () => {
-    Alert.alert(
-      'Upload Photo',
-      'Choose a photo source',
-      [
-        {
-          text: 'Camera',
-          onPress: async () => {
-            const { status } = await ImagePicker.requestCameraPermissionsAsync();
-            if (status !== 'granted') {
-              Alert.alert('Permission Denied', 'Camera permissions are required.');
-              return;
-            }
-            const result = await ImagePicker.launchCameraAsync({
-              mediaTypes: 'images',
-              allowsEditing: true,
-              quality: 0.8,
-              base64: true,
-            });
-            if (!result.canceled && result.assets && result.assets[0]) {
-              setCustomImageUri(result.assets[0].uri);
-              setCustomImageBase64(result.assets[0].base64 || null);
-            }
+    Alert.alert('Upload Photo', 'Choose a photo source', [
+      {
+        text: 'Camera',
+        onPress: async () => {
+          const { status } = await ImagePicker.requestCameraPermissionsAsync();
+          if (status !== 'granted') {
+            Alert.alert('Permission Denied', 'Camera permissions are required.');
+            return;
+          }
+          const result = await ImagePicker.launchCameraAsync({
+            mediaTypes: 'images',
+            allowsEditing: true,
+            quality: 0.8,
+            base64: true,
+          });
+          if (!result.canceled && result.assets && result.assets[0]) {
+            setCustomImageUri(result.assets[0].uri);
+            setCustomImageBase64(result.assets[0].base64 || null);
           }
         },
-        {
-          text: 'Gallery',
-          onPress: async () => {
-            const result = await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: 'images',
-              allowsEditing: true,
-              quality: 0.8,
-              base64: true,
-            });
-            if (!result.canceled && result.assets && result.assets[0]) {
-              setCustomImageUri(result.assets[0].uri);
-              setCustomImageBase64(result.assets[0].base64 || null);
-            }
+      },
+      {
+        text: 'Gallery',
+        onPress: async () => {
+          const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: 'images',
+            allowsEditing: true,
+            quality: 0.8,
+            base64: true,
+          });
+          if (!result.canceled && result.assets && result.assets[0]) {
+            setCustomImageUri(result.assets[0].uri);
+            setCustomImageBase64(result.assets[0].base64 || null);
           }
         },
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        }
-      ]
-    );
+      },
+      {
+        text: 'Cancel',
+        style: 'cancel',
+      },
+    ]);
   };
 
   const uploadCustomImage = async (plantId: string): Promise<string | null> => {
@@ -176,6 +187,21 @@ export default function AddPlantScreen() {
     setDropdownVisible(!isDropdownVisible);
   };
 
+  const handlePlantBoxConnect = async (sensorBoxId: string) => {
+    const validation = await validatePlantBoxId(sensorBoxId);
+
+    if (!validation.isValid) {
+      throw new Error(validation.message);
+    }
+
+    if (validation.existingPlantId) {
+      throw new Error('This PlantBox is already connected to another plant.');
+    }
+
+    setPendingSensorBoxId(validation.sensorBoxId ?? sensorBoxId.trim());
+    setPendingSensorLastSeenAt(validation.latestSeenAt ?? null);
+  };
+
   const handleSave = async () => {
     if (!nickname.trim()) {
       Alert.alert('Error', 'Please enter a nickname for your plant');
@@ -207,7 +233,9 @@ export default function AddPlantScreen() {
       }
 
       if (!user) {
-        ErrorHandlerService.handle(new Error('No authenticated user found in session'), { showUI: false });
+        ErrorHandlerService.handle(new Error('No authenticated user found in session'), {
+          showUI: false,
+        });
         throw new Error('No active session. Please log in again.');
       }
 
@@ -266,10 +294,22 @@ export default function AddPlantScreen() {
         }
       }
 
+      if (pendingSensorBoxId) {
+        await connectPlantBoxToPlant({
+          sensorBoxId: pendingSensorBoxId,
+          plantId: insertedPlant.id,
+          userId: user.id,
+        });
+      }
+
       showModal('success', 'Success!', 'Your plant has been successfully uploaded.');
     } catch (error) {
       ErrorHandlerService.handle(error, { showUI: false });
-      showModal('error', 'Error', error instanceof Error ? error.message : 'An unknown error occurred');
+      showModal(
+        'error',
+        'Error',
+        error instanceof Error ? error.message : 'An unknown error occurred'
+      );
     } finally {
       setIsLoading(false);
     }
@@ -307,7 +347,10 @@ export default function AddPlantScreen() {
                 {customImageUri ? (
                   <Image source={{ uri: customImageUri }} style={styles.imagePickerImage} />
                 ) : plantDataId && plantDataList.find((p) => p.id === plantDataId)?.image_url ? (
-                  <Image source={{ uri: plantDataList.find((p) => p.id === plantDataId)?.image_url }} style={styles.imagePickerImage} />
+                  <Image
+                    source={{ uri: plantDataList.find((p) => p.id === plantDataId)?.image_url }}
+                    style={styles.imagePickerImage}
+                  />
                 ) : (
                   <Image style={styles.imagePickerImage} />
                 )}
@@ -418,6 +461,47 @@ export default function AddPlantScreen() {
               />
             </View>
 
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>PlantBox</Text>
+              <View style={styles.sensorCard}>
+                <View style={styles.sensorHeaderRow}>
+                  <Text style={styles.sensorTitle}>Sensor Connection</Text>
+                  <View
+                    style={
+                      pendingSensorBoxId ? styles.sensorBadgeConnected : styles.sensorBadgeIdle
+                    }>
+                    <Text style={styles.sensorBadgeText}>
+                      {pendingSensorBoxId ? 'Ready' : 'Not Connected'}
+                    </Text>
+                  </View>
+                </View>
+
+                {pendingSensorBoxId ? (
+                  <>
+                    <Text style={styles.sensorIdText}>{pendingSensorBoxId}</Text>
+                    <Text style={styles.sensorHelperText}>
+                      Latest reading: {formatPlantBoxLastSeen(pendingSensorLastSeenAt)}
+                    </Text>
+                    <Text style={styles.sensorHelperText}>
+                      This PlantBox will be linked when you save the plant.
+                    </Text>
+                  </>
+                ) : (
+                  <Text style={styles.sensorHelperText}>
+                    Link a PlantBox now so this plant can start receiving sensor data after save.
+                  </Text>
+                )}
+
+                <TouchableOpacity
+                  style={styles.sensorActionButton}
+                  onPress={() => setConnectPlantBoxVisible(true)}>
+                  <Text style={styles.sensorActionButtonText}>
+                    {pendingSensorBoxId ? 'Change PlantBox' : 'Connect PlantBox'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
             <FilledButton
               text={isLoading ? 'Saving...' : 'Save Plant'}
               onPress={handleSave}
@@ -438,6 +522,14 @@ export default function AddPlantScreen() {
               navigation.goBack();
             }
           }}
+        />
+
+        <ConnectPlantBoxModal
+          visible={connectPlantBoxVisible}
+          onClose={() => setConnectPlantBoxVisible(false)}
+          onConnect={handlePlantBoxConnect}
+          initialValue={pendingSensorBoxId}
+          description="Enter a Sensor Box ID. We’ll verify that the latest controller entry exists and is recent before linking it."
         />
       </View>
     </GestureHandlerRootView>
@@ -516,6 +608,65 @@ const styles = StyleSheet.create((theme) => ({
   },
   inputContainer: {
     marginBottom: 25,
+  },
+  sensorCard: {
+    borderRadius: 18,
+    padding: 16,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.greyedOut,
+    gap: 8,
+  },
+  sensorHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sensorTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: theme.colors.text,
+  },
+  sensorBadgeConnected: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: 'rgba(64,176,108,0.18)',
+  },
+  sensorBadgeIdle: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: 'rgba(0,0,0,0.06)',
+  },
+  sensorBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: theme.colors.text,
+  },
+  sensorIdText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: theme.colors.text,
+  },
+  sensorHelperText: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: theme.colors.text,
+    opacity: 0.75,
+  },
+  sensorActionButton: {
+    marginTop: 8,
+    minHeight: 46,
+    borderRadius: 14,
+    backgroundColor: theme.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sensorActionButtonText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#fff',
   },
   label: {
     fontSize: 16,

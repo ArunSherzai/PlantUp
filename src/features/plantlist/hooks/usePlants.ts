@@ -27,13 +27,41 @@ export function usePlants(userId?: string) {
       return;
     }
 
+    const plantIds = data.map((plant) => plant.id);
+    const latestControllerByPlant = new Map<string, { sensorBoxId: string; lastSeenAt?: string }>();
+
+    if (plantIds.length > 0) {
+      const { data: controllerData, error: controllerError } = await db.micro
+        .from('Controllers')
+        .select('id, plant_id, time, created_at')
+        .in('plant_id', plantIds)
+        .order('time', { ascending: false });
+
+      if (controllerError) {
+        console.log('Controller lookup error:', controllerError);
+      } else {
+        controllerData.forEach((controller) => {
+          if (!controller.plant_id || latestControllerByPlant.has(controller.plant_id)) {
+            return;
+          }
+
+          latestControllerByPlant.set(controller.plant_id, {
+            sensorBoxId: controller.id,
+            lastSeenAt: controller.time ?? controller.created_at ?? undefined,
+          });
+        });
+      }
+    }
+
     const mapped: PlantItem[] = data.map((p, idx) => ({
       id: p.id,
       name: p.nickname,
       type_id: p.plant_data_id ?? undefined,
       description: p.description,
       image_url: getPublicPlantImageUrl(p.image_url) || undefined,
-      image: "",
+      sensorBoxId: latestControllerByPlant.get(p.id)?.sensorBoxId,
+      sensorLastSeenAt: latestControllerByPlant.get(p.id)?.lastSeenAt,
+      image: '',
       gradientColors: customGradients[idx % customGradients.length],
     }));
 

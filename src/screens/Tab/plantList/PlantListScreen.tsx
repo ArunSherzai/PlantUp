@@ -86,9 +86,15 @@ export default function PlantListScreen() {
         />
         <PlantCoinBox />
         <View style={[styles.headerContainer, { top: vh * 8 + insets.top }]}>
-          <Text style={styles.headerTitle} adjustsFontSizeToFit numberOfLines={1}>View</Text>
-          <Text style={styles.headerTitle} adjustsFontSizeToFit numberOfLines={1}>your</Text>
-          <Text style={styles.headerTitle} adjustsFontSizeToFit numberOfLines={1}>Plants!</Text>
+          <Text style={styles.headerTitle} adjustsFontSizeToFit numberOfLines={1}>
+            View
+          </Text>
+          <Text style={styles.headerTitle} adjustsFontSizeToFit numberOfLines={1}>
+            your
+          </Text>
+          <Text style={styles.headerTitle} adjustsFontSizeToFit numberOfLines={1}>
+            Plants!
+          </Text>
         </View>
       </View>
 
@@ -103,8 +109,8 @@ export default function PlantListScreen() {
                 );
                 // Only update if changed to avoid duplicate sounds if user scrolls a tiny bit and snap back
                 if (index !== activeIndex) {
-                    setActiveIndex(index);
-                    playSound('swipe');
+                  setActiveIndex(index);
+                  playSound('swipe');
                 }
               }}
               data={plants}
@@ -168,7 +174,7 @@ const stylesheet = (theme: any) =>
       alignItems: 'center',
     },
     headerBg: {
-      height: '55%',
+      height: '48%',
       width: '100%',
       position: 'absolute',
       top: 0,
@@ -193,7 +199,7 @@ const stylesheet = (theme: any) =>
       position: 'absolute',
       bottom: 0,
       width: '100%',
-      height: '65%',
+      height: '72%',
       backgroundColor: theme.colors.surface,
       borderTopLeftRadius: 30,
       borderTopRightRadius: 30,
@@ -205,11 +211,11 @@ const stylesheet = (theme: any) =>
     },
     sheetContent: {
       flex: 1,
-      paddingTop: 20,
+      paddingTop: 16,
       alignItems: 'center',
     },
     carouselContainer: {
-      height: vh * 33,
+      height: vh * 50,
       width: '100%',
     },
     emptyListContainer: {

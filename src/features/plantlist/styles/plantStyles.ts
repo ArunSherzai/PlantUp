@@ -67,9 +67,12 @@ export const styles = StyleSheet.create((theme) => ({
 
   plantCard: {
     width: width - vw * 8,
-    height: vh * 29,
+    height: vh * 32,
     borderRadius: vw * 6,
     overflow: 'visible',
+  },
+  plantCardExpanded: {
+    height: vh * 48,
   },
 
   gradient: {
@@ -118,11 +121,11 @@ export const styles = StyleSheet.create((theme) => ({
   backGradient: {
     flex: 1,
     borderRadius: vw * 6,
-    padding: vw * 2,
+    padding: vw * 4,
   },
 
   backContent: {
-    margin: vw * 3,
+    flex: 1,
   },
 
   backTitle: {
@@ -145,6 +148,10 @@ export const styles = StyleSheet.create((theme) => ({
 
   field: {
     marginBottom: vh * 1.5,
+  },
+  inputMultiline: {
+    minHeight: vh * 10,
+    textAlignVertical: 'top',
   },
 
   label: {
@@ -169,6 +176,7 @@ export const styles = StyleSheet.create((theme) => ({
     justifyContent: 'space-between',
     gap: vw * 2,
     width: '100%',
+    marginTop: vh * 1,
   },
 
   saveButton: {
@@ -201,6 +209,71 @@ export const styles = StyleSheet.create((theme) => ({
     color: theme.colors.typography,
     fontSize: vw * 3.5,
     fontWeight: 'bold',
+  },
+  backScrollContent: {
+    paddingBottom: vh * 1,
+  },
+  sensorCard: {
+    borderRadius: vw * 4,
+    padding: vw * 4,
+    backgroundColor:
+      theme.colors.background === '#121212' ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.22)',
+    borderWidth: 1,
+    borderColor:
+      theme.colors.background === '#121212' ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.34)',
+  },
+  sensorTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: vh * 0.8,
+  },
+  sensorTitle: {
+    color: theme.colors.typography,
+    fontSize: vw * 4.2,
+    fontWeight: '700',
+  },
+  sensorBadgeConnected: {
+    paddingHorizontal: vw * 2.4,
+    paddingVertical: vh * 0.5,
+    borderRadius: 999,
+    backgroundColor: 'rgba(64,176,108,0.2)',
+  },
+  sensorBadgeIdle: {
+    paddingHorizontal: vw * 2.4,
+    paddingVertical: vh * 0.5,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+  },
+  sensorBadgeText: {
+    color: theme.colors.textDark,
+    fontSize: vw * 2.8,
+    fontWeight: '700',
+  },
+  sensorIdText: {
+    color: theme.colors.textDark,
+    fontSize: vw * 3.6,
+    fontWeight: '700',
+    marginBottom: vh * 0.4,
+  },
+  sensorHelperText: {
+    color: theme.colors.typography,
+    fontSize: vw * 3.2,
+    lineHeight: vh * 2.1,
+    opacity: 0.8,
+  },
+  sensorLinkButton: {
+    marginTop: vh * 1.2,
+    minHeight: vh * 5.2,
+    borderRadius: vw * 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.18)',
+  },
+  sensorLinkButtonText: {
+    color: '#fff',
+    fontSize: vw * 3.5,
+    fontWeight: '800',
   },
   iconsView: {
     flexDirection: 'column',

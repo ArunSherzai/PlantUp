@@ -5,5 +5,7 @@ export interface PlantItem {
   description: string;
   image?: any;
   image_url?: string;
+  sensorBoxId?: string;
+  sensorLastSeenAt?: string;
   gradientColors?: [string, string];
 }
