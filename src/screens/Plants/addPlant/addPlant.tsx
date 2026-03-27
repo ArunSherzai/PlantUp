@@ -20,11 +20,11 @@ import { db } from '~/utils/supabase';
 import { useUserStore } from '~/stores/UserStore';
 import DraggableBottomSheet from '~/components/DraggableBottomSheet';
 import AlertModal from '~/components/AlertModal';
-import ConnectPlantBoxModal from '~/components/ConnectPlantBoxModal';
 import { getPublicPlantImageUrl } from '~/utils/media';
 import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
 import {
   connectPlantBoxToPlant,
+  fetchAvailablePlantBoxes,
   formatPlantBoxLastSeen,
   validatePlantBoxId,
 } from '~/features/plantlist/api/plantBox';
@@ -55,7 +55,11 @@ export default function AddPlantScreen() {
   const [isLoadingPlants, setIsLoadingPlants] = useState(true);
   const [customImageUri, setCustomImageUri] = useState<string | null>(null);
   const [customImageBase64, setCustomImageBase64] = useState<string | null>(null);
-  const [connectPlantBoxVisible, setConnectPlantBoxVisible] = useState(false);
+  const [sensorDropdownVisible, setSensorDropdownVisible] = useState(false);
+  const [availableSensors, setAvailableSensors] = useState<
+    { sensorBoxId: string; latestSeenAt: string; existingPlantId: string | null }[]
+  >([]);
+  const [isLoadingSensors, setIsLoadingSensors] = useState(true);
   const [pendingSensorBoxId, setPendingSensorBoxId] = useState<string | null>(null);
   const [pendingSensorLastSeenAt, setPendingSensorLastSeenAt] = useState<string | null>(null);
 
@@ -183,23 +187,24 @@ export default function AddPlantScreen() {
     fetchPlantData();
   }, []);
 
+  useEffect(() => {
+    const loadAvailableSensors = async () => {
+      try {
+        setIsLoadingSensors(true);
+        const sensors = await fetchAvailablePlantBoxes();
+        setAvailableSensors(sensors);
+      } catch (error) {
+        ErrorHandlerService.handle(error, { showUI: false });
+      } finally {
+        setIsLoadingSensors(false);
+      }
+    };
+
+    loadAvailableSensors();
+  }, []);
+
   const toggleDropdown = () => {
     setDropdownVisible(!isDropdownVisible);
-  };
-
-  const handlePlantBoxConnect = async (sensorBoxId: string) => {
-    const validation = await validatePlantBoxId(sensorBoxId);
-
-    if (!validation.isValid) {
-      throw new Error(validation.message);
-    }
-
-    if (validation.existingPlantId) {
-      throw new Error('This PlantBox is already connected to another plant.');
-    }
-
-    setPendingSensorBoxId(validation.sensorBoxId ?? sensorBoxId.trim());
-    setPendingSensorLastSeenAt(validation.latestSeenAt ?? null);
   };
 
   const handleSave = async () => {
@@ -257,6 +262,20 @@ export default function AddPlantScreen() {
 
       if (!selectedPlant) {
         throw new Error('Selected plant data not found');
+      }
+
+      if (pendingSensorBoxId) {
+        const sensorValidation = await validatePlantBoxId(pendingSensorBoxId);
+
+        if (!sensorValidation.isValid) {
+          throw new Error(
+            sensorValidation.message || 'The selected sensor is no longer available.'
+          );
+        }
+
+        if (sensorValidation.existingPlantId) {
+          throw new Error('The selected sensor is already connected to another plant.');
+        }
       }
 
       // Insert the new plant into the Plants table first (without image)
@@ -476,6 +495,61 @@ export default function AddPlantScreen() {
                   </View>
                 </View>
 
+                <TouchableOpacity
+                  style={styles.dropdownButton}
+                  onPress={() => setSensorDropdownVisible((current) => !current)}
+                  activeOpacity={0.8}>
+                  <View style={styles.selectedPlantContainer}>
+                    <Text style={styles.dropdownButtonText}>
+                      {pendingSensorBoxId ? pendingSensorBoxId : 'Select a sensor'}
+                    </Text>
+                  </View>
+                  <Feather
+                    name={sensorDropdownVisible ? 'chevron-up' : 'chevron-down'}
+                    size={20}
+                    color={theme.colors.text}
+                  />
+                </TouchableOpacity>
+
+                {sensorDropdownVisible && (
+                  <View style={styles.dropdownContainer}>
+                    <ScrollView
+                      style={styles.dropdownScrollView}
+                      keyboardShouldPersistTaps="handled">
+                      {isLoadingSensors ? (
+                        <View style={styles.dropdownItem}>
+                          <ActivityIndicator size="small" color={theme.colors.primary} />
+                          <Text style={[styles.dropdownItemText, { marginLeft: 10 }]}>
+                            Loading sensors...
+                          </Text>
+                        </View>
+                      ) : availableSensors.length > 0 ? (
+                        availableSensors.map((sensor) => (
+                          <TouchableOpacity
+                            key={sensor.sensorBoxId}
+                            style={styles.dropdownItem}
+                            onPress={() => {
+                              setPendingSensorBoxId(sensor.sensorBoxId);
+                              setPendingSensorLastSeenAt(sensor.latestSeenAt);
+                              setSensorDropdownVisible(false);
+                            }}>
+                            <View style={styles.sensorOptionRow}>
+                              <Text style={styles.dropdownItemText}>{sensor.sensorBoxId}</Text>
+                              <Text style={styles.dropdownItemScientific}>
+                                Latest: {formatPlantBoxLastSeen(sensor.latestSeenAt)}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        ))
+                      ) : (
+                        <Text style={styles.dropdownItem}>
+                          No recent unlinked sensors are currently available.
+                        </Text>
+                      )}
+                    </ScrollView>
+                  </View>
+                )}
+
                 {pendingSensorBoxId ? (
                   <>
                     <Text style={styles.sensorIdText}>{pendingSensorBoxId}</Text>
@@ -483,22 +557,15 @@ export default function AddPlantScreen() {
                       Latest reading: {formatPlantBoxLastSeen(pendingSensorLastSeenAt)}
                     </Text>
                     <Text style={styles.sensorHelperText}>
-                      This PlantBox will be linked when you save the plant.
+                      The plant id and selected sensor id will be synced when you save the plant.
                     </Text>
                   </>
                 ) : (
                   <Text style={styles.sensorHelperText}>
-                    Link a PlantBox now so this plant can start receiving sensor data after save.
+                    Choose a recent unlinked sensor and it will be attached when the plant is
+                    created.
                   </Text>
                 )}
-
-                <TouchableOpacity
-                  style={styles.sensorActionButton}
-                  onPress={() => setConnectPlantBoxVisible(true)}>
-                  <Text style={styles.sensorActionButtonText}>
-                    {pendingSensorBoxId ? 'Change PlantBox' : 'Connect PlantBox'}
-                  </Text>
-                </TouchableOpacity>
               </View>
             </View>
 
@@ -522,14 +589,6 @@ export default function AddPlantScreen() {
               navigation.goBack();
             }
           }}
-        />
-
-        <ConnectPlantBoxModal
-          visible={connectPlantBoxVisible}
-          onClose={() => setConnectPlantBoxVisible(false)}
-          onConnect={handlePlantBoxConnect}
-          initialValue={pendingSensorBoxId}
-          description="Enter a Sensor Box ID. We’ll verify that the latest controller entry exists and is recent before linking it."
         />
       </View>
     </GestureHandlerRootView>
@@ -667,6 +726,9 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: 15,
     fontWeight: '800',
     color: '#fff',
+  },
+  sensorOptionRow: {
+    gap: 4,
   },
   label: {
     fontSize: 16,

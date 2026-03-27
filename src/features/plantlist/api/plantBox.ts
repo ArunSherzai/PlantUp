@@ -9,6 +9,12 @@ type LatestControllerRecord = {
   created_at: string | null;
 };
 
+export type PlantBoxOption = {
+  sensorBoxId: string;
+  latestSeenAt: string;
+  existingPlantId: string | null;
+};
+
 export type PlantBoxValidationResult = {
   isValid: boolean;
   sensorBoxId?: string;
@@ -74,6 +80,38 @@ export async function validatePlantBoxId(sensorBoxId: string): Promise<PlantBoxV
   };
 }
 
+export async function fetchAvailablePlantBoxes(): Promise<PlantBoxOption[]> {
+  const { data, error } = await db.micro
+    .from('Controllers')
+    .select('id, plant_id, time, created_at')
+    .order('time', { ascending: false })
+    .limit(500);
+
+  if (error) throw error;
+
+  const latestBySensor = new Map<string, PlantBoxOption>();
+  const recentCutoff = Date.now() - SENSOR_ACTIVITY_WINDOW_HOURS * 60 * 60 * 1000;
+
+  (data as LatestControllerRecord[]).forEach((record) => {
+    if (latestBySensor.has(record.id)) return;
+
+    const latestSeenAt = record.time ?? record.created_at;
+    if (!latestSeenAt) return;
+
+    const latestSeenDate = new Date(latestSeenAt);
+    if (Number.isNaN(latestSeenDate.getTime())) return;
+    if (latestSeenDate.getTime() < recentCutoff) return;
+
+    latestBySensor.set(record.id, {
+      sensorBoxId: record.id,
+      latestSeenAt,
+      existingPlantId: record.plant_id,
+    });
+  });
+
+  return Array.from(latestBySensor.values()).filter((sensor) => !sensor.existingPlantId);
+}
+
 export async function connectPlantBoxToPlant(params: {
   sensorBoxId: string;
   plantId: string;
@@ -91,6 +129,13 @@ export async function connectPlantBoxToPlant(params: {
 
   const updatePayload: { plant_id: string; user_id?: string } = { plant_id: plantId };
   if (userId) updatePayload.user_id = userId;
+
+  const { error: updatePlantError } = await db.social
+    .from('Plants')
+    .update({ sensor_id: sensorBoxId })
+    .eq('id', plantId);
+
+  if (updatePlantError) throw updatePlantError;
 
   const { error: connectError } = await db.micro
     .from('Controllers')
