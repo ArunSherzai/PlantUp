@@ -57,9 +57,15 @@ export default function AddPlantScreen() {
   const [customImageBase64, setCustomImageBase64] = useState<string | null>(null);
   const [sensorDropdownVisible, setSensorDropdownVisible] = useState(false);
   const [availableSensors, setAvailableSensors] = useState<
-    { sensorBoxId: string; latestSeenAt: string; existingPlantId: string | null }[]
+    {
+      controllerRecordId: string;
+      sensorBoxId: string;
+      latestSeenAt: string;
+      existingPlantId: string | null;
+    }[]
   >([]);
   const [isLoadingSensors, setIsLoadingSensors] = useState(true);
+  const [selectedControllerRecordId, setSelectedControllerRecordId] = useState<string | null>(null);
   const [pendingSensorBoxId, setPendingSensorBoxId] = useState<string | null>(null);
   const [pendingSensorLastSeenAt, setPendingSensorLastSeenAt] = useState<string | null>(null);
 
@@ -315,6 +321,7 @@ export default function AddPlantScreen() {
 
       if (pendingSensorBoxId) {
         await connectPlantBoxToPlant({
+          controllerRecordId: selectedControllerRecordId ?? undefined,
           sensorBoxId: pendingSensorBoxId,
           plantId: insertedPlant.id,
           userId: user.id,
@@ -526,15 +533,19 @@ export default function AddPlantScreen() {
                       ) : availableSensors.length > 0 ? (
                         availableSensors.map((sensor) => (
                           <TouchableOpacity
-                            key={sensor.sensorBoxId}
+                            key={sensor.controllerRecordId}
                             style={styles.dropdownItem}
                             onPress={() => {
+                              setSelectedControllerRecordId(sensor.controllerRecordId);
                               setPendingSensorBoxId(sensor.sensorBoxId);
                               setPendingSensorLastSeenAt(sensor.latestSeenAt);
                               setSensorDropdownVisible(false);
                             }}>
                             <View style={styles.sensorOptionRow}>
                               <Text style={styles.dropdownItemText}>{sensor.sensorBoxId}</Text>
+                              <Text style={styles.dropdownItemScientific}>
+                                Controller row: {sensor.controllerRecordId}
+                              </Text>
                               <Text style={styles.dropdownItemScientific}>
                                 Latest: {formatPlantBoxLastSeen(sensor.latestSeenAt)}
                               </Text>

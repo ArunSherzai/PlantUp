@@ -5,11 +5,13 @@ const SENSOR_ACTIVITY_WINDOW_HOURS = 24;
 type LatestControllerRecord = {
   id: string;
   plant_id: string | null;
+  plantbox_id: string | null;
   time: string | null;
   created_at: string | null;
 };
 
 export type PlantBoxOption = {
+  controllerRecordId: string;
   sensorBoxId: string;
   latestSeenAt: string;
   existingPlantId: string | null;
@@ -41,8 +43,8 @@ export async function validatePlantBoxId(sensorBoxId: string): Promise<PlantBoxV
 
   const { data, error } = await db.micro
     .from('Controllers')
-    .select('id, plant_id, time, created_at')
-    .eq('id', normalizedId)
+    .select('id, plant_id, plantbox_id, time, created_at')
+    .eq('plantbox_id', normalizedId)
     .order('time', { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -74,7 +76,7 @@ export async function validatePlantBoxId(sensorBoxId: string): Promise<PlantBoxV
 
   return {
     isValid: true,
-    sensorBoxId: normalizedId,
+    sensorBoxId: latestRecord.plantbox_id ?? normalizedId,
     latestSeenAt,
     existingPlantId: latestRecord.plant_id,
   };
@@ -83,49 +85,40 @@ export async function validatePlantBoxId(sensorBoxId: string): Promise<PlantBoxV
 export async function fetchAvailablePlantBoxes(): Promise<PlantBoxOption[]> {
   const { data, error } = await db.micro
     .from('Controllers')
-    .select('id, plant_id, time, created_at')
-    .order('time', { ascending: false })
-    .limit(500);
+    .select('id, plant_id, plantbox_id, time, created_at')
+    .order('time', { ascending: false });
 
   if (error) throw error;
 
-  const latestBySensor = new Map<string, PlantBoxOption>();
   const recentCutoff = Date.now() - SENSOR_ACTIVITY_WINDOW_HOURS * 60 * 60 * 1000;
 
-  (data as LatestControllerRecord[]).forEach((record) => {
-    if (latestBySensor.has(record.id)) return;
-
-    const latestSeenAt = record.time ?? record.created_at;
-    if (!latestSeenAt) return;
-
-    const latestSeenDate = new Date(latestSeenAt);
-    if (Number.isNaN(latestSeenDate.getTime())) return;
-    if (latestSeenDate.getTime() < recentCutoff) return;
-
-    latestBySensor.set(record.id, {
-      sensorBoxId: record.id,
-      latestSeenAt,
-      existingPlantId: record.plant_id,
+  return (data as LatestControllerRecord[])
+    .filter((record) => {
+      if (!record.plantbox_id) return false;
+      const latestSeenAt = record.time ?? record.created_at;
+      if (!latestSeenAt) return false;
+      const latestSeenDate = new Date(latestSeenAt);
+      if (Number.isNaN(latestSeenDate.getTime())) return false;
+      return latestSeenDate.getTime() >= recentCutoff;
+    })
+    .map((record) => {
+      const latestSeenAt = record.time ?? record.created_at ?? '';
+      return {
+        controllerRecordId: record.id,
+        sensorBoxId: record.plantbox_id ?? record.id,
+        latestSeenAt,
+        existingPlantId: record.plant_id,
+      };
     });
-  });
-
-  return Array.from(latestBySensor.values());
 }
 
 export async function connectPlantBoxToPlant(params: {
+  controllerRecordId?: string;
   sensorBoxId: string;
   plantId: string;
   userId?: string;
 }) {
-  const { sensorBoxId, plantId, userId } = params;
-
-  const { error: clearExistingPlantBoxesError } = await db.micro
-    .from('Controllers')
-    .update({ plant_id: null })
-    .eq('plant_id', plantId)
-    .neq('id', sensorBoxId);
-
-  if (clearExistingPlantBoxesError) throw clearExistingPlantBoxesError;
+  const { controllerRecordId, sensorBoxId, plantId, userId } = params;
 
   const updatePayload: { plant_id: string; user_id?: string } = { plant_id: plantId };
   if (userId) updatePayload.user_id = userId;
@@ -137,10 +130,12 @@ export async function connectPlantBoxToPlant(params: {
 
   if (updatePlantError) throw updatePlantError;
 
-  const { error: connectError } = await db.micro
-    .from('Controllers')
-    .update(updatePayload)
-    .eq('id', sensorBoxId);
+  const controllerQuery = db.micro.from('Controllers').update(updatePayload);
+  const controllerUpdate = controllerRecordId
+    ? controllerQuery.eq('id', controllerRecordId)
+    : controllerQuery.eq('plantbox_id', sensorBoxId);
+
+  const { error: connectError } = await controllerUpdate;
 
   if (connectError) throw connectError;
 }
