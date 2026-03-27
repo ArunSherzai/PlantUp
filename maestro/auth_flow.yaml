@@ -1,0 +1,6 @@
+# maestro/auth_flow.yaml
+appId: com.abehari.PlantUp
+---
+- runFlow: subflows/login.yaml
+- assertVisible:
+    text: "Feed" # Verify we landed on Feed

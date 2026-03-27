@@ -1,0 +1,24 @@
+# maestro/social_flow.yaml
+appId: com.abehari.PlantUp
+---
+- runFlow: subflows/login.yaml
+
+- assertVisible:
+    text: "Feed"
+
+- tapOn:
+    id: "SearchButton"
+
+- inputText:
+    text: "${SEARCH_USERNAME}"
+
+- assertVisible:
+    text: "Users"
+
+- back
+
+- tapOn:
+    id: "AddPostButton"
+
+- assertVisible:
+    text: "Inspire and" # Verification on Feed screen or CreatePost modal

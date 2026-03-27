@@ -1,0 +1,7 @@
+appId: com.abehari.PlantUp
+---
+flows:
+  - "auth_flow.yaml"
+  - "navigation_flow.yaml"
+  - "plant_flow.yaml"
+  - "social_flow.yaml"

@@ -1,0 +1,22 @@
+# maestro/navigation_flow.yaml
+appId: com.abehari.PlantUp
+---
+- runFlow: subflows/login.yaml # Assume we need to be logged in
+
+# Navigate to Missions
+- tapOn:
+    id: "Missions"
+- assertVisible:
+    text: "Missions" # Verify something on that screen
+
+# Navigate to Plant List
+- tapOn:
+    id: "Show Plants"
+- assertVisible:
+    text: "View Your Plants!" # From PlantListScreen.tsx header
+
+# Navigate to Profile
+- tapOn:
+    id: "Profile"
+- assertVisible:
+    text: "Profile" # Or a testID on the profile screen

@@ -45,7 +45,7 @@ export default function NavigationBar({ state, descriptors, navigation }: any) {
           };
 
           return (
-            <TouchableOpacity key={route.key} onPress={onPress} style={styles.touchable}>
+            <TouchableOpacity key={route.key} onPress={onPress} style={styles.touchable} testID={route.name}>
               <View>
                 <FontAwesome6
                   name={iconName}
