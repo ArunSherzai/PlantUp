@@ -147,7 +147,7 @@ export default function RootStack() {
       <StatusBar hidden />
       <View style={{ flex: 1 }}>
         <Stack.Navigator
-          initialRouteName="Auth"
+          initialRouteName={user ? 'TabNavigator' : 'Auth'}
           screenOptions={{
             headerStyle: {
               backgroundColor: theme.colors.background,
