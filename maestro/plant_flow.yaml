@@ -1,0 +1,19 @@
+# maestro/plant_flow.yaml
+appId: com.abehari.PlantUp
+---
+- runFlow: subflows/login.yaml
+
+- tapOn:
+    id: "Show Plants"
+
+- assertVisible:
+    text: "View your Plants!" # Exact text from PlantListScreen.tsx:91 ("Plants!") or headers
+
+# Tap first plant card
+- tapOn:
+    id: "PlantCard"
+
+- assertVisible:
+    text: "View Daily Mentor Advice"
+
+- back

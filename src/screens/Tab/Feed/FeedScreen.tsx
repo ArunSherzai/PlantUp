@@ -204,6 +204,7 @@ export default function FeedScreen() {
                                     <TouchableOpacity
                                         style={{ padding: 5 }}
                                         onPress={() => setIsSearching(true)}
+                                        testID="SearchButton"
                                     >
                                         <FontAwesome6 name="magnifying-glass" size={vw * 6} color="white" />
                                     </TouchableOpacity>
@@ -336,6 +337,7 @@ export default function FeedScreen() {
                     <TouchableOpacity
                         style={styles.fab}
                         onPress={() => navigation.navigate('CreatePost')}
+                        testID="AddPostButton"
                     >
                         <FontAwesome6 name="plus" size={vw * 7} color="white" />
                     </TouchableOpacity>

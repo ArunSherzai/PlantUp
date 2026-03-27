@@ -242,7 +242,8 @@ export const PlantCard = React.memo(
           style={styles.absoluteFill}
           onPress={handleCardPress}
           activeOpacity={1}
-          disabled={showActionText}>
+          disabled={showActionText}
+          testID="PlantCard">
           <Animated.View style={[frontStyle]} pointerEvents={!showActionText ? 'auto' : 'none'}>
             <LinearGradient
               colors={item.gradientColors!}

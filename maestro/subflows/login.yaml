@@ -1,0 +1,15 @@
+# maestro/subflows/login.yaml
+appId: com.abehari.PlantUp
+---
+- tapOn:
+    id: "Already have an Account"
+- inputText:
+    id: "Email"
+    text: "${TEST_EMAIL}"
+- inputText:
+    id: "Password"
+    text: "${TEST_PASSWORD}"
+- tapOn:
+    id: "Login"
+- assertVisible:
+    text: "Feed" # Assuming "Feed" or something header appears
