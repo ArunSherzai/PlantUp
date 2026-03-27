@@ -538,12 +538,21 @@ export default function AddPlantScreen() {
                               <Text style={styles.dropdownItemScientific}>
                                 Latest: {formatPlantBoxLastSeen(sensor.latestSeenAt)}
                               </Text>
+                              <Text
+                                style={[
+                                  styles.dropdownItemScientific,
+                                  sensor.existingPlantId && styles.sensorLinkedText,
+                                ]}>
+                                {sensor.existingPlantId
+                                  ? `Already linked to plant ${sensor.existingPlantId}`
+                                  : 'Currently unlinked'}
+                              </Text>
                             </View>
                           </TouchableOpacity>
                         ))
                       ) : (
                         <Text style={styles.dropdownItem}>
-                          No recent unlinked sensors are currently available.
+                          No recent sensors are currently available.
                         </Text>
                       )}
                     </ScrollView>
@@ -562,8 +571,8 @@ export default function AddPlantScreen() {
                   </>
                 ) : (
                   <Text style={styles.sensorHelperText}>
-                    Choose a recent unlinked sensor and it will be attached when the plant is
-                    created.
+                    Choose any recent sensor here. If it is already linked, saving this plant will
+                    reassign it.
                   </Text>
                 )}
               </View>
@@ -729,6 +738,9 @@ const styles = StyleSheet.create((theme) => ({
   },
   sensorOptionRow: {
     gap: 4,
+  },
+  sensorLinkedText: {
+    color: '#C96B1A',
   },
   label: {
     fontSize: 16,

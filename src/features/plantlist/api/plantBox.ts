@@ -109,7 +109,7 @@ export async function fetchAvailablePlantBoxes(): Promise<PlantBoxOption[]> {
     });
   });
 
-  return Array.from(latestBySensor.values()).filter((sensor) => !sensor.existingPlantId);
+  return Array.from(latestBySensor.values());
 }
 
 export async function connectPlantBoxToPlant(params: {
