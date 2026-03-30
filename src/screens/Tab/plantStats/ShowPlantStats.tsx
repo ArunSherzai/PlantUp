@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { View, Text, Image, TouchableOpacity } from 'react-native';
-import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useUnistyles, StyleSheet } from '~/lib/unistyles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { db } from '../../../utils/supabase';
 import { useUserStore } from '~/stores/UserStore';
 import { useTutorialStore } from '~/stores/TutorialStore';
@@ -12,7 +11,6 @@ import DraggableBottomSheet from '~/components/DraggableBottomSheet';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
 
-// --- COMPONENTS ---
 import Header from '~/features/plantstats/components/Header';
 import LoadingScreen from '~/features/plantstats/components/LoadingScreen';
 import TrendChartCard from '~/features/plantstats/components/TrendChartCard';
@@ -20,17 +18,13 @@ import OverviewCard from '~/features/plantstats/components/OverviewCard';
 import HistoryCard from '~/features/plantstats/components/HistoryCard';
 import MiniTrendCard from '~/features/plantstats/components/MiniTrend';
 import SnapshotBoxes from '~/features/plantstats/components/SnapShotBoxes';
-import { vw, vh } from '~/features/plantlist/styles/plantStyles'; // Import existing responsive utils
+import { vw, vh } from '~/features/plantlist/styles/plantStyles';
 
-// --- API HELPERS ---
 import { calculateAverages, lastXdays } from '~/features/plantstats/api/history';
-import { calculateHealth } from '~/features/plantstats/api/healthScore';
-import { calculateHealthFull } from '~/features/plantstats/api/healthScore';
+import { calculateHealth, calculateHealthFull } from '~/features/plantstats/api/healthScore';
 import type { HealthResult } from '~/features/mentor';
 import { getTodayQuestKey, trackQuestAction } from '~/features/quests/questProgress';
 
-// --- CONSTANTS ---
-const CACHE_KEY_PREFIX = 'plant_history_';
 const TIME_RANGES = {
   'Last 1 Hour': { limit: 50, hours: 1 },
   'Last 24 Hours': { limit: 200, hours: 24 },
@@ -48,7 +42,7 @@ interface PlantController {
   light: number | null;
   electrical_conductivity: number | null;
   time?: string | null;
-  created_at: string;
+  created_at: string | null;
 }
 
 interface PlantSummary {
@@ -56,27 +50,6 @@ interface PlantSummary {
   nickname: string | null;
   sensor_id?: string | null;
   plant_data?: { common_name?: string | null } | Array<{ common_name?: string | null }>;
-}
-
-// ----------------------------------------------------------------------------
-// 🟢 OPTIMIZED DATA FETCHING FUNCTIONS
-// ----------------------------------------------------------------------------
-
-async function getCache(key: string) {
-  try {
-    const data = await AsyncStorage.getItem(key);
-    return data ? JSON.parse(data) : null;
-  } catch (e) {
-    return null;
-  }
-}
-
-async function setCache(key: string, value: any) {
-  try {
-    await AsyncStorage.setItem(key, JSON.stringify(value));
-  } catch (e) {
-    ErrorHandlerService.handle(e, { showUI: false });
-  }
 }
 
 async function fetchPlantById(plantId: string): Promise<PlantSummary | null> {
@@ -111,9 +84,16 @@ async function fetchFirstPlantForUser(userId: string): Promise<PlantSummary | nu
   return (data as PlantSummary | null) ?? null;
 }
 
-// Fetch ONLY the latest row (very fast)
 function getControllerTimestamp(controller?: Pick<PlantController, 'time' | 'created_at'> | null) {
   return controller?.time ?? controller?.created_at ?? null;
+}
+
+function toTimestampMs(controller?: Pick<PlantController, 'time' | 'created_at'> | null) {
+  const timestamp = getControllerTimestamp(controller);
+  if (!timestamp) return Number.NEGATIVE_INFINITY;
+
+  const date = new Date(timestamp);
+  return Number.isFinite(date.getTime()) ? date.getTime() : Number.NEGATIVE_INFINITY;
 }
 
 async function fetchLatestController(
@@ -125,23 +105,27 @@ async function fetchLatestController(
 
     const { data, error } = await db.micro
       .from('Controllers')
-      .select('id, temperature, humidity, soil_moisture, light, electrical_conductivity, time, created_at')
+      .select(
+        'id, temperature, humidity, soil_moisture, light, electrical_conductivity, time, created_at'
+      )
       .eq(column, value)
       .order('time', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(10);
 
     if (error) {
       ErrorHandlerService.handle(error, { showUI: false });
       return null;
     }
 
-    return (data as PlantController | null) ?? null;
+    const rows = ((data as PlantController[] | null) ?? []).sort(
+      (a, b) => toTimestampMs(b) - toTimestampMs(a)
+    );
+
+    return rows[0] ?? null;
   };
 
   const directMatch = await fetchBy('plant_id', plantId);
   if (directMatch) return directMatch;
-
   return fetchBy('plantbox_id', sensorBoxId);
 }
 
@@ -163,37 +147,22 @@ const TimeRangePicker = ({
   const keys = Object.keys(TIME_RANGES) as TimeRangeKey[];
 
   return (
-    <View
-      style={{
-        flexDirection: 'row',
-        backgroundColor: theme.colors.surface,
-        borderRadius: vw * 3,
-        padding: vw * 0.8,
-        marginVertical: vh * 1.5,
-        alignSelf: 'center',
-      }}>
+    <View style={[styles.rangeRow, { backgroundColor: theme.colors.surface }]}>
       {keys.map((key) => {
         const isSelected = selectedRange === key;
         return (
           <TouchableOpacity
             key={key}
             onPress={() => setSelectedRange(key)}
-            style={{
-              flex: 1,
-              paddingVertical: vh * 1,
-              paddingHorizontal: vw * 3,
-              borderRadius: vw * 2.5,
-              backgroundColor: isSelected ? theme.colors.primary : 'transparent',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
+            style={[
+              styles.rangeButton,
+              { backgroundColor: isSelected ? theme.colors.primary : 'transparent' },
+            ]}>
             <Text
-              style={{
-                color: isSelected ? '#fff' : theme.colors.secondary,
-                fontSize: vw * 3.5,
-                fontWeight: isSelected ? '700' : '500',
-                fontFamily: theme.fonts.regular,
-              }}>
+              style={[
+                styles.rangeButtonText,
+                { color: isSelected ? '#fff' : theme.colors.secondary },
+              ]}>
               {RANGE_LABELS[key]}
             </Text>
           </TouchableOpacity>
@@ -211,96 +180,85 @@ export default function ShowPlantStats() {
 
   const { plantId: initialPlantId } = route.params ?? {};
 
-  // State
-  const [userId, setUserId] = useState<string | null>(null);
   const [name, setName] = useState('--');
   const [selectedPlant, setSelectedPlant] = useState<PlantSummary | null>(null);
   const [emptyStateMessage, setEmptyStateMessage] = useState('No sensor data linked yet.');
-
-  // Data State
   const [latest, setLatest] = useState<PlantController | null>(null);
   const [historyData, setHistoryData] = useState<PlantController[]>([]);
-
-  // UI State
+  const [allHistoryData, setAllHistoryData] = useState<PlantController[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingHistory, setLoadingHistory] = useState(false); // New state for background loading
-  const [isDropdownVisible, setDropdownVisible] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [selectedOptionLabel, setSelectedOptionLabel] = useState<
     'Temperature' | 'Humidity' | 'Soil Moisture' | 'Light' | 'EC'
   >('Temperature');
   const [timeRange, setTimeRange] = useState<TimeRangeKey>('Last 1 Hour');
   const [barColor, setBarColor] = useState('#fdae11');
-  const [debugHealth, setDebugHealth] = useState<number | null>(null);
 
   const profile = useUserStore((state) => state.profile);
   const startTutorial = useTutorialStore((state) => state.startTutorial);
+  const isDataFreshRef = useRef(false);
 
   useEffect(() => {
-    if (profile && profile.tutorial_progress) {
-      setTimeout(() => {
-        if (!profile.tutorial_progress['plant_stats_tutorial']) {
-          startTutorial('plant_stats_tutorial');
-        }
-      }, 700);
+    if (profile?.tutorial_progress && !profile.tutorial_progress['plant_stats_tutorial']) {
+      const timeout = setTimeout(() => startTutorial('plant_stats_tutorial'), 700);
+      return () => clearTimeout(timeout);
     }
   }, [profile, startTutorial]);
 
-  const isDataFreshRef = useRef(false);
-
-  // 🟢 1. MEMOIZATION: Calculate Chart & MiniTrend data only when history changes
-  // This prevents iterating over 1000 items 5 times on every render
-  const { chartData, maxY, sensorTrends } = useMemo(() => {
+    const { chartData } = useMemo(() => {
     if (!historyData.length) {
-      return { chartData: [], maxY: 0, sensorTrends: { soil: [], temp: [], light: [], ec: [] } };
+      return { chartData: [] };
     }
 
-    // Prepare MiniTrend Data (Single iteration)
-    const sensorTrends = {
-      soil: [] as (number | null)[],
-      temp: [] as (number | null)[],
-      light: [] as (number | null)[],
-      ec: [] as (number | null)[],
-    };
-
-    historyData.forEach((p) => {
-      sensorTrends.soil.push(p.soil_moisture);
-      sensorTrends.temp.push(p.temperature);
-      sensorTrends.light.push(p.light);
-      sensorTrends.ec.push(p.electrical_conductivity);
-    });
-
-    // Prepare Chart Data
-    // Note: Reversing array can be expensive, do it only if necessary for the chart library
     const sortedHistory = [...historyData].reverse();
+    const cData = sortedHistory.map((point) => {
+      const timestamp = getControllerTimestamp(point);
+      const label = timestamp
+        ? new Date(timestamp).toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+          })
+        : '--:--';
 
-    const cData = sortedHistory.map((p) => {
-      const timestamp = getControllerTimestamp(p);
-      const label = timestamp ? new Date(timestamp).toISOString().slice(11, 16) : '--:--';
       let value = 0;
       switch (selectedOptionLabel) {
         case 'Temperature':
-          value = p.temperature ?? 0;
+          value = point.temperature ?? 0;
           break;
         case 'Humidity':
-          value = p.humidity ?? 0;
+          value = point.humidity ?? 0;
           break;
         case 'Soil Moisture':
-          value = p.soil_moisture ?? 0;
+          value = point.soil_moisture ?? 0;
           break;
         case 'Light':
-          value = p.light ?? 0;
+          value = point.light ?? 0;
           break;
         case 'EC':
-          value = p.electrical_conductivity ?? 0;
+          value = point.electrical_conductivity ?? 0;
           break;
       }
+
       return { value, label, frontColor: barColor };
     });
 
-    const mY = cData.length ? Math.max(...cData.map((d) => d.value)) : 0;
-
-    return { chartData: cData, maxY: mY, sensorTrends };
+    return { chartData: cData };
   }, [historyData, selectedOptionLabel, barColor]);
+
+  const summaryTrends = useMemo(() => {
+    if (!allHistoryData.length) {
+      return { soil: [], temp: [], light: [], ec: [] };
+    }
+
+    const sorted = [...allHistoryData].sort((a, b) => toTimestampMs(a) - toTimestampMs(b));
+    return {
+      soil: sorted.map((point) => point.soil_moisture),
+      temp: sorted.map((point) => point.temperature),
+      light: sorted.map((point) => point.light),
+      ec: sorted.map((point) => point.electrical_conductivity),
+    };
+  }, [allHistoryData]);
 
   const trackPlantStatsQuestViews = useCallback(async (plantId: string, range: TimeRangeKey) => {
     const today = getTodayQuestKey();
@@ -329,69 +287,72 @@ export default function ShowPlantStats() {
     }
   }, []);
 
-  // 🟢 4. CORE DATA LOGIC
   const fetchPlantData = useCallback(async (plant: PlantSummary, range: TimeRangeKey) => {
     setLoadingHistory(true);
 
     try {
-      const cacheKey = CACHE_KEY_PREFIX + plant.id;
-
-      // Step A: Get current server latest (Fast - 1 row)
       const serverLatest = await fetchLatestController(plant.id, plant.sensor_id);
 
       if (serverLatest) {
         setLatest(serverLatest);
         setEmptyStateMessage('');
 
-        // Step B: Always fetch with proper time filtering
         const { limit, hours } = TIME_RANGES[range];
 
         const loadHistory = async (column: 'plant_id' | 'plantbox_id', value?: string | null) => {
           if (!value) return null;
 
-          let query = db.micro
+          const { data, error } = await db.micro
             .from('Controllers')
             .select(
               'id, temperature, humidity, soil_moisture, light, electrical_conductivity, time, created_at'
             )
-            .eq(column, value);
+            .eq(column, value)
+            .order('time', { ascending: false })
+            .limit(TIME_RANGES['All Time'].limit);
 
-          if (hours !== null) {
-            const cutoff = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
-            query = query.gte('created_at', cutoff);
-          }
-
-          const { data, error } = await query.order('time', { ascending: false }).limit(limit);
           if (error) {
             ErrorHandlerService.handle(error, { showUI: false });
             return null;
           }
 
-          return (data as PlantController[] | null) ?? null;
+          const rows = ((data as PlantController[] | null) ?? []).sort(
+            (a, b) => toTimestampMs(b) - toTimestampMs(a)
+          );
+
+          return rows;
         };
 
-        const newData =
+        const baseData =
           (await loadHistory('plant_id', plant.id)) ??
-          (await loadHistory('plantbox_id', plant.sensor_id));
+          (await loadHistory('plantbox_id', plant.sensor_id)) ??
+          [];
 
-        if (newData && newData.length > 0) {
-          setHistoryData(newData as PlantController[]);
+        if (baseData.length > 0) {
+          setAllHistoryData(baseData);
+
+          const latestAvailableMs = toTimestampMs(baseData[0]);
+          const cutoffMs =
+            hours !== null && Number.isFinite(latestAvailableMs)
+              ? latestAvailableMs - hours * 60 * 60 * 1000
+              : null;
+          const filteredData = baseData
+            .filter((row) => {
+              if (cutoffMs === null) return true;
+              return toTimestampMs(row) >= cutoffMs;
+            })
+            .slice(0, limit);
+
+          setHistoryData(filteredData);
           isDataFreshRef.current = true;
-
-          // Cache the result for quick loading next time
-          if (limit >= 50) {
-            await setCache(cacheKey, {
-              timestamp: getControllerTimestamp(serverLatest),
-              data: newData,
-              range,
-            });
-          }
         } else {
+          setAllHistoryData([]);
           setHistoryData([]);
           isDataFreshRef.current = true;
         }
       } else {
         setLatest(null);
+        setAllHistoryData([]);
         setHistoryData([]);
         isDataFreshRef.current = false;
         setEmptyStateMessage(
@@ -408,17 +369,14 @@ export default function ShowPlantStats() {
     }
   }, []);
 
-  // 🟢 5. INITIAL MOUNT (Parallel Execution)
   const initializeScreen = useCallback(async () => {
     setLoading(true);
+
     try {
-      // 1. Resolve auth first
       const { data: auth } = await db.public.auth.getUser();
       const user = auth?.user;
       if (!user) throw new Error('No user');
-      setUserId(user.id);
 
-      // 2. Prefer the plant passed by navigation. Fall back to the first user plant.
       const targetPlant = initialPlantId
         ? await fetchPlantById(initialPlantId)
         : await fetchFirstPlantForUser(user.id);
@@ -427,22 +385,20 @@ export default function ShowPlantStats() {
         setSelectedPlant(targetPlant);
         setName(targetPlant.nickname?.trim() || 'your plant');
 
-        // 2. PARALLEL EXECUTION: Fire all tasks at once
         await Promise.allSettled([
           fetchPlantData(targetPlant, timeRange),
           trackPlantStatsQuestViews(targetPlant.id, timeRange),
         ]);
-      } else {
-        if (initialPlantId) {
-          setSelectedPlant({ id: initialPlantId, nickname: 'your plant' });
-          setName('your plant');
-          await Promise.allSettled([
-            fetchPlantData({ id: initialPlantId, nickname: 'your plant' }, timeRange),
-            trackPlantStatsQuestViews(initialPlantId, timeRange),
-          ]);
-          return;
-        }
+      } else if (initialPlantId) {
+        const fallbackPlant = { id: initialPlantId, nickname: 'your plant' };
+        setSelectedPlant(fallbackPlant);
+        setName('your plant');
 
+        await Promise.allSettled([
+          fetchPlantData(fallbackPlant, timeRange),
+          trackPlantStatsQuestViews(initialPlantId, timeRange),
+        ]);
+      } else {
         setName('your plant');
         setEmptyStateMessage('No plants were found for this account.');
         setLoading(false);
@@ -451,13 +407,12 @@ export default function ShowPlantStats() {
       ErrorHandlerService.handle(e, { showUI: false });
       setLoading(false);
     }
-  }, [initialPlantId, fetchPlantData, timeRange, trackPlantStatsQuestViews]);
+  }, [fetchPlantData, initialPlantId, timeRange, trackPlantStatsQuestViews]);
 
   useEffect(() => {
     initializeScreen();
   }, [initializeScreen]);
 
-  // Handle Time Range Change specifically
   useEffect(() => {
     if (selectedPlant) {
       fetchPlantData(selectedPlant, timeRange);
@@ -465,7 +420,6 @@ export default function ShowPlantStats() {
     }
   }, [fetchPlantData, selectedPlant, timeRange, trackPlantStatsQuestViews]);
 
-  // Full HealthResult for the Mentor card (includes deviations, trends)
   const selectedPlantType = Array.isArray(selectedPlant?.plant_data)
     ? selectedPlant.plant_data[0]?.common_name
     : selectedPlant?.plant_data?.common_name;
@@ -477,13 +431,19 @@ export default function ShowPlantStats() {
     : null;
 
   const health = fullHealth?.health_percent ?? (latest ? calculateHealth(latest) : null);
+  const statusLabel = isDataFreshRef.current ? 'Live data connected' : 'Waiting for live data';
+  const lastUpdatedText = getControllerTimestamp(latest)
+    ? new Date(getControllerTimestamp(latest) as string).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : null;
 
   if (loading) return <LoadingScreen />;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <View style={styles.container}>
-        {/* Header Background */}
         <View style={styles.headerBg}>
           <Image
             source={require('../../../../assets/images/statsBackground.png')}
@@ -493,54 +453,19 @@ export default function ShowPlantStats() {
           <View style={[styles.headerContent, { paddingTop: insets.top + vh * 2 }]}>
             <Header navigation={navigation} />
             <View style={styles.titleContainer}>
-              <Text style={[styles.headerTitle, { color: 'white' }]}>How's</Text>
+              <Text style={[styles.headerTitle, { color: 'white' }]}>How&apos;s</Text>
               <Text style={[styles.headerTitle, { color: 'white' }]}>{name}?</Text>
             </View>
           </View>
         </View>
 
-        {/* Draggable Bottom Sheet */}
         <DraggableBottomSheet initialHeight={0.7} maxHeight={0.9}>
           <ScrollView
             overScrollMode="never"
-            contentContainerStyle={{
-              paddingBottom: vh * 25,
-              paddingHorizontal: vw * 5,
-              paddingTop: vh * 1.5,
-            }}
+            contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
             style={[styles.sheet, { backgroundColor: 'transparent' }]}>
-            {/* Debug Controls */}
-            <View
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'center',
-                marginBottom: 10,
-                flexWrap: 'wrap',
-                gap: 5,
-              }}>
-              {[10, 20, 50, 100].map((val) => (
-                <TouchableOpacity
-                  key={val}
-                  onPress={() => setDebugHealth(val)}
-                  style={{
-                    backgroundColor: theme.colors.surface,
-                    padding: 5,
-                    borderRadius: 5,
-                    borderWidth: 1,
-                    borderColor: theme.colors.greyedOut,
-                  }}>
-                  <Text style={{ fontSize: 10, color: theme.colors.text }}>{val}%</Text>
-                </TouchableOpacity>
-              ))}
-              <TouchableOpacity
-                onPress={() => setDebugHealth(null)}
-                style={{ backgroundColor: '#ef4444', padding: 5, borderRadius: 5 }}>
-                <Text style={{ fontSize: 10, color: 'white' }}>Reset</Text>
-              </TouchableOpacity>
-            </View>
-
-            <OverviewCard latest={latest} health={debugHealth !== null ? debugHealth : health} />
+            <OverviewCard latest={latest} health={health} />
 
             {!latest && (
               <View style={[styles.emptyStateCard, { backgroundColor: theme.colors.background }]}>
@@ -555,24 +480,17 @@ export default function ShowPlantStats() {
 
             <SnapshotBoxes latest={latest} />
 
-            <View
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'flex-end',
-                paddingTop: vh * 0.2,
-                paddingRight: vw * 4,
-              }}>
+            <View style={styles.infoRow}>
               <TouchableOpacity
                 onPress={() => startTutorial('sensor_info_tutorial')}
-                style={{ flexDirection: 'row', alignItems: 'center' }}>
+                style={styles.infoTrigger}>
                 <FontAwesome6 name="circle-info" size={12} color={theme.colors.greyedOut} />
-                <Text style={{ fontSize: 12, marginLeft: 5, color: theme.colors.greyedOut }}>
+                <Text style={[styles.infoText, { color: theme.colors.greyedOut }]}>
                   What do these mean?
                 </Text>
               </TouchableOpacity>
             </View>
 
-            {/* Daily Mentor Trigger Button */}
             {selectedPlant?.id && (
               <TouchableOpacity
                 onPress={() =>
@@ -581,88 +499,79 @@ export default function ShowPlantStats() {
                     health: fullHealth,
                   })
                 }
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: theme.colors.primary,
-                  paddingVertical: 12,
-                  borderRadius: 12,
-                  marginTop: 16,
-                  marginHorizontal: 4,
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.1,
-                  shadowRadius: 4,
-                  elevation: 2,
-                }}>
-                <FontAwesome6 name={'wand-magic-sparkles'} size={16} color="white" />
-                <Text
-                  style={{
-                    color: 'white',
-                    fontFamily: theme.fonts.header,
-                    fontSize: 14,
-                    marginLeft: 8,
-                  }}>
-                  View Daily Mentor Advice
-                </Text>
+                style={[styles.mentorCard, { backgroundColor: theme.colors.primary }]}>
+                <View style={styles.mentorIconWrap}>
+                  <FontAwesome6 name="wand-magic-sparkles" size={16} color="white" />
+                </View>
+                <View style={styles.mentorTextWrap}>
+                  <Text style={styles.mentorTitle}>Daily mentor advice</Text>
+                  <Text style={styles.mentorSubtitle}>
+                    Get a quick summary and next best action.
+                  </Text>
+                </View>
               </TouchableOpacity>
             )}
 
-            {/* Status Indicators */}
-            <View
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'center',
-                gap: vw * 2.5,
-                marginTop: vh * 1.5,
-              }}>
-              <Text
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Sensor trends</Text>
+              <View style={styles.sectionMetaWrap}>
+                {lastUpdatedText && (
+                  <Text style={[styles.sectionMeta, { color: theme.colors.greyedOut }]}>
+                    {lastUpdatedText}
+                  </Text>
+                )}
+                {loadingHistory && (
+                  <Text style={[styles.sectionMeta, { color: theme.colors.greyedOut }]}>
+                    Updating...
+                  </Text>
+                )}
+              </View>
+            </View>
+
+            <View style={styles.statusRow}>
+              <View
                 style={[
-                  styles.statusText,
-                  { color: isDataFreshRef.current ? theme.colors.primary : theme.colors.secondary },
+                  styles.statusPill,
+                  {
+                    backgroundColor: `${isDataFreshRef.current ? theme.colors.primary : theme.colors.greyedOut}18`,
+                  },
                 ]}>
-                {isDataFreshRef.current ? 'Live Data' : 'Cached Data'}
-              </Text>
-              {loadingHistory && (
-                <Text style={[styles.statusText, { color: theme.colors.greyedOut }]}>
-                  Updating...
+                <Text
+                  style={[
+                    styles.statusPillText,
+                    {
+                      color: isDataFreshRef.current ? theme.colors.primary : theme.colors.secondary,
+                    },
+                  ]}>
+                  {statusLabel}
                 </Text>
-              )}
+              </View>
             </View>
 
             <TimeRangePicker selectedRange={timeRange} setSelectedRange={setTimeRange} />
 
             <TrendChartCard
               barData={chartData}
-              maxY={maxY}
               selectedOptionLabel={selectedOptionLabel}
               setSelectedOptionLabel={setSelectedOptionLabel}
               barColor={barColor}
               setBarColor={setBarColor}
-              isDropdownVisible={isDropdownVisible}
-              setDropdownVisible={setDropdownVisible}
             />
 
-            {/* 🟢 Optimised MiniTrends using memoized data */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <MiniTrendCard title="Soil Moisture" data={sensorTrends.soil} />
-              <MiniTrendCard title="Temperature" data={sensorTrends.temp} />
-            </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <MiniTrendCard title="Light" data={sensorTrends.light} />
-              <MiniTrendCard title="EC" data={sensorTrends.ec} />
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                Quick sensor summary
+              </Text>
             </View>
 
-            {getControllerTimestamp(latest) && (
-              <Text style={[styles.lastUpdated, { color: theme.colors.greyedOut }]}>
-                Last update:{' '}
-                {new Date(getControllerTimestamp(latest) as string).toLocaleTimeString([], {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </Text>
-            )}
+            <View style={styles.miniTrendRow}>
+              <MiniTrendCard title="Soil Moisture" data={summaryTrends.soil} />
+              <MiniTrendCard title="Temperature" data={summaryTrends.temp} />
+            </View>
+            <View style={styles.miniTrendRow}>
+              <MiniTrendCard title="Light" data={summaryTrends.light} />
+              <MiniTrendCard title="EC" data={summaryTrends.ec} />
+            </View>
 
             <HistoryCard
               historyData={historyData}
@@ -697,11 +606,11 @@ const styles = StyleSheet.create((theme) => ({
     top: 0,
     left: 0,
     right: 0,
-    padding: vw * 5, // Responsive padding
+    padding: vw * 5,
   },
   titleContainer: {
-    marginTop: vh * 4, // Increased top margin
-    marginBottom: vh * 2, // Added bottom spacing
+    marginTop: vh * 4,
+    marginBottom: vh * 2,
     paddingHorizontal: vw * 2,
   },
   headerTitle: {
@@ -711,20 +620,101 @@ const styles = StyleSheet.create((theme) => ({
     lineHeight: vw * 12,
   },
   sheet: {
-    borderTopLeftRadius: vw * 7, // Responsive radius
+    borderTopLeftRadius: vw * 7,
     borderTopRightRadius: vw * 7,
     marginTop: vh * 2.5,
   },
-  statusText: {
-    fontSize: vw * 3.2,
-    textAlign: 'center',
+  scrollContent: {
+    paddingBottom: vh * 25,
+    paddingHorizontal: vw * 5,
+    paddingTop: vh * 1.5,
+  },
+  statusPill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+  },
+  statusPillText: {
+    fontSize: vw * 3,
+    fontFamily: theme.fonts.header,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingTop: vh * 0.2,
+    paddingRight: vw * 4,
+    marginBottom: 8,
+  },
+  infoTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  infoText: {
+    fontSize: 12,
+    marginLeft: 5,
+  },
+  mentorCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 16,
+    marginTop: 14,
+    marginBottom: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  mentorIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  mentorTextWrap: {
+    flex: 1,
+  },
+  mentorTitle: {
+    color: 'white',
+    fontFamily: theme.fonts.header,
+    fontSize: 14,
+    marginBottom: 2,
+  },
+  mentorSubtitle: {
+    color: 'rgba(255,255,255,0.84)',
+    fontFamily: theme.fonts.regular,
+    fontSize: 12,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  sectionMetaWrap: {
+    alignItems: 'flex-end',
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontFamily: theme.fonts.header,
+  },
+  sectionMeta: {
+    fontSize: 12,
     fontFamily: theme.fonts.regular,
   },
-  lastUpdated: {
-    marginTop: vh * 1,
-    fontSize: vw * 3,
-    textAlign: 'center',
-    fontFamily: theme.fonts.regular,
+  statusRow: {
+    marginBottom: 8,
+  },
+  miniTrendRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
   emptyStateCard: {
     borderRadius: 18,
@@ -741,6 +731,26 @@ const styles = StyleSheet.create((theme) => ({
   emptyStateBody: {
     fontSize: 13,
     lineHeight: 18,
+    fontFamily: theme.fonts.regular,
+  },
+  rangeRow: {
+    flexDirection: 'row',
+    borderRadius: vw * 3,
+    padding: vw * 0.8,
+    marginVertical: vh * 1.5,
+    alignSelf: 'center',
+  },
+  rangeButton: {
+    flex: 1,
+    paddingVertical: vh * 1,
+    paddingHorizontal: vw * 3,
+    borderRadius: vw * 2.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rangeButtonText: {
+    fontSize: vw * 3.5,
+    fontWeight: '700',
     fontFamily: theme.fonts.regular,
   },
 }));
