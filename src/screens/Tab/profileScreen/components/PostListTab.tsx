@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useUnistyles } from 'react-native-unistyles';
+import { useUnistyles } from '~/lib/unistyles';
 import { Post, usePosts } from '../../../../hooks/usePosts';
 import { FontAwesome5 } from '@expo/vector-icons';
 import MasonryFeedGrid from '../../../../components/MasonryFeedGrid';

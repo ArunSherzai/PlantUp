@@ -10,7 +10,7 @@ import Animated, {
     runOnJS
 } from 'react-native-reanimated';
 import { FontAwesome6 } from '@expo/vector-icons';
-import { useUnistyles } from 'react-native-unistyles';
+import { useUnistyles } from '~/lib/unistyles';
 import { BlurView } from 'expo-blur';
 import { playSound } from '~/utils/SoundManager';
 

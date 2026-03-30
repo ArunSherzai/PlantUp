@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, RefreshControl } from 'react-
 import { ScrollView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { useUnistyles } from 'react-native-unistyles';
+import { useUnistyles } from '~/lib/unistyles';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { useUserStore } from '../../../stores/UserStore';
 import { playSound } from '~/utils/SoundManager';

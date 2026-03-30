@@ -8,7 +8,7 @@ import {
   Dimensions,
   ScrollView,
 } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
+import { StyleSheet } from '~/lib/unistyles';
 import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { LinearGradient } from 'expo-linear-gradient';

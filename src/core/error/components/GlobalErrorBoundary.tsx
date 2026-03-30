@@ -1,7 +1,7 @@
 import React, { Component, ReactNode } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { StyleSheet } from 'react-native-unistyles';
+import { StyleSheet } from '~/lib/unistyles';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { ErrorHandlerService } from '../services/ErrorHandlerService';
 

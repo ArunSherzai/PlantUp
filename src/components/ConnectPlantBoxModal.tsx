@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { StyleSheet, useUnistyles } from '~/lib/unistyles';
 
 type ConnectPlantBoxModalProps = {
   visible: boolean;

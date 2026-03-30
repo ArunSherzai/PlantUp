@@ -1,5 +1,5 @@
 import { View, Text, ActivityIndicator } from 'react-native';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { StyleSheet, useUnistyles } from '~/lib/unistyles';
 
 export default function LoadingScreen() {
   const { theme } = useUnistyles();

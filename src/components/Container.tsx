@@ -1,6 +1,6 @@
 import React from 'react';
 import { View } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
+import { StyleSheet } from '~/lib/unistyles';
 
 export const Container = ({ children }: { children: React.ReactNode }) => {
   return <View style={styles.container}>{children}</View>;

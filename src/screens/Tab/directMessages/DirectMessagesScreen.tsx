@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TextInput, FlatList, Image, TouchableOpacity, SafeAreaView, StatusBar, ImageBackground, Modal, ActivityIndicator, Alert, Dimensions } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
-import { useUnistyles } from 'react-native-unistyles';
+import { useUnistyles } from '~/lib/unistyles';
 import { StackScreenProps } from '@react-navigation/stack';
 import { RootStackParamList } from '../../../navigation/Root';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';

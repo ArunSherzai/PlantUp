@@ -11,7 +11,7 @@ import {
   SectionList,
   Alert,
 } from 'react-native';
-import { useUnistyles, StyleSheet } from 'react-native-unistyles';
+import { useUnistyles, StyleSheet } from '~/lib/unistyles';
 import { vw, vh } from '~/features/plantlist/styles/plantStyles';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaskedView from '@react-native-masked-view/masked-view';

@@ -2,7 +2,7 @@ import React from 'react';
 import { Text, TextStyle, TouchableOpacity, TouchableOpacityProps } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@react-navigation/native';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { StyleSheet, useUnistyles } from '~/lib/unistyles';
 
 interface ThemeTextProps {
   text: string,

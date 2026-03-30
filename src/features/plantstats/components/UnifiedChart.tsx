@@ -6,7 +6,7 @@ import {
   PopulationPyramid,
   RadarChart,
 } from 'react-native-gifted-charts';
-import { useUnistyles } from 'react-native-unistyles';
+import { useUnistyles } from '~/lib/unistyles';
 
 type ChartType = 'bar' | 'line' | 'area' | 'horizontal' | 'pie' | 'donut' | 'radar' | 'pyramid';
 

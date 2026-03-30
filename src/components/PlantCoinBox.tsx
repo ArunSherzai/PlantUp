@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, Image, TouchableOpacity } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
+import { StyleSheet } from '~/lib/unistyles';
 import { useUserStore } from '../stores/UserStore';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { useNavigation } from '@react-navigation/native';

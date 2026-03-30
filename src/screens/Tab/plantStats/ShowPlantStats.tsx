@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { View, Text, Image, TouchableOpacity } from 'react-native';
 import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
-import { useUnistyles, StyleSheet } from 'react-native-unistyles';
+import { useUnistyles, StyleSheet } from '~/lib/unistyles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { db } from '../../../utils/supabase';
@@ -47,7 +47,15 @@ interface PlantController {
   soil_moisture: number | null;
   light: number | null;
   electrical_conductivity: number | null;
+  time?: string | null;
   created_at: string;
+}
+
+interface PlantSummary {
+  id: string;
+  nickname: string | null;
+  sensor_id?: string | null;
+  plant_data?: { common_name?: string | null } | Array<{ common_name?: string | null }>;
 }
 
 // ----------------------------------------------------------------------------
@@ -71,18 +79,70 @@ async function setCache(key: string, value: any) {
   }
 }
 
-// Fetch ONLY the latest row (very fast)
-async function fetchLatestController(plantId: string): Promise<PlantController | null> {
-  const { data, error } = await db.micro
-    .from('Controllers')
-    .select('id, temperature, humidity, soil_moisture, light, electrical_conductivity, created_at')
-    .eq('plant_id', plantId)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle(); // maybeSingle is safer than single if no data exists
+async function fetchPlantById(plantId: string): Promise<PlantSummary | null> {
+  const { data, error } = await db.social
+    .from('Plants')
+    .select('id, nickname, sensor_id, plant_data:Plant_data(common_name)')
+    .eq('id', plantId)
+    .maybeSingle();
 
-  if (error) ErrorHandlerService.handle(error, { showUI: false });
-  return data as PlantController;
+  if (error) {
+    ErrorHandlerService.handle(error, { showUI: false });
+    return null;
+  }
+
+  return (data as PlantSummary | null) ?? null;
+}
+
+async function fetchFirstPlantForUser(userId: string): Promise<PlantSummary | null> {
+  const { data, error } = await db.social
+    .from('Plants')
+    .select('id, nickname, sensor_id, plant_data:Plant_data(common_name)')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    ErrorHandlerService.handle(error, { showUI: false });
+    return null;
+  }
+
+  return (data as PlantSummary | null) ?? null;
+}
+
+// Fetch ONLY the latest row (very fast)
+function getControllerTimestamp(controller?: Pick<PlantController, 'time' | 'created_at'> | null) {
+  return controller?.time ?? controller?.created_at ?? null;
+}
+
+async function fetchLatestController(
+  plantId: string,
+  sensorBoxId?: string | null
+): Promise<PlantController | null> {
+  const fetchBy = async (column: 'plant_id' | 'plantbox_id', value?: string | null) => {
+    if (!value) return null;
+
+    const { data, error } = await db.micro
+      .from('Controllers')
+      .select('id, temperature, humidity, soil_moisture, light, electrical_conductivity, time, created_at')
+      .eq(column, value)
+      .order('time', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      ErrorHandlerService.handle(error, { showUI: false });
+      return null;
+    }
+
+    return (data as PlantController | null) ?? null;
+  };
+
+  const directMatch = await fetchBy('plant_id', plantId);
+  if (directMatch) return directMatch;
+
+  return fetchBy('plantbox_id', sensorBoxId);
 }
 
 const RANGE_LABELS: Record<TimeRangeKey, string> = {
@@ -154,7 +214,8 @@ export default function ShowPlantStats() {
   // State
   const [userId, setUserId] = useState<string | null>(null);
   const [name, setName] = useState('--');
-  const [selectedPlant, setSelectedPlant] = useState<any>(null);
+  const [selectedPlant, setSelectedPlant] = useState<PlantSummary | null>(null);
+  const [emptyStateMessage, setEmptyStateMessage] = useState('No sensor data linked yet.');
 
   // Data State
   const [latest, setLatest] = useState<PlantController | null>(null);
@@ -213,7 +274,8 @@ export default function ShowPlantStats() {
     const sortedHistory = [...historyData].reverse();
 
     const cData = sortedHistory.map((p) => {
-      const label = new Date(p.created_at).toISOString().slice(11, 16);
+      const timestamp = getControllerTimestamp(p);
+      const label = timestamp ? new Date(timestamp).toISOString().slice(11, 16) : '--:--';
       let value = 0;
       switch (selectedOptionLabel) {
         case 'Temperature':
@@ -268,37 +330,49 @@ export default function ShowPlantStats() {
   }, []);
 
   // 🟢 4. CORE DATA LOGIC
-  const fetchPlantData = useCallback(async (plantId: string, range: TimeRangeKey) => {
+  const fetchPlantData = useCallback(async (plant: PlantSummary, range: TimeRangeKey) => {
     setLoadingHistory(true);
 
     try {
-      const cacheKey = CACHE_KEY_PREFIX + plantId;
+      const cacheKey = CACHE_KEY_PREFIX + plant.id;
 
       // Step A: Get current server latest (Fast - 1 row)
-      const serverLatest = await fetchLatestController(plantId);
+      const serverLatest = await fetchLatestController(plant.id, plant.sensor_id);
 
       if (serverLatest) {
         setLatest(serverLatest);
+        setEmptyStateMessage('');
 
         // Step B: Always fetch with proper time filtering
         const { limit, hours } = TIME_RANGES[range];
 
-        let query = db.micro
-          .from('Controllers')
-          .select(
-            'id, temperature, humidity, soil_moisture, light, electrical_conductivity, created_at'
-          )
-          .eq('plant_id', plantId);
+        const loadHistory = async (column: 'plant_id' | 'plantbox_id', value?: string | null) => {
+          if (!value) return null;
 
-        // Apply time-based filter BEFORE ordering and limiting
-        if (hours !== null) {
-          const cutoff = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
-          query = query.gte('created_at', cutoff);
-        }
+          let query = db.micro
+            .from('Controllers')
+            .select(
+              'id, temperature, humidity, soil_moisture, light, electrical_conductivity, time, created_at'
+            )
+            .eq(column, value);
 
-        query = query.order('created_at', { ascending: false }).limit(limit);
+          if (hours !== null) {
+            const cutoff = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+            query = query.gte('created_at', cutoff);
+          }
 
-        const { data: newData } = await query;
+          const { data, error } = await query.order('time', { ascending: false }).limit(limit);
+          if (error) {
+            ErrorHandlerService.handle(error, { showUI: false });
+            return null;
+          }
+
+          return (data as PlantController[] | null) ?? null;
+        };
+
+        const newData =
+          (await loadHistory('plant_id', plant.id)) ??
+          (await loadHistory('plantbox_id', plant.sensor_id));
 
         if (newData && newData.length > 0) {
           setHistoryData(newData as PlantController[]);
@@ -306,12 +380,25 @@ export default function ShowPlantStats() {
 
           // Cache the result for quick loading next time
           if (limit >= 50) {
-            await setCache(cacheKey, { timestamp: serverLatest.created_at, data: newData, range });
+            await setCache(cacheKey, {
+              timestamp: getControllerTimestamp(serverLatest),
+              data: newData,
+              range,
+            });
           }
         } else {
           setHistoryData([]);
           isDataFreshRef.current = true;
         }
+      } else {
+        setLatest(null);
+        setHistoryData([]);
+        isDataFreshRef.current = false;
+        setEmptyStateMessage(
+          plant.sensor_id
+            ? 'This plant has a Sensor Box, but no measurements were found yet.'
+            : 'This plant is not linked to a Sensor Box yet.'
+        );
       }
     } catch (err) {
       ErrorHandlerService.handle(err, { showUI: false });
@@ -325,29 +412,39 @@ export default function ShowPlantStats() {
   const initializeScreen = useCallback(async () => {
     setLoading(true);
     try {
-      // 1. Get Auth and Plants first
+      // 1. Resolve auth first
       const { data: auth } = await db.public.auth.getUser();
       const user = auth?.user;
       if (!user) throw new Error('No user');
       setUserId(user.id);
 
-      const { data: plants } = await db.social
-        .from('Plants')
-        .select('id, nickname, plant_data:Plant_data(common_name)')
-        .eq('user_id', user.id);
-
-      const targetPlant = plants?.find((p) => p.id === initialPlantId) || plants?.[0];
+      // 2. Prefer the plant passed by navigation. Fall back to the first user plant.
+      const targetPlant = initialPlantId
+        ? await fetchPlantById(initialPlantId)
+        : await fetchFirstPlantForUser(user.id);
 
       if (targetPlant) {
         setSelectedPlant(targetPlant);
-        setName(targetPlant.nickname);
+        setName(targetPlant.nickname?.trim() || 'your plant');
 
         // 2. PARALLEL EXECUTION: Fire all tasks at once
         await Promise.allSettled([
-          fetchPlantData(targetPlant.id, timeRange),
+          fetchPlantData(targetPlant, timeRange),
           trackPlantStatsQuestViews(targetPlant.id, timeRange),
         ]);
       } else {
+        if (initialPlantId) {
+          setSelectedPlant({ id: initialPlantId, nickname: 'your plant' });
+          setName('your plant');
+          await Promise.allSettled([
+            fetchPlantData({ id: initialPlantId, nickname: 'your plant' }, timeRange),
+            trackPlantStatsQuestViews(initialPlantId, timeRange),
+          ]);
+          return;
+        }
+
+        setName('your plant');
+        setEmptyStateMessage('No plants were found for this account.');
         setLoading(false);
       }
     } catch (e) {
@@ -362,11 +459,11 @@ export default function ShowPlantStats() {
 
   // Handle Time Range Change specifically
   useEffect(() => {
-    if (selectedPlant?.id) {
-      fetchPlantData(selectedPlant.id, timeRange);
+    if (selectedPlant) {
+      fetchPlantData(selectedPlant, timeRange);
       trackPlantStatsQuestViews(selectedPlant.id, timeRange);
     }
-  }, [fetchPlantData, selectedPlant?.id, timeRange, trackPlantStatsQuestViews]);
+  }, [fetchPlantData, selectedPlant, timeRange, trackPlantStatsQuestViews]);
 
   // Full HealthResult for the Mentor card (includes deviations, trends)
   const selectedPlantType = Array.isArray(selectedPlant?.plant_data)
@@ -444,6 +541,17 @@ export default function ShowPlantStats() {
             </View>
 
             <OverviewCard latest={latest} health={debugHealth !== null ? debugHealth : health} />
+
+            {!latest && (
+              <View style={[styles.emptyStateCard, { backgroundColor: theme.colors.background }]}>
+                <Text style={[styles.emptyStateTitle, { color: theme.colors.text }]}>
+                  No live plant data yet
+                </Text>
+                <Text style={[styles.emptyStateBody, { color: theme.colors.greyedOut }]}>
+                  {emptyStateMessage}
+                </Text>
+              </View>
+            )}
 
             <SnapshotBoxes latest={latest} />
 
@@ -546,10 +654,10 @@ export default function ShowPlantStats() {
               <MiniTrendCard title="EC" data={sensorTrends.ec} />
             </View>
 
-            {latest && (
+            {getControllerTimestamp(latest) && (
               <Text style={[styles.lastUpdated, { color: theme.colors.greyedOut }]}>
                 Last update:{' '}
-                {new Date(latest.created_at).toLocaleTimeString([], {
+                {new Date(getControllerTimestamp(latest) as string).toLocaleTimeString([], {
                   hour: '2-digit',
                   minute: '2-digit',
                 })}
@@ -616,6 +724,23 @@ const styles = StyleSheet.create((theme) => ({
     marginTop: vh * 1,
     fontSize: vw * 3,
     textAlign: 'center',
+    fontFamily: theme.fonts.regular,
+  },
+  emptyStateCard: {
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginTop: -6,
+    marginBottom: 16,
+  },
+  emptyStateTitle: {
+    fontSize: 16,
+    fontFamily: theme.fonts.header,
+    marginBottom: 6,
+  },
+  emptyStateBody: {
+    fontSize: 13,
+    lineHeight: 18,
     fontFamily: theme.fonts.regular,
   },
 }));

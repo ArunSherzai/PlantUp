@@ -1,4 +1,4 @@
-import { StyleSheet } from 'react-native-unistyles';
+import { StyleSheet } from '~/lib/unistyles';
 import { Dimensions } from 'react-native';
 const { width, height } = Dimensions.get('window');
 export const vw = width / 100;
@@ -66,28 +66,30 @@ export const styles = StyleSheet.create((theme) => ({
   },
 
   plantCard: {
-    width: width - vw * 8,
-    height: vh * 32,
-    borderRadius: vw * 6,
+    width: width - vw * 12,
+    height: Math.min(Math.max(height * 0.29, 230), 290),
+    borderRadius: Math.min(Math.max(vw * 6, 22), 28),
     overflow: 'visible',
+    alignSelf: 'center',
   },
   plantCardExpanded: {
-    height: vh * 48,
+    height: Math.min(Math.max(height * 0.46, 360), 470),
   },
 
   gradient: {
     flex: 1,
-    borderRadius: vw * 6,
-    padding: vw * 5,
+    borderRadius: Math.min(Math.max(vw * 6, 22), 28),
+    paddingHorizontal: Math.min(Math.max(vw * 5, 18), 24),
+    paddingVertical: Math.min(Math.max(vh * 2.2, 16), 22),
     flexDirection: 'row',
     alignItems: 'center',
     position: 'relative',
   },
 
   image: {
-    width: vw * 26,
-    height: vw * 26,
-    marginRight: vw * 5,
+    width: Math.min(Math.max(vw * 24, 88), 112),
+    height: Math.min(Math.max(vw * 24, 88), 112),
+    marginRight: Math.min(Math.max(vw * 4.5, 14), 20),
     resizeMode: 'contain',
   },
 
@@ -97,31 +99,31 @@ export const styles = StyleSheet.create((theme) => ({
   },
 
   name: {
-    fontSize: vw * 7,
+    fontSize: Math.min(Math.max(vw * 6.8, 24), 32),
     fontWeight: theme.fontWeights.bold,
     color: theme.colors.textDark,
     fontFamily: theme.fonts.regular,
   },
 
   points: {
-    fontSize: vw * 3.5,
+    fontSize: Math.min(Math.max(vw * 3.6, 13), 16),
     color: theme.colors.typography,
-    marginTop: vh * 0.5,
+    marginTop: Math.min(Math.max(vh * 0.5, 4), 8),
     opacity: 0.7,
   },
 
   plantCardActionButton: {
     position: 'absolute',
-    top: vh * 1.2,
-    right: vw * 3,
-    padding: vw * 2,
+    top: Math.min(Math.max(vh * 1.2, 10), 16),
+    right: Math.min(Math.max(vw * 3, 10), 14),
+    padding: Math.min(Math.max(vw * 2, 8), 12),
     zIndex: 10,
   },
 
   backGradient: {
     flex: 1,
-    borderRadius: vw * 6,
-    padding: vw * 4,
+    borderRadius: Math.min(Math.max(vw * 6, 22), 28),
+    padding: Math.min(Math.max(vw * 4.5, 16), 22),
   },
 
   backContent: {
@@ -147,10 +149,10 @@ export const styles = StyleSheet.create((theme) => ({
   },
 
   field: {
-    marginBottom: vh * 1.5,
+    marginBottom: Math.min(Math.max(vh * 1.4, 10), 16),
   },
   inputMultiline: {
-    minHeight: vh * 10,
+    minHeight: Math.min(Math.max(vh * 9, 86), 120),
     textAlignVertical: 'top',
   },
 
@@ -164,35 +166,35 @@ export const styles = StyleSheet.create((theme) => ({
   input: {
     backgroundColor:
       theme.colors.background === '#121212' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
-    borderRadius: vw * 2,
-    paddingVertical: vh * 1,
-    paddingHorizontal: vw * 3,
+    borderRadius: Math.min(Math.max(vw * 2.5, 10), 14),
+    paddingVertical: Math.min(Math.max(vh * 1, 10), 14),
+    paddingHorizontal: Math.min(Math.max(vw * 3, 12), 16),
     color: theme.colors.text,
-    fontSize: vw * 3.5,
+    fontSize: Math.min(Math.max(vw * 3.5, 13), 15),
   },
 
   buttonRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: vw * 2,
+    gap: Math.min(Math.max(vw * 2, 8), 12),
     width: '100%',
-    marginTop: vh * 1,
+    marginTop: Math.min(Math.max(vh * 1, 8), 12),
   },
 
   saveButton: {
-    flex: 1, // Fill available space
+    flex: 1,
     backgroundColor: theme.colors.primary,
-    paddingVertical: vh * 1,
-    borderRadius: vw * 2,
+    minHeight: Math.min(Math.max(vh * 5.4, 44), 52),
+    borderRadius: Math.min(Math.max(vw * 2.5, 10), 14),
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   cancelButton: {
-    flex: 1, // Fill available space
+    flex: 1,
     backgroundColor: 'transparent',
-    paddingVertical: vh * 1,
-    borderRadius: vw * 2,
+    minHeight: Math.min(Math.max(vh * 5.4, 44), 52),
+    borderRadius: Math.min(Math.max(vw * 2.5, 10), 14),
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -284,8 +286,8 @@ export const styles = StyleSheet.create((theme) => ({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    width: vw * 88,
-    height: vh * 29,
+    width: width - vw * 12,
+    height: Math.min(Math.max(height * 0.29, 230), 290),
   },
 
   emptyListText: {

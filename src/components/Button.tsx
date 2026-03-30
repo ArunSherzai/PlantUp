@@ -1,6 +1,6 @@
 import { forwardRef } from 'react';
 import { Text, TouchableOpacity, TouchableOpacityProps, View } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
+import { StyleSheet } from '~/lib/unistyles';
 import { playSound, SoundType } from '~/utils/SoundManager';
 
 type ButtonProps = {

@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, SafeAreaView, Dimensions, TextInput, Platform, Keyboard, BackHandler, Modal, TouchableWithoutFeedback, Alert, ActivityIndicator } from 'react-native';
-import { useUnistyles } from 'react-native-unistyles';
+import { useUnistyles } from '~/lib/unistyles';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { RootStackParamList } from '../../../navigation/Root';

@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { View, Text, Image, TouchableOpacity, Dimensions, Alert, ActivityIndicator, InteractionManager } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { useUnistyles, StyleSheet } from 'react-native-unistyles';
+import { useUnistyles, StyleSheet } from '~/lib/unistyles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';

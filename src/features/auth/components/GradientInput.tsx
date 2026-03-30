@@ -1,7 +1,7 @@
 import React from 'react';
 import { TextInput, TextInputProps, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useUnistyles, StyleSheet } from 'react-native-unistyles';
+import { useUnistyles, StyleSheet } from '~/lib/unistyles';
 
 interface GradientInputProps extends TextInputProps {
   borderRadius?: number;

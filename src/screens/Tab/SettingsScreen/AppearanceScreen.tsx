@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, Switch, TouchableOpacity, Image } from 'react-native';
-import { StyleSheet, useUnistyles, UnistylesRuntime } from 'react-native-unistyles';
+import { StyleSheet, useUnistyles, UnistylesRuntime } from '~/lib/unistyles';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

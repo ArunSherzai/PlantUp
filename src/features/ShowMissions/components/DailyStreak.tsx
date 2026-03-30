@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Dimensions, TouchableOpacity, Alert, Image, StyleSheet as NativeStyleSheet } from 'react-native';
-import { StyleSheet as UnistylesSheet, useUnistyles } from 'react-native-unistyles';
+import { StyleSheet as UnistylesSheet, useUnistyles } from '~/lib/unistyles';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useUserStore } from '../../../stores/UserStore';

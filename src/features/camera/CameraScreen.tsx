@@ -4,7 +4,7 @@ import {
   Text,
   ActivityIndicator,
 } from 'react-native';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { StyleSheet, useUnistyles } from '~/lib/unistyles';
 import { CameraView, CameraType } from 'expo-camera';
 import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
 

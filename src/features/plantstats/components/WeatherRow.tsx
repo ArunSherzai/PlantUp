@@ -1,6 +1,6 @@
 import { View, Text } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { StyleSheet, useUnistyles } from '~/lib/unistyles';
 
 export default function WeatherRow({ temperature, humidity }: any) {
   const { theme } = useUnistyles();

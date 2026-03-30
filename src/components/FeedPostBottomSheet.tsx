@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { View, Dimensions, Text, TouchableOpacity, StyleSheet as RNStyleSheet } from 'react-native';
-import { useUnistyles, StyleSheet } from 'react-native-unistyles';
+import { useUnistyles, StyleSheet } from '~/lib/unistyles';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, {
     useSharedValue,

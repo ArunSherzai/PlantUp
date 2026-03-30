@@ -1,6 +1,6 @@
 import { View, TouchableOpacity } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { StyleSheet, useUnistyles } from '~/lib/unistyles';
 
 export default function Header({ navigation, children }: any) {
   const { theme } = useUnistyles();

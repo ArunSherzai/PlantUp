@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
 import { View, Text, FlatList, Image, TouchableOpacity, Dimensions } from 'react-native';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { StyleSheet, useUnistyles } from '~/lib/unistyles';
 import { useNavigation, useFocusEffect, useRoute, RouteProp } from '@react-navigation/native';
 import { usePlants } from '../../../features/plantlist/hooks/usePlants';
 import GradientIcon from '../../../components/GradientIcon';

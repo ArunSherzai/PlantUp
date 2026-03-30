@@ -1,6 +1,6 @@
 import { TouchableOpacity, View, TouchableOpacityProps } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useUnistyles, StyleSheet } from 'react-native-unistyles';
+import { useUnistyles, StyleSheet } from '~/lib/unistyles';
 import GradientText from './GradientText'; // your gradient text component
 
 interface OutlinedButtonProps extends TouchableOpacityProps {

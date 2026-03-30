@@ -14,7 +14,7 @@ import {
   Pressable,
   Keyboard,
 } from 'react-native';
-import { useUnistyles, StyleSheet } from 'react-native-unistyles';
+import { useUnistyles, StyleSheet } from '~/lib/unistyles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';

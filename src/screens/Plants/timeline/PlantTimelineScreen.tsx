@@ -3,7 +3,7 @@ import { View, Text, Image, TouchableOpacity, FlatList, ActivityIndicator, Modal
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather, FontAwesome6, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useUnistyles, StyleSheet } from 'react-native-unistyles';
+import { useUnistyles, StyleSheet } from '~/lib/unistyles';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import { db } from '../../../utils/supabase';
 import { useUserStore } from '../../../stores/UserStore';

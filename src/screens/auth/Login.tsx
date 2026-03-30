@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity } from 'react-native';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { StyleSheet, useUnistyles } from '~/lib/unistyles';
 import { signIn } from '~/features/auth/api/auth';
 import { useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';

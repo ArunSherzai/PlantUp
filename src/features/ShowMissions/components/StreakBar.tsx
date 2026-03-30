@@ -1,6 +1,6 @@
 import React from 'react';
 import { View } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
+import { StyleSheet } from '~/lib/unistyles';
 const StreakBar = ({ index, totalBlocks }: any) => {
   // Calculate the position based on the provided index (in percentage)
   const getPosition = () => {

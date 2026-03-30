@@ -1,6 +1,6 @@
 import { TouchableOpacity, Text, TouchableOpacityProps } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { StyleSheet, useUnistyles } from '~/lib/unistyles';
 
 interface FilledButtonProps extends TouchableOpacityProps {
   text: string;

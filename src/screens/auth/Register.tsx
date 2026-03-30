@@ -1,6 +1,6 @@
 import { View, Text, SafeAreaView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { StyleSheet, useUnistyles } from '~/lib/unistyles';
 import { useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';

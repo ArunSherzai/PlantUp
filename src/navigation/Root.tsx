@@ -1,6 +1,6 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { useUnistyles } from 'react-native-unistyles';
+import { useUnistyles } from '~/lib/unistyles';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import TabNavigator from './tab-navigator';

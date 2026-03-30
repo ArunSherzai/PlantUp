@@ -1,7 +1,7 @@
 import { View, Text } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
 import { LineChart } from 'react-native-gifted-charts';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { StyleSheet, useUnistyles } from '~/lib/unistyles';
 
 import { trendOptions } from '../api/options';
 

@@ -3,7 +3,7 @@ import React from 'react';
 import { Text, TextStyle, StyleProp } from 'react-native';
 import MaskedView from '@react-native-masked-view/masked-view';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useUnistyles } from 'react-native-unistyles';
+import { useUnistyles } from '~/lib/unistyles';
 
 interface GradientTextProps {
     text: string | number;

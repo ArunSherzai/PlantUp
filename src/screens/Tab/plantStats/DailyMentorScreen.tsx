@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { View, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { useUnistyles } from 'react-native-unistyles';
+import { useUnistyles } from '~/lib/unistyles';
 import DailyMentorCard from '~/features/mentor/components/DailyMentorCard';
 import type { HealthResult } from '~/features/mentor/types/mentor.types';
 import Feather from '@expo/vector-icons/Feather';

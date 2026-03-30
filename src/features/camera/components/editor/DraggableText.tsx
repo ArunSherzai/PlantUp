@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { Text, PanResponder, Animated } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
+import { StyleSheet } from '~/lib/unistyles';
 import type { TextOverlay } from '../../types';
 
 type Props = {

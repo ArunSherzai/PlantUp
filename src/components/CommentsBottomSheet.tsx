@@ -1,6 +1,6 @@
 import React, { useCallback, useImperativeHandle, forwardRef, useEffect } from 'react';
 import { View, Dimensions, StyleSheet } from 'react-native';
-import { useUnistyles } from 'react-native-unistyles';
+import { useUnistyles } from '~/lib/unistyles';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, runOnJS } from 'react-native-reanimated';
 
