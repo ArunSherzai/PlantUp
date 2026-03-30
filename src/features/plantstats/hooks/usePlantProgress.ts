@@ -1,5 +1,4 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { db } from '../../../utils/supabase';
 import { useUserStore } from '../../../stores/UserStore';

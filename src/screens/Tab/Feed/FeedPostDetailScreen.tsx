@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useRef, useState, useEffect, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, SafeAreaView, Dimensions, TextInput, Platform, Keyboard, BackHandler, Modal, TouchableWithoutFeedback, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, SafeAreaView, Dimensions, TextInput, Platform, Keyboard, BackHandler, Modal, TouchableWithoutFeedback, ActivityIndicator } from 'react-native';
 import { useUnistyles } from '~/lib/unistyles';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
@@ -21,6 +21,7 @@ import MentorBadge from '../../../components/MentorBadge';
 import { ScrollView } from 'react-native-gesture-handler';
 import { logViewEvent, logDwellEvent, logLikeEvent, logUnlikeEvent, logCommentEvent, logSaveEvent, logUnsaveEvent, logFollowEvent, logReportEvent } from '../../../utils/interactionLogger';
 import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
+import { showAlertDialog } from '~/services/appDialog';
 
 // We need the RouteProp to access params
 type FeedPostDetailRouteProp = RouteProp<RootStackParamList, 'FeedPostDetail'>;
@@ -394,7 +395,11 @@ export default function FeedPostDetailScreen() {
             setMenuStage('none');
             setIsBlocked(true); // Auto-block locally after report
             logReportEvent(user.id, post.id, reason);
-            Alert.alert("Report Submitted", "Thank you for reporting this post. We will review it shortly.");
+            await showAlertDialog({
+                title: 'Report Submitted',
+                message: 'Thank you for reporting this post. We will review it shortly.',
+                variant: 'success',
+            });
         } catch (err: any) {
             ErrorHandlerService.handle(err);
         }

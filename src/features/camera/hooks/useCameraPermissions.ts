@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Alert, Linking } from 'react-native';
+import { Linking } from 'react-native';
 import { useCameraPermissions as useExpoCameraPermissions, useMicrophonePermissions } from 'expo-camera';
+import { showConfirmDialog } from '~/services/appDialog';
 
 /**
  * Hook to manage camera and microphone permissions.
@@ -14,14 +15,17 @@ export function useCameraPermissions() {
   const micGranted = micPermission?.granted ?? false;
 
   const openSettings = useCallback(() => {
-    Alert.alert(
-      'Permission Required',
-      'Camera access is needed. Please enable it in your device settings.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Open Settings', onPress: () => Linking.openSettings() },
-      ]
-    );
+    void showConfirmDialog({
+      title: 'Permission Required',
+      message: 'Camera access is needed. Please enable it in your device settings.',
+      confirmLabel: 'Open Settings',
+      cancelLabel: 'Cancel',
+      variant: 'warning',
+    }).then((shouldOpen) => {
+      if (shouldOpen) {
+        Linking.openSettings();
+      }
+    });
   }, []);
 
   const requestPermissions = useCallback(async (needsMic: boolean = false) => {

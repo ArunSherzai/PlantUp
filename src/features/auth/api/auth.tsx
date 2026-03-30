@@ -1,9 +1,9 @@
 import { db } from '~/utils/supabase';
-import { Alert } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
 import * as QueryParams from 'expo-auth-session/build/QueryParams';
 import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
+import { showAlertDialog } from '~/services/appDialog';
 
 export const signUp = async (email: string, password: string, username: string) => {
   const { data, error } = await db.public.auth.signUp({ email, password });
@@ -11,7 +11,11 @@ export const signUp = async (email: string, password: string, username: string) 
 
   if (error) {
     console.log(error);
-    Alert.alert('Fehler', 'Registrierung fehlgeschlagen: ' + error.message);
+    await showAlertDialog({
+      title: 'Fehler',
+      message: 'Registrierung fehlgeschlagen: ' + error.message,
+      variant: 'error',
+    });
     return null;
   }
 
@@ -19,7 +23,11 @@ export const signUp = async (email: string, password: string, username: string) 
 
   // 🔐 Ensure user exists before proceeding
   if (!user) {
-    Alert.alert('Fehler', 'Benutzer wurde nicht korrekt erstellt.');
+    await showAlertDialog({
+      title: 'Fehler',
+      message: 'Benutzer wurde nicht korrekt erstellt.',
+      variant: 'error',
+    });
     return null;
   }
 
@@ -28,7 +36,11 @@ export const signUp = async (email: string, password: string, username: string) 
 
   if (updateError) {
     console.log(updateError);
-    Alert.alert('Fehler', 'Benutzername konnte nicht aktualisiert werden: ' + updateError.message);
+    await showAlertDialog({
+      title: 'Fehler',
+      message: 'Benutzername konnte nicht aktualisiert werden: ' + updateError.message,
+      variant: 'error',
+    });
     return null;
   }
 
@@ -40,7 +52,11 @@ export const signIn = async (email: string, password: string) => {
 
   if (error) {
     console.log(error);
-    Alert.alert('Fehler', 'Einloggen fehlgeschlagen: ' + error.message);
+    await showAlertDialog({
+      title: 'Fehler',
+      message: 'Einloggen fehlgeschlagen: ' + error.message,
+      variant: 'error',
+    });
     return null;
   }
 

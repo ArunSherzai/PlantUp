@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
 import { StyleSheet, useUnistyles } from '~/lib/unistyles';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { useNavigation } from '@react-navigation/native';
@@ -10,6 +10,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { db } from '../../../utils/supabase';
 import { useUserStore } from '../../../stores/UserStore';
 import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
+import { showAlertDialog } from '~/services/appDialog';
 
 import { StatusBar } from 'expo-status-bar';
 
@@ -40,7 +41,11 @@ export default function AccountScreen() {
     const pickImage = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
-            Alert.alert('Permission needed', 'Sorry, we need camera roll permissions to make this work!');
+            await showAlertDialog({
+                title: 'Permission needed',
+                message: 'Sorry, we need camera roll permissions to make this work!',
+                variant: 'warning',
+            });
             return;
         }
 
@@ -57,7 +62,14 @@ export default function AccountScreen() {
     };
 
     const handleSave = async () => {
-        if (!newUsername.trim()) return Alert.alert("Error", "Username cannot be empty.");
+        if (!newUsername.trim()) {
+            await showAlertDialog({
+                title: 'Error',
+                message: 'Username cannot be empty.',
+                variant: 'error',
+            });
+            return;
+        }
         if (!user) return;
 
         setLoading(true);
@@ -124,7 +136,11 @@ export default function AccountScreen() {
             setNewPassword('');
             setConfirmPassword('');
             
-            Alert.alert("Success", "Profile updated!");
+            await showAlertDialog({
+                title: 'Success',
+                message: 'Profile updated!',
+                variant: 'success',
+            });
             navigation.goBack();
 
         } catch (err: any) {

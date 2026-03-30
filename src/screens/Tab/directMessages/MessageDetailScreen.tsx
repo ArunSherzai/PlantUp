@@ -13,6 +13,7 @@ import { initializeSounds, unloadSounds } from '../../../utils/soundEffects';
 import { useTypingIndicator } from '../../../hooks/useTypingIndicator';
 import { playSound } from '~/utils/SoundManager';
 import { TypingIndicator } from '../../../components/TypingIndicator';
+import { showAlertDialog } from '~/services/appDialog';
 
 type Props = StackScreenProps<RootStackParamList, 'MessageDetail'>;
 
@@ -265,7 +266,10 @@ export default function MessageDetailScreen({ route, navigation }: Props) {
             if (success) {
                 playSound('send');
             } else {
-                alert('Failed to send message');
+                await showAlertDialog({
+                    title: 'Failed to send message',
+                    variant: 'error',
+                });
                 setInputText(textToSend);
             }
         }

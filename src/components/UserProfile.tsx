@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
-import { View, Text, Image, TouchableOpacity, Dimensions, Alert, ActivityIndicator, InteractionManager } from 'react-native';
+import { View, Text, Image, TouchableOpacity, Dimensions, ActivityIndicator, InteractionManager } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useUnistyles, StyleSheet } from '~/lib/unistyles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,6 +22,7 @@ import RewardItem from './RewardItem';
 import { REWARDS, getRankName, getLevelProgress, getXPForNextLevel, getTotalXPForLevel } from '../utils/leveling';
 import { useNavigation } from '@react-navigation/native';
 import { Image as ExpoImage } from 'expo-image';
+import { showAlertDialog } from '~/services/appDialog';
 
 const { width } = Dimensions.get('window');
 const vw = width / 100;
@@ -256,7 +257,15 @@ export default function UserProfile({ userId, isOwner }: Props) {
                                             title={reward.title}
                                             description={reward.description}
                                             isUnlocked={currentLevel >= reward.level}
-                                            onClaim={() => { if (isCurrentUser) Alert.alert('Claimed!', reward.title); }}
+                                            onClaim={() => {
+                                                if (isCurrentUser) {
+                                                    void showAlertDialog({
+                                                        title: 'Claimed!',
+                                                        message: reward.title,
+                                                        variant: 'success',
+                                                    });
+                                                }
+                                            }}
                                         />
                                     ))}
                                 </ScrollView>

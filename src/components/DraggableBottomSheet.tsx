@@ -13,12 +13,14 @@ type BottomSheetProps = {
   children?: React.ReactNode;
   initialHeight?: number; // Z.B. 0.55 (55% des Screens)
   maxHeight?: number; // Z.B. 0.90 (90% des Screens)
+  includeTabBarInset?: boolean;
 };
 
 export default function DraggableBottomSheet({
   children,
   initialHeight = 0.55,
   maxHeight = 0.9,
+  includeTabBarInset = true,
 }: BottomSheetProps) {
   const { theme } = useUnistyles();
   let tabBarHeight = 0;
@@ -28,6 +30,7 @@ export default function DraggableBottomSheet({
   } catch (error) {
     tabBarHeight = 80;
   }
+  const bottomInset = includeTabBarInset ? tabBarHeight : 0;
   // BERECHNUNG DER GRENZEN (Prozentual)
   const START_Y = -SCREEN_HEIGHT * initialHeight;
   const MAX_Y = -SCREEN_HEIGHT * maxHeight;
@@ -66,7 +69,7 @@ export default function DraggableBottomSheet({
   });
 
   return (
-    <Animated.View style={[styles.bottomSheetContainer, rBottomSheetStyle, { paddingBottom: tabBarHeight }]}>
+    <Animated.View style={[styles.bottomSheetContainer, rBottomSheetStyle]}>
       {/* 1. Der Griff (GestureDetector) */}
       <GestureDetector gesture={gesture}>
         <View style={styles.lineWrapper}>
@@ -75,7 +78,7 @@ export default function DraggableBottomSheet({
       </GestureDetector>
 
       {/* 2. Der Inhalt (Frei für ScrollView) */}
-      <View style={[styles.contentContainer, { marginBottom: tabBarHeight }]}>{children}</View>
+      <View style={[styles.contentContainer, { paddingBottom: bottomInset }]}>{children}</View>
     </Animated.View>
   );
 }
@@ -87,7 +90,11 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.surface,
     position: 'absolute',
     top: SCREEN_HEIGHT,
-    borderRadius: 30,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -3 },
     shadowOpacity: 0.1,
@@ -101,7 +108,7 @@ const styles = StyleSheet.create((theme) => ({
     height: 60, // Große Touch-Area
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'transparent',
+    backgroundColor: theme.colors.surface,
   },
   line: {
     width: 50,
@@ -111,6 +118,6 @@ const styles = StyleSheet.create((theme) => ({
   },
   contentContainer: {
     flex: 1,
-
+    backgroundColor: theme.colors.surface,
   },
 }));

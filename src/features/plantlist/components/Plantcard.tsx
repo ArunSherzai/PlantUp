@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Image, TouchableOpacity, TextInput, ScrollView, Alert } from 'react-native';
+import { View, Text, Image, TouchableOpacity, TextInput, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useSharedValue,
@@ -27,6 +27,7 @@ import {
   formatPlantBoxLastSeen,
   validatePlantBoxId,
 } from '../api/plantBox';
+import { showActionSheet, showAlertDialog } from '~/services/appDialog';
 
 interface Props {
   item: PlantItem;
@@ -75,47 +76,51 @@ export const PlantCard = React.memo(
     };
 
     const pickImage = async () => {
-      Alert.alert('Upload Photo', 'Choose a photo source', [
-        {
-          text: 'Camera',
-          onPress: async () => {
-            const { status } = await ImagePicker.requestCameraPermissionsAsync();
-            if (status !== 'granted') {
-              Alert.alert('Permission Denied', 'Camera permissions are required.');
-              return;
-            }
-            const result = await ImagePicker.launchCameraAsync({
-              mediaTypes: 'images',
-              allowsEditing: true,
-              quality: 0.8,
-              base64: true,
-            });
-            if (!result.canceled && result.assets && result.assets[0]) {
-              setCustomImageUri(result.assets[0].uri);
-              setCustomImageBase64(result.assets[0].base64 || null);
-            }
-          },
-        },
-        {
-          text: 'Gallery',
-          onPress: async () => {
-            const result = await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: 'images',
-              allowsEditing: true,
-              quality: 0.8,
-              base64: true,
-            });
-            if (!result.canceled && result.assets && result.assets[0]) {
-              setCustomImageUri(result.assets[0].uri);
-              setCustomImageBase64(result.assets[0].base64 || null);
-            }
-          },
-        },
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-      ]);
+      const selection = await showActionSheet({
+        title: 'Upload Photo',
+        message: 'Choose a photo source',
+        buttons: [
+          { key: 'camera', label: 'Camera' },
+          { key: 'gallery', label: 'Gallery' },
+          { key: 'cancel', label: 'Cancel', role: 'cancel' },
+        ],
+      });
+
+      if (selection === 'camera') {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+          await showAlertDialog({
+            title: 'Permission Denied',
+            message: 'Camera permissions are required.',
+            variant: 'warning',
+          });
+          return;
+        }
+        const result = await ImagePicker.launchCameraAsync({
+          mediaTypes: 'images',
+          allowsEditing: true,
+          quality: 0.8,
+          base64: true,
+        });
+        if (!result.canceled && result.assets && result.assets[0]) {
+          setCustomImageUri(result.assets[0].uri);
+          setCustomImageBase64(result.assets[0].base64 || null);
+        }
+        return;
+      }
+
+      if (selection === 'gallery') {
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: 'images',
+          allowsEditing: true,
+          quality: 0.8,
+          base64: true,
+        });
+        if (!result.canceled && result.assets && result.assets[0]) {
+          setCustomImageUri(result.assets[0].uri);
+          setCustomImageBase64(result.assets[0].base64 || null);
+        }
+      }
     };
 
     const uploadCustomImage = async (plantId: string): Promise<string | null> => {

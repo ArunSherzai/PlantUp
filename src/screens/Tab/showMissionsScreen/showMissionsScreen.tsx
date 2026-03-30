@@ -9,7 +9,6 @@ import {
   Dimensions,
   LayoutChangeEvent,
   SectionList,
-  Alert,
 } from 'react-native';
 import { useUnistyles, StyleSheet } from '~/lib/unistyles';
 import { vw, vh } from '~/features/plantlist/styles/plantStyles';
@@ -31,6 +30,7 @@ import RewardDetailsModal from '../../../components/RewardDetailsModal';
 import { playSound } from '~/utils/SoundManager';
 import { useTutorialStore } from '../../../stores/TutorialStore';
 import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
+import { showAlertDialog } from '~/services/appDialog';
 
 
 const { height, width } = Dimensions.get('window');
@@ -205,7 +205,11 @@ export default function ShowMissionsScreen() {
 
       const result = data as any;
       if (!result.success) {
-        Alert.alert('Info', result.message || 'Could not claim quest.');
+        await showAlertDialog({
+          title: 'Info',
+          message: result.message || 'Could not claim quest.',
+          variant: 'warning',
+        });
         return;
       }
 

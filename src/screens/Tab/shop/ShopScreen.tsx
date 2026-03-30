@@ -37,6 +37,7 @@ import { RootStackParamList } from '~/navigation/Root';
 import { Audio } from 'expo-av';
 import { playSound } from '~/utils/SoundManager';
 import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
+import { showAlertDialog } from '~/services/appDialog';
 
 export default function ShopScreen() {
     const { theme } = useUnistyles();
@@ -86,15 +87,22 @@ export default function ShopScreen() {
                         rewardType: result.rewardType
                     });
                 } else {
-                    alert(`${result.message}`);
+                    await showAlertDialog({
+                        title: 'Purchase Failed',
+                        message: `${result.message}`,
+                        variant: 'error',
+                    });
                 }
             } else {
                 const result = await buyShopItem(item.id, Number(item.price));
                 if (result.success) {
                     playSound('purchase'); 
-                    // alert('Purchase Successful!'); // Removed as requested
                 } else {
-                    alert(result.message || 'Purchase Failed');
+                    await showAlertDialog({
+                        title: 'Purchase Failed',
+                        message: result.message || 'Purchase Failed',
+                        variant: 'error',
+                    });
                 }
             }
         } catch (error) {
@@ -108,12 +116,23 @@ export default function ShopScreen() {
         if (itemId === 'xp_boost_24h') {
              const result = await activateBooster(itemId);
              if (result.success) {
-                 alert('Booster Activated!');
+                 await showAlertDialog({
+                    title: 'Booster Activated!',
+                    variant: 'success',
+                 });
              } else {
-                 alert(result.message || 'Failed');
+                 await showAlertDialog({
+                    title: 'Failed',
+                    message: result.message || 'Failed',
+                    variant: 'error',
+                 });
              }
         } else {
-            alert('This item cannot be used here.');
+            await showAlertDialog({
+                title: 'Unavailable',
+                message: 'This item cannot be used here.',
+                variant: 'warning',
+            });
         }
     };
 

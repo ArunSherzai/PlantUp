@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, Image, Alert, ActivityIndicator, StyleSheet, TouchableOpacity, InteractionManager } from 'react-native';
+import { View, Text, Image, ActivityIndicator, StyleSheet, TouchableOpacity, InteractionManager } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { Image as ExpoImage } from 'expo-image';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -31,6 +31,7 @@ import MentorBadge from '../../../components/MentorBadge';
 import { isMentor } from '../../../utils/mentorUtils';
 import { FlatList } from 'react-native';
 import { useInboxStore } from '../../../stores/InboxStore';
+import { showAlertDialog } from '~/services/appDialog';
 
 
 // --- Sub-components to prevent full screen re-renders ---
@@ -170,7 +171,11 @@ export default function ProfileScreen() {
     if (success) {
       setSelectedReward(null);
     } else {
-      Alert.alert('Error', 'Could not claim reward. Try again later.');
+      await showAlertDialog({
+        title: 'Error',
+        message: 'Could not claim reward. Try again later.',
+        variant: 'error',
+      });
     }
   };
 

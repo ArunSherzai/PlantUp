@@ -9,7 +9,6 @@ import {
   StatusBar,
   SafeAreaView,
   ActivityIndicator,
-  Alert,
   Modal,
   Pressable,
   Keyboard,
@@ -35,6 +34,7 @@ import { db } from '../../../utils/supabase';
 import { useUserStore } from '../../../stores/UserStore';
 import { playSound } from '~/utils/SoundManager';
 import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
+import { showAlertDialog } from '~/services/appDialog';
 
 
 const { height, width } = Dimensions.get('window');
@@ -122,7 +122,11 @@ export default function CreatePostScreen() {
       const asset = res.assets[0];
 
       if (asset.fileSize && asset.fileSize > MAX_SIZE) {
-        Alert.alert('Too big', 'File is over 50MB.');
+        await showAlertDialog({
+          title: 'Too big',
+          message: 'File is over 50MB.',
+          variant: 'warning',
+        });
         return;
       }
 
@@ -160,7 +164,11 @@ export default function CreatePostScreen() {
         const asset = res.assets[0];
 
         if (asset.size && asset.size > MAX_SIZE) {
-          Alert.alert('Too big', 'Max 50MB.');
+          await showAlertDialog({
+            title: 'Too big',
+            message: 'Max 50MB.',
+            variant: 'warning',
+          });
           return;
         }
 
@@ -202,7 +210,11 @@ export default function CreatePostScreen() {
 
       if (!userPlants || userPlants.length === 0) {
         console.log('[CreatePost] No plants found.');
-        Alert.alert('No Plants', 'You haven\'t added any plants yet.');
+        await showAlertDialog({
+          title: 'No Plants',
+          message: 'You haven\'t added any plants yet.',
+          variant: 'warning',
+        });
         return;
       }
 
@@ -211,8 +223,12 @@ export default function CreatePostScreen() {
       setPlants(initializedPlants);
       setShowSensorSelection(true);
     } catch (e) {
-      ErrorHandlerService.handle(e);
-      Alert.alert('Error', 'Could not load your plants.');
+      ErrorHandlerService.handle(e, { showUI: false });
+      await showAlertDialog({
+        title: 'Error',
+        message: 'Could not load your plants.',
+        variant: 'error',
+      });
     } finally {
       setFetchingSensorData(false);
     }
@@ -275,8 +291,12 @@ export default function CreatePostScreen() {
         });
 
       } catch (e) {
-        ErrorHandlerService.handle(e);
-        Alert.alert('Error', 'Could not load records.');
+        ErrorHandlerService.handle(e, { showUI: false });
+        await showAlertDialog({
+          title: 'Error',
+          message: 'Could not load records.',
+          variant: 'error',
+        });
 
         setPlants(currentPlants => {
           const updated = [...currentPlants];
@@ -303,7 +323,11 @@ export default function CreatePostScreen() {
   // --- HAUPTFUNKTION: POSTEN ---
   const handlePost = async () => {
     if (!caption && !media) {
-      Alert.alert('Empty', 'Please write something.');
+      await showAlertDialog({
+        title: 'Empty',
+        message: 'Please write something.',
+        variant: 'warning',
+      });
       return;
     }
 
@@ -455,14 +479,22 @@ export default function CreatePostScreen() {
       if (error) throw error;
 
       playSound('confirm');
-      Alert.alert('Success', 'Post created!');
+      await showAlertDialog({
+        title: 'Success',
+        message: 'Post created!',
+        variant: 'success',
+      });
 
       // >>> RESET HERE <<<
       setCaption('');
       setMedia(null);
     } catch (e: any) {
-      ErrorHandlerService.handle(e);
-      Alert.alert('Error', e.message || 'Network request failed');
+      ErrorHandlerService.handle(e, { showUI: false });
+      await showAlertDialog({
+        title: 'Error',
+        message: e.message || 'Network request failed',
+        variant: 'error',
+      });
 
       // --- CLEANUP LOGIC ---
       if (uploadedPaths.length > 0) {

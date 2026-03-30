@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, TouchableWithoutFeedback, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, TouchableWithoutFeedback } from 'react-native';
 import { useUnistyles } from '~/lib/unistyles';
 import { db } from '../utils/supabase';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
@@ -12,6 +12,7 @@ import { useMessageNotificationStore } from '../stores/MessageNotificationStore'
 
 import { NotificationService } from '../services/NotificationService';
 import { AppState } from 'react-native';
+import { showAlertDialog } from '~/services/appDialog';
 
 interface DeveloperMenuProps {
     visible: boolean;
@@ -25,7 +26,11 @@ export default function DeveloperMenu({ visible, onClose }: DeveloperMenuProps) 
 
     const testNotification = (category: 'critical' | 'warning' | 'general' | 'chat') => {
         onClose();
-        Alert.alert("Notification Scheduled", `A ${category} notification will appear in 10 seconds. Put the app in the background!`);
+        void showAlertDialog({
+            title: 'Notification Scheduled',
+            message: `A ${category} notification will appear in 10 seconds. Put the app in the background!`,
+            variant: 'info',
+        });
         
         let title = 'Test';
         let body = 'This is a test message.';
@@ -77,15 +82,27 @@ export default function DeveloperMenu({ visible, onClose }: DeveloperMenuProps) 
             saveTip(plantTip);
         }, 4000);
         onClose();
-        Alert.alert("Dev", "Test tip sequence started.");
+        void showAlertDialog({
+            title: 'Dev',
+            message: 'Test tip sequence started.',
+            variant: 'info',
+        });
     };
 
     const handleScanTips = async () => {
         const found = await checkPlantHealth();
         if (!found) {
-            Alert.alert("All Good!", "Your plants look happy and healthy.");
+            await showAlertDialog({
+                title: 'All Good!',
+                message: 'Your plants look happy and healthy.',
+                variant: 'success',
+            });
         } else {
-            Alert.alert("Scan Complete", "Issues found and tips generated.");
+            await showAlertDialog({
+                title: 'Scan Complete',
+                message: 'Issues found and tips generated.',
+                variant: 'info',
+            });
         }
         onClose();
     };
@@ -165,7 +182,11 @@ export default function DeveloperMenu({ visible, onClose }: DeveloperMenuProps) 
                             <TouchableOpacity style={styles.menuItem} onPress={() => {
                                 const { getChannelStatuses } = require('../stores/DMStore').useDMStore.getState();
                                 const status = getChannelStatuses();
-                                Alert.alert("Realtime Status", `Inbox: ${status.inbox}\nChat Detail: ${status.chat}`);
+                                void showAlertDialog({
+                                    title: 'Realtime Status',
+                                    message: `Inbox: ${status.inbox}\nChat Detail: ${status.chat}`,
+                                    variant: 'info',
+                                });
                             }}>
                                 <FontAwesome6 name="signal" size={20} color="#00BCD4" style={styles.icon} />
                                 <Text style={styles.menuText}>Check Realtime Status</Text>
@@ -183,10 +204,18 @@ export default function DeveloperMenu({ visible, onClose }: DeveloperMenuProps) 
                                     // Removed .eq('status', 'active') to allow resetting CLAIMED quests back to COMPLETED
 
                                     if (error) throw error;
-                                    Alert.alert("Success", "ALL quests (active & claimed) marked as completed.");
+                                    await showAlertDialog({
+                                        title: 'Success',
+                                        message: 'ALL quests (active & claimed) marked as completed.',
+                                        variant: 'success',
+                                    });
                                     onClose();
                                 } catch (e) {
-                                    Alert.alert("Error", "Could not update quests.");
+                                    await showAlertDialog({
+                                        title: 'Error',
+                                        message: 'Could not update quests.',
+                                        variant: 'error',
+                                    });
                                     console.log(e);
                                 }
                             }}>

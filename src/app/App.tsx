@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import RootStack from '~/navigation/Root';
+import AppDialogHost from '~/components/AppDialogHost';
 import { useLoadFonts } from '~/utils/loadFonts';
 import * as Linking from 'expo-linking';
 import { SoundManager } from '~/utils/SoundManager';
@@ -50,6 +51,7 @@ export default function App() {
           <View onLayout={onLayoutRootView} style={{ flex: 1 }}>
             <SystemBars hidden />
             <RootStack />
+            <AppDialogHost />
           </View>
         </GlobalErrorBoundary>
       </GestureHandlerRootView>

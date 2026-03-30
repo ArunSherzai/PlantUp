@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TextInput, FlatList, Image, TouchableOpacity, SafeAreaView, StatusBar, ImageBackground, Modal, ActivityIndicator, Alert, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TextInput, FlatList, Image, TouchableOpacity, SafeAreaView, StatusBar, ImageBackground, Modal, ActivityIndicator, Dimensions } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { useUnistyles } from '~/lib/unistyles';
 import { StackScreenProps } from '@react-navigation/stack';
@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { getLatestTip, StoredTip } from '../../../utils/tipHistory';
+import { showAlertDialog } from '~/services/appDialog';
 
 type Props = StackScreenProps<RootStackParamList, 'DirectMessages'>;
 
@@ -164,9 +165,17 @@ export default function DirectMessagesScreen() {
     const handleMentorRequest = async (mentorId: string) => {
         const success = await sendRequest(mentorId);
         if (success) {
-            Alert.alert('Request Sent', 'Your mentorship request has been sent!');
+            await showAlertDialog({
+                title: 'Request Sent',
+                message: 'Your mentorship request has been sent!',
+                variant: 'success',
+            });
         } else {
-            Alert.alert('Request Failed', 'Unable to send request. You may have already sent one.');
+            await showAlertDialog({
+                title: 'Request Failed',
+                message: 'Unable to send request. You may have already sent one.',
+                variant: 'error',
+            });
         }
     };
 
@@ -220,7 +229,11 @@ export default function DirectMessagesScreen() {
                     userId: selectedUser.id,
                 });
             } else {
-                Alert.alert('Unable to Message', 'You can only message users who follow you back (Mutual Followers).');
+                await showAlertDialog({
+                    title: 'Unable to Message',
+                    message: 'You can only message users who follow you back (Mutual Followers).',
+                    variant: 'warning',
+                });
             }
         } catch (e) {
             ErrorHandlerService.handle(e);
@@ -469,7 +482,11 @@ export default function DirectMessagesScreen() {
                                                     onPress={async () => {
                                                         const success = await acceptRequest(request.id);
                                                         if (success) {
-                                                            Alert.alert('Accepted', 'You are now mutual followers!');
+                                                            await showAlertDialog({
+                                                                title: 'Accepted',
+                                                                message: 'You are now mutual followers!',
+                                                                variant: 'success',
+                                                            });
                                                         }
                                                     }}
                                                 >

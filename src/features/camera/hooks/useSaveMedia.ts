@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
-import { Alert } from 'react-native';
 import * as MediaLibrary from 'expo-media-library';
+import { showAlertDialog } from '~/services/appDialog';
 
 /**
  * Hook to save images to the device's photo gallery.
@@ -13,16 +13,28 @@ export function useSaveMedia() {
     try {
       const { status } = await MediaLibrary.requestPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Please allow access to save photos to your gallery.');
+        await showAlertDialog({
+          title: 'Permission Required',
+          message: 'Please allow access to save photos to your gallery.',
+          variant: 'warning',
+        });
         return false;
       }
 
       await MediaLibrary.saveToLibraryAsync(uri);
-      Alert.alert('Saved!', 'Photo saved to your gallery.');
+      await showAlertDialog({
+        title: 'Saved!',
+        message: 'Photo saved to your gallery.',
+        variant: 'success',
+      });
       return true;
     } catch (error) {
       console.error('[SaveMedia] Error saving:', error);
-      Alert.alert('Error', 'Could not save the photo.');
+      await showAlertDialog({
+        title: 'Error',
+        message: 'Could not save the photo.',
+        variant: 'error',
+      });
       return false;
     } finally {
       setIsSaving(false);

@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import * as Sharing from 'expo-sharing';
-import { Alert } from 'react-native';
+import { showAlertDialog } from '~/services/appDialog';
 
 /**
  * Hook to share images via the native share sheet.
@@ -13,7 +13,11 @@ export function useShareMedia() {
     try {
       const isAvailable = await Sharing.isAvailableAsync();
       if (!isAvailable) {
-        Alert.alert('Sharing not available', 'Sharing is not available on this device.');
+        await showAlertDialog({
+          title: 'Sharing not available',
+          message: 'Sharing is not available on this device.',
+          variant: 'warning',
+        });
         return;
       }
       await Sharing.shareAsync(uri, {

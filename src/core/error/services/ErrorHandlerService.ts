@@ -1,7 +1,7 @@
-import { Alert } from 'react-native';
 import { normalizeError } from '../mappers/globalErrorMapper';
 import { AppError } from '../models/AppError';
 import { AuthError } from '../models/AuthError';
+import { showAlertDialog } from '~/services/appDialog';
 
 export interface HandlingOptions {
     showUI?: boolean;
@@ -33,7 +33,11 @@ export const ErrorHandlerService = {
         // 3. UI Feedback Strategy
         if (showUI) {
             if (uiType === 'alert') {
-                Alert.alert('Notice', error.userMessage);
+                void showAlertDialog({
+                    title: 'Notice',
+                    message: error.userMessage,
+                    variant: error.isOperational ? 'warning' : 'error',
+                });
             } else if (uiType === 'toast') {
                 // Fallback or actual toast implementation
                 // Toast.show({ type: 'error', text1: 'Error', text2: error.userMessage });

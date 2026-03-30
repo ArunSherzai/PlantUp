@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, Alert, Image, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Dimensions } from 'react-native';
 import { StyleSheet as UnistylesSheet, useUnistyles } from '~/lib/unistyles';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useUserStore } from '../../../stores/UserStore';
 import { playSound } from '~/utils/SoundManager';
+import { showAlertDialog } from '~/services/appDialog';
 
 const { width } = Dimensions.get('window');
 const vw = width / 100;
@@ -59,12 +60,20 @@ export default function BoosterWidget() {
 
   const handleActivate = async () => {
     if (isBoostActive) {
-      Alert.alert('Boost Active', `Time remaining: ${timeLeft}`);
+      await showAlertDialog({
+        title: 'Boost Active',
+        message: `Time remaining: ${timeLeft}`,
+        variant: 'info',
+      });
       return;
     }
 
     if (ownedQuantity <= 0) {
-      Alert.alert('No Booster', 'You do not have any XP Fertilizers!');
+      await showAlertDialog({
+        title: 'No Booster',
+        message: 'You do not have any XP Fertilizers!',
+        variant: 'warning',
+      });
       return;
     }
 
@@ -74,9 +83,17 @@ export default function BoosterWidget() {
 
     if (result.success) {
       playSound('xp_boost');
-      Alert.alert('Boost Activated!', 'XP x1.5 active for 24h! 🚀');
+      await showAlertDialog({
+        title: 'Boost Activated!',
+        message: 'XP x1.5 active for 24h! 🚀',
+        variant: 'success',
+      });
     } else {
-      Alert.alert('Error', result.message || 'Could not activate booster.');
+      await showAlertDialog({
+        title: 'Error',
+        message: result.message || 'Could not activate booster.',
+        variant: 'error',
+      });
     }
   };
 

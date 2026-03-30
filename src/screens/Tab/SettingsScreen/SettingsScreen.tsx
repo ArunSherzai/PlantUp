@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Alert, Image, ScrollView, Switch } from 'react-native';
+import { View, Text, TouchableOpacity, Image, ScrollView, Switch } from 'react-native';
 import { StyleSheet, useUnistyles } from '~/lib/unistyles';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { useNavigation } from '@react-navigation/native';
@@ -9,6 +9,7 @@ import { useUserStore } from '../../../stores/UserStore';
 import { SoundManager, playSound } from '~/utils/SoundManager';
 import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
 import { useInboxStore } from '../../../stores/InboxStore';
+import { showConfirmDialog } from '~/services/appDialog';
 
 import { StatusBar } from 'expo-status-bar';
 
@@ -22,30 +23,34 @@ export default function SettingsScreen() {
     const [soundEnabled, setSoundEnabled] = useState(SoundManager.isEnabled());
 
     // Sign Out
-    const handleSignOut = () => {
-        Alert.alert("Sign Out", "Are you sure you want to sign out?", [
-            { text: "Cancel", style: "cancel" },
-            {
-                text: "Sign Out",
-                style: "destructive",
-                onPress: async () => {
-                    try {
-                        await db.public.auth.signOut();
+    const handleSignOut = async () => {
+        const confirmed = await showConfirmDialog({
+            title: 'Sign Out',
+            message: 'Are you sure you want to sign out?',
+            confirmLabel: 'Sign Out',
+            cancelLabel: 'Cancel',
+            confirmRole: 'destructive',
+            variant: 'warning',
+        });
 
-                        // Reset local state
-                        useUserStore.getState().setUser(null);
+        if (!confirmed) {
+            return;
+        }
 
-                        // Reset navigation to Auth stack
-                        navigation.reset({
-                            index: 0,
-                            routes: [{ name: 'Auth' as never }],
-                        });
-                    } catch (error) {
-                        ErrorHandlerService.handle(error);
-                    }
-                },
-            },
-        ]);
+        try {
+            await db.public.auth.signOut();
+
+            // Reset local state
+            useUserStore.getState().setUser(null);
+
+            // Reset navigation to Auth stack
+            navigation.reset({
+                index: 0,
+                routes: [{ name: 'Auth' as never }],
+            });
+        } catch (error) {
+            ErrorHandlerService.handle(error);
+        }
     };
 
     const navigateTo = (screen: string) => {
