@@ -21,7 +21,12 @@ export type RootStackParamList = {
   Account: undefined;
   TutorialSettings: undefined;
   CreatePost: { capturedMedia?: any } | undefined;
-  Camera: { mode?: 'photo' | 'video'; source?: string; capturedMedia?: any; editedImageUri?: string };
+  Camera: {
+    mode?: 'photo' | 'video';
+    source?: string;
+    capturedMedia?: any;
+    editedImageUri?: string;
+  };
   PhotoEditor: { imageUri: string; source?: string };
   FeedPostDetail: { post: any }; // Using any to match Post interface roughly for now, or import it
   UserPlants: { userId?: string };
@@ -38,7 +43,6 @@ export type RootStackParamList = {
 
   DailyMentor: { plantId: string; health: any };
   PlantTimeline: { plantId: number };
-
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -92,6 +96,7 @@ import PlantTimelineScreen from '~/screens/Plants/timeline/PlantTimelineScreen';
 import TutorialDialog from '~/components/TutorialDialog'; // ALLES: added TutorialDialog
 import DailyMentorScreen from '~/screens/Tab/plantStats/DailyMentorScreen';
 import { NotificationService } from '../services/NotificationService';
+import { PushTokenService } from '../services/PushTokenService';
 import { navigationRef, NavigationService } from '../services/NavigationService';
 import React, { useEffect } from 'react';
 import CameraScreen from '~/features/camera/CameraScreen';
@@ -99,37 +104,91 @@ import PhotoEditorScreen from '~/features/camera/components/editor/PhotoEditorSc
 
 import { StatusBar } from 'expo-status-bar';
 
+const AUTH_LOADING_TIMEOUT_MS = 1200;
+const NOTIFICATION_INIT_DELAY_MS = 1800;
+
 export default function RootStack() {
   const { theme } = useUnistyles();
   const { user, setUser } = useUserStore();
   const [isAuthLoading, setIsAuthLoading] = React.useState(true);
+  const didInitNotifications = React.useRef(false);
 
   useEffect(() => {
-    NotificationService.initialize();
-
-    // 1. Check initial session
-    db.public.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser(session.user);
+    let cancelled = false;
+    const loadingTimer = setTimeout(() => {
+      if (!cancelled) {
+        setIsAuthLoading(false);
       }
-      setIsAuthLoading(false);
-    });
+    }, AUTH_LOADING_TIMEOUT_MS);
 
-    // 2. Listen to auth changes
-    const { data: { subscription } } = db.public.auth.onAuthStateChange((_event, session) => {
+    db.public.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        if (cancelled) {
+          return;
+        }
+
+        if (session?.user) {
+          setUser(session.user);
+          PushTokenService.register(session.user);
+        } else {
+          setUser(null);
+        }
+      })
+      .catch((error) => {
+        console.warn('[Root] Initial auth session check failed:', error);
+      })
+      .finally(() => {
+        clearTimeout(loadingTimer);
+        if (!cancelled) {
+          setIsAuthLoading(false);
+        }
+      });
+
+    const {
+      data: { subscription },
+    } = db.public.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         setUser(session.user);
+        PushTokenService.register(session.user);
       } else {
         setUser(null);
+        PushTokenService.unregister();
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      cancelled = true;
+      clearTimeout(loadingTimer);
+      subscription.unsubscribe();
+    };
   }, []);
+
+  useEffect(() => {
+    if (!user || didInitNotifications.current) {
+      return;
+    }
+
+    const initTimer = setTimeout(() => {
+      didInitNotifications.current = true;
+      NotificationService.initialize().catch((error) => {
+        didInitNotifications.current = false;
+        console.warn('[Root] Notification init failed:', error);
+      });
+    }, NOTIFICATION_INIT_DELAY_MS);
+
+    return () => clearTimeout(initTimer);
+  }, [user]);
 
   if (isAuthLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background }}>
+      <View
+        style={{
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: theme.colors.background,
+        }}>
         <ActivityIndicator size="large" color={theme.colors.accent} />
       </View>
     );
@@ -157,180 +216,171 @@ export default function RootStack() {
             },
             headerTintColor: theme.colors.accent,
           }}>
-
           {/* STANDARD NAVIGATION FLOW */}
           {user ? (
             <>
               <Stack.Group>
-              <Stack.Screen
-                name="TabNavigator"
-                component={TabNavigator}
-                options={{ headerShown: false }}
-              />
+                <Stack.Screen
+                  name="TabNavigator"
+                  component={TabNavigator}
+                  options={{ headerShown: false }}
+                />
 
-            <Stack.Screen
-              name="Settings"
-              component={SettingsScreen}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
-              name="Appearance"
-              component={AppearanceScreen}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
-              name="Notifications"
-              component={NotificationsScreen}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
-              name="NotificationSounds"
-              component={NotificationSoundsScreen}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
-              name="Account"
-              component={AccountScreen}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
-              name="TutorialSettings"
-              component={TutorialSettingsScreen}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
-              name="FeedPostDetail"
-              component={FeedPostDetailScreen}
-              options={{
-                headerShown: false,
-              }}
-            />
-            <Stack.Screen
-              name="UserPlants"
-              component={UserPlantsScreen}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
-              name="MessageDetail"
-              component={MessageDetailScreen}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
-              name="Connections"
-              component={ConnectionsScreen}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
-              name="PublicProfile"
-              component={PublicProfileScreen}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
-              name="DirectMessages"
-              component={DirectMessagesScreen}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
-              name="Shop"
-              component={ShopScreen}
-              options={{ headerShown: false }}
-            />
+                <Stack.Screen
+                  name="Settings"
+                  component={SettingsScreen}
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                  name="Appearance"
+                  component={AppearanceScreen}
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                  name="Notifications"
+                  component={NotificationsScreen}
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                  name="NotificationSounds"
+                  component={NotificationSoundsScreen}
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                  name="Account"
+                  component={AccountScreen}
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                  name="TutorialSettings"
+                  component={TutorialSettingsScreen}
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                  name="FeedPostDetail"
+                  component={FeedPostDetailScreen}
+                  options={{
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="UserPlants"
+                  component={UserPlantsScreen}
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                  name="MessageDetail"
+                  component={MessageDetailScreen}
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                  name="Connections"
+                  component={ConnectionsScreen}
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                  name="PublicProfile"
+                  component={PublicProfileScreen}
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                  name="DirectMessages"
+                  component={DirectMessagesScreen}
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen name="Shop" component={ShopScreen} options={{ headerShown: false }} />
 
-            <Stack.Screen
-              name="PlantStats"
-              component={ShowPlantStats}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
-              name="PlantTimeline"
-              component={PlantTimelineScreen}
-              options={{ headerShown: false }}
-            />
-          </Stack.Group>
+                <Stack.Screen
+                  name="PlantStats"
+                  component={ShowPlantStats}
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                  name="PlantTimeline"
+                  component={PlantTimelineScreen}
+                  options={{ headerShown: false }}
+                />
+              </Stack.Group>
 
-          {/* MODAL FLOWS (Slide up + Swipe to dismiss) */}
-          <Stack.Group
-            screenOptions={{
-              presentation: 'modal',
-              gestureEnabled: true, // Enables swipe to dismiss
-            }}>
-            <Stack.Screen
-              name="CreatePost"
-              component={CreatePostScreen}
-              options={{
-                headerShown: false,
-              }}
-            />
-            <Stack.Screen
-              name="Add a Plant"
-              component={AddPlantScreen}
-              options={{
-                title: 'Add a Plant',
-                headerShown: false,
-              }}
-            />
-            <Stack.Screen
-              name="BorderInventory"
-              component={BorderInventoryScreen}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
-              name="TitleInventory"
-              component={TitleInventoryScreen}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
-              name="Plant3DTest"
-              component={Plant3DTestScreen}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
-              name="DailyMentor"
-              component={DailyMentorScreen}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
-              name="Camera"
-              component={CameraScreen}
-              options={{ headerShown: false, gestureEnabled: false }}
-            />
-            <Stack.Screen
-              name="PhotoEditor"
-              component={PhotoEditorScreen}
-              options={{ headerShown: false, gestureEnabled: false }}
-            />
-          </Stack.Group>
+              {/* MODAL FLOWS (Slide up + Swipe to dismiss) */}
+              <Stack.Group
+                screenOptions={{
+                  presentation: 'modal',
+                  gestureEnabled: true, // Enables swipe to dismiss
+                }}>
+                <Stack.Screen
+                  name="CreatePost"
+                  component={CreatePostScreen}
+                  options={{
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="Add a Plant"
+                  component={AddPlantScreen}
+                  options={{
+                    title: 'Add a Plant',
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="BorderInventory"
+                  component={BorderInventoryScreen}
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                  name="TitleInventory"
+                  component={TitleInventoryScreen}
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                  name="Plant3DTest"
+                  component={Plant3DTestScreen}
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                  name="DailyMentor"
+                  component={DailyMentorScreen}
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                  name="Camera"
+                  component={CameraScreen}
+                  options={{ headerShown: false, gestureEnabled: false }}
+                />
+                <Stack.Screen
+                  name="PhotoEditor"
+                  component={PhotoEditorScreen}
+                  options={{ headerShown: false, gestureEnabled: false }}
+                />
+              </Stack.Group>
 
-          {/* TRANSPARENT OVERLAYS (Fade in/out) */}
-          <Stack.Group
-            screenOptions={{
-              presentation: 'transparentModal',
-              headerShown: false,
-              // Manually force a fade transition for Android compatibility
-              cardStyleInterpolator: ({ current: { progress } }) => ({
-                cardStyle: {
-                  opacity: progress,
-                },
-                overlayStyle: {
-                  opacity: progress.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0, 0.5],
-                    extrapolate: 'clamp',
+              {/* TRANSPARENT OVERLAYS (Fade in/out) */}
+              <Stack.Group
+                screenOptions={{
+                  presentation: 'transparentModal',
+                  headerShown: false,
+                  // Manually force a fade transition for Android compatibility
+                  cardStyleInterpolator: ({ current: { progress } }) => ({
+                    cardStyle: {
+                      opacity: progress,
+                    },
+                    overlayStyle: {
+                      opacity: progress.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0, 0.5],
+                        extrapolate: 'clamp',
+                      }),
+                    },
                   }),
-                },
-              }),
-            }}>
-            <Stack.Screen
-              name="Lootbox"
-              component={LootboxScreen}
-            />
-            {/* If you have other dialog-like screens, add them here */}
-          </Stack.Group>
-          </>
+                }}>
+                <Stack.Screen name="Lootbox" component={LootboxScreen} />
+                {/* If you have other dialog-like screens, add them here */}
+              </Stack.Group>
+            </>
           ) : (
             <Stack.Screen name="Auth" component={AuthStack} options={{ headerShown: false }} />
           )}
-
         </Stack.Navigator>
         <SpriteComponent />
         <TutorialDialog />
@@ -338,5 +388,3 @@ export default function RootStack() {
     </NavigationContainer>
   );
 }
-
-

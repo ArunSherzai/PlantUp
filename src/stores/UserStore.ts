@@ -6,7 +6,11 @@ import { getLevelFromXP } from '../utils/leveling';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ErrorHandlerService } from '../core/error/services/ErrorHandlerService';
 import { getTodayQuestKey, trackQuestAction } from '../features/quests/questProgress';
-import { DEFAULT_NOTIFICATION_SOUND_SETTINGS, type NotificationSoundCategory, type NotificationSoundPreference } from '../features/notifications/config/notificationSoundConfig';
+import {
+  DEFAULT_NOTIFICATION_SOUND_SETTINGS,
+  type NotificationSoundCategory,
+  type NotificationSoundPreference,
+} from '../features/notifications/config/notificationSoundConfig';
 
 type Border = {
   id: string;
@@ -91,9 +95,14 @@ type State = {
   notificationSoundSettings: Record<NotificationSoundCategory, NotificationSoundPreference>;
   loadSettings: () => Promise<void>;
   toggleSprigNotifications: (enabled: boolean) => Promise<void>;
-  updateNotificationSound: (category: NotificationSoundCategory, sound: NotificationSoundPreference) => Promise<void>;
+  updateNotificationSound: (
+    category: NotificationSoundCategory,
+    sound: NotificationSoundPreference
+  ) => Promise<void>;
   buyShopItem: (itemId: string, price: number) => Promise<{ success: boolean; message: string }>;
-  buyLootbox: (price: number) => Promise<{ success: boolean; message: string; rewardType?: string; rewardValue?: string }>;
+  buyLootbox: (
+    price: number
+  ) => Promise<{ success: boolean; message: string; rewardType?: string; rewardValue?: string }>;
   fetchRewardsMap: () => Promise<void>;
 
   // Blocking
@@ -158,7 +167,10 @@ export const useUserStore = create<State>((set, get) => ({
     }
   },
 
-  updateNotificationSound: async (category: NotificationSoundCategory, sound: NotificationSoundPreference) => {
+  updateNotificationSound: async (
+    category: NotificationSoundCategory,
+    sound: NotificationSoundPreference
+  ) => {
     const nextSettings = {
       ...get().notificationSoundSettings,
       [category]: sound,
@@ -174,6 +186,12 @@ export const useUserStore = create<State>((set, get) => ({
   },
 
   setUser: (user) => {
+    const currentUser = get().user;
+    if (currentUser?.id === user?.id) {
+      set({ user });
+      return;
+    }
+
     set({ user });
     if (user) {
       trackQuestAction({
@@ -200,14 +218,13 @@ export const useUserStore = create<State>((set, get) => ({
         get().fetchRewardsMap();
       }, 2500);
 
-      // Subscribe to DM inbox 
+      // Subscribe to DM inbox
       setTimeout(() => {
         const { subscribeToInbox, fetchConversations } = require('./DMStore').useDMStore.getState();
         fetchConversations();
         subscribeToInbox();
       }, 1000); // Reduced delay
-    }
-    else {
+    } else {
       set({ profile: null, inventory: [], ownedBorders: [], ownedTitles: [] });
 
       // Unsubscribe from inbox on logout
@@ -315,13 +332,12 @@ export const useUserStore = create<State>((set, get) => ({
         // Just cast it directly if structure matches
         const inventory = data.map((item: any) => ({
           item_id: (item.item_id || 'unknown').trim(),
-          quantity: item.quantity
+          quantity: item.quantity,
         }));
         set({ inventory: inventory });
       } else {
         set({ inventory: [] });
       }
-
     } catch (err) {
       ErrorHandlerService.handle(err, { showUI: false });
     }
@@ -378,7 +394,9 @@ export const useUserStore = create<State>((set, get) => ({
     // Using "Player_stats" strictly to match DB casing
     const statsPromise = db.gamification
       .from('Player_stats')
-      .select('xp, level, streak_length, last_completed_date, active_boost_end_time, streak_rescued_date')
+      .select(
+        'xp, level, streak_length, last_completed_date, active_boost_end_time, streak_rescued_date'
+      )
       .eq('user_id', user.id)
       .maybeSingle();
 
@@ -389,10 +407,7 @@ export const useUserStore = create<State>((set, get) => ({
       .eq('id', user.id)
       .single();
 
-    const [statsResult, userResult] = await Promise.all([
-      statsPromise,
-      userPromise
-    ]);
+    const [statsResult, userResult] = await Promise.all([statsPromise, userPromise]);
 
     // Debug Logs
     if (statsResult.error) ErrorHandlerService.handle(statsResult.error, { showUI: false });
@@ -519,13 +534,14 @@ export const useUserStore = create<State>((set, get) => ({
       .eq('is_equipped', true)
       .maybeSingle();
 
-    const [plantsResult, followersResult, followingResult, titleResult, borderResult] = await Promise.all([
-      plantsPromise,
-      followersPromise,
-      followingPromise,
-      titlePromise,
-      borderPromise
-    ]);
+    const [plantsResult, followersResult, followingResult, titleResult, borderResult] =
+      await Promise.all([
+        plantsPromise,
+        followersPromise,
+        followingPromise,
+        titlePromise,
+        borderPromise,
+      ]);
 
     const titleData = titleResult.data;
     const titleInfo = titleData?.Titles as unknown as { titlename: string; color: string } | null;
@@ -536,12 +552,12 @@ export const useUserStore = create<State>((set, get) => ({
       // Fix for seasonal folders: replace specific seasons with generic 'seasonal' folder
       let mediaPath = (equippedBorderData as any).media_url;
       if (mediaPath.includes('seasonal_summer') || mediaPath.includes('seasonal_winter')) {
-        mediaPath = mediaPath.replace('seasonal_summer', 'seasonal').replace('seasonal_winter', 'seasonal');
+        mediaPath = mediaPath
+          .replace('seasonal_summer', 'seasonal')
+          .replace('seasonal_winter', 'seasonal');
       }
 
-      const { data } = db.public.storage
-        .from('border-skins')
-        .getPublicUrl(mediaPath);
+      const { data } = db.public.storage.from('border-skins').getPublicUrl(mediaPath);
 
       if (data?.publicUrl) {
         equippedBorderData = { ...equippedBorderData, media_url: data.publicUrl };
@@ -557,7 +573,7 @@ export const useUserStore = create<State>((set, get) => ({
         title: titleInfo?.titlename,
         titlecolor: titleInfo?.color,
         equipped_border: equippedBorderData,
-      }
+      },
     });
   },
 
@@ -589,8 +605,6 @@ export const useUserStore = create<State>((set, get) => ({
     if (!user) return;
 
     try {
-
-
       // Step 1: Get owned border IDs and equipped status
       const { data: ownedData, error: ownedError } = await db.gamification
         .from('User_owned_border')
@@ -603,13 +617,11 @@ export const useUserStore = create<State>((set, get) => ({
       }
 
       if (!ownedData || ownedData.length === 0) {
-
         set({ ownedBorders: [] });
         return;
       }
 
       const borderIds = ownedData.map((item: any) => item.border_id);
-
 
       // Step 2: Fetch details for these IDs
       const { data: bordersData, error: bordersError } = await db.gamification
@@ -626,34 +638,35 @@ export const useUserStore = create<State>((set, get) => ({
         return;
       }
       // Step 3: Merge data
-      const mergedBorders: Border[] = await Promise.all(bordersData.map(async (border: any) => {
-        // Find ownership info
-        const ownership = ownedData.find((o: any) => o.border_id === border.id);
-        let mediaUrl = border.media_url;
-        if (border.media_url) {
-          // Fix for seasonal folders: replace specific seasons with generic 'seasonal' folder
-          let mediaPath = border.media_url;
-          if (mediaPath.includes('seasonal_summer') || mediaPath.includes('seasonal_winter')) {
-            mediaPath = mediaPath.replace('seasonal_summer', 'seasonal').replace('seasonal_winter', 'seasonal');
+      const mergedBorders: Border[] = await Promise.all(
+        bordersData.map(async (border: any) => {
+          // Find ownership info
+          const ownership = ownedData.find((o: any) => o.border_id === border.id);
+          let mediaUrl = border.media_url;
+          if (border.media_url) {
+            // Fix for seasonal folders: replace specific seasons with generic 'seasonal' folder
+            let mediaPath = border.media_url;
+            if (mediaPath.includes('seasonal_summer') || mediaPath.includes('seasonal_winter')) {
+              mediaPath = mediaPath
+                .replace('seasonal_summer', 'seasonal')
+                .replace('seasonal_winter', 'seasonal');
+            }
+
+            const { data } = db.public.storage.from('border-skins').getPublicUrl(mediaPath);
+            if (data?.publicUrl) {
+              mediaUrl = data.publicUrl;
+            }
           }
 
-          const { data } = db.public.storage
-            .from('border-skins').getPublicUrl(mediaPath);
-          if (data?.publicUrl) {
-            mediaUrl = data.publicUrl;
-          }
-        }
-
-        return {
-          ...border,
-          media_url: mediaUrl,
-          is_equipped: ownership ? ownership.is_equipped : false
-        };
-      }));
-
+          return {
+            ...border,
+            media_url: mediaUrl,
+            is_equipped: ownership ? ownership.is_equipped : false,
+          };
+        })
+      );
 
       set({ ownedBorders: mergedBorders });
-
     } catch (error) {
       ErrorHandlerService.handle(error, { showUI: false });
     }
@@ -664,15 +677,15 @@ export const useUserStore = create<State>((set, get) => ({
     if (!user) return;
 
     // Optimistic Update
-    const newBorders = ownedBorders.map(b => ({
+    const newBorders = ownedBorders.map((b) => ({
       ...b,
-      is_equipped: b.id === borderId
+      is_equipped: b.id === borderId,
     }));
     set({ ownedBorders: newBorders });
 
     // Optimistic Update for Main Profile (to fix delay)
     // Find the full border object
-    const newlyEquipped = newBorders.find(b => b.id === borderId);
+    const newlyEquipped = newBorders.find((b) => b.id === borderId);
     if (newlyEquipped) {
       // Construct the expected profile object update
       // We reuse the existing media_url (which should already have timestamp from fetchBorders if valid)
@@ -690,9 +703,9 @@ export const useUserStore = create<State>((set, get) => ({
             ...profile,
             equipped_border: {
               ...newlyEquipped,
-              media_url: mediaUrl
-            }
-          }
+              media_url: mediaUrl,
+            },
+          },
         });
       }
     } else if (borderId === null) {
@@ -702,8 +715,8 @@ export const useUserStore = create<State>((set, get) => ({
         set({
           profile: {
             ...profile,
-            equipped_border: null
-          }
+            equipped_border: null,
+          },
         });
       }
     }
@@ -730,8 +743,8 @@ export const useUserStore = create<State>((set, get) => ({
       }
     }
 
-    // We can skip fetchProfile() if the optimistic update worked, 
-    // but keeping it as a background sync is safer. 
+    // We can skip fetchProfile() if the optimistic update worked,
+    // but keeping it as a background sync is safer.
     // We don't await it to unblock UI.
     fetchProfile();
   },
@@ -742,7 +755,8 @@ export const useUserStore = create<State>((set, get) => ({
 
     const { data, error } = await db.gamification
       .from('User_titles')
-      .select(`
+      .select(
+        `
         titleid,
         selected,
         Titles (
@@ -750,7 +764,8 @@ export const useUserStore = create<State>((set, get) => ({
           titlename,
           color
         )
-      `)
+      `
+      )
       .eq('userid', user.id);
 
     if (error) {
@@ -775,14 +790,14 @@ export const useUserStore = create<State>((set, get) => ({
 
     // --- Optimistic Update ---
     // Update the ownedTitles list
-    const newTitles = ownedTitles.map(t => ({
+    const newTitles = ownedTitles.map((t) => ({
       ...t,
-      is_equipped: t.id === titleId
+      is_equipped: t.id === titleId,
     }));
     set({ ownedTitles: newTitles });
 
     // Update the main profile
-    const newlyEquipped = newTitles.find(t => t.id === titleId);
+    const newlyEquipped = newTitles.find((t) => t.id === titleId);
     const { profile } = get();
     if (profile) {
       if (newlyEquipped) {
@@ -791,7 +806,7 @@ export const useUserStore = create<State>((set, get) => ({
             ...profile,
             title: newlyEquipped.name,
             titlecolor: newlyEquipped.color,
-          }
+          },
         });
       } else if (titleId === null) {
         set({
@@ -799,7 +814,7 @@ export const useUserStore = create<State>((set, get) => ({
             ...profile,
             title: undefined,
             titlecolor: undefined,
-          }
+          },
         });
       }
     }
@@ -855,8 +870,9 @@ export const useUserStore = create<State>((set, get) => ({
     if (!user) return;
 
     try {
-      const { data, error } = await db.gamification
-        .rpc('get_user_rewards_status', { p_user_id: user.id });
+      const { data, error } = await db.gamification.rpc('get_user_rewards_status', {
+        p_user_id: user.id,
+      });
 
       if (error) {
         ErrorHandlerService.handle(error, { showUI: false });
@@ -864,31 +880,37 @@ export const useUserStore = create<State>((set, get) => ({
       }
 
       // Process rewards to resolve storage URLs
-      const processedRewards = await Promise.all((data || []).map(async (reward: any) => {
-        let mediaUrl = reward.media_url;
+      const processedRewards = await Promise.all(
+        (data || []).map(async (reward: any) => {
+          let mediaUrl = reward.media_url;
 
-        // Only process if looks like a path (not http) and exists
-        if (mediaUrl && !mediaUrl.startsWith('http')) {
-          let mediaPath = mediaUrl;
-          // Seasonal fix pattern from fetchBorders
-          if (mediaPath.includes('seasonal_summer') || mediaPath.includes('seasonal_winter')) {
-            mediaPath = mediaPath.replace('seasonal_summer', 'seasonal').replace('seasonal_winter', 'seasonal');
+          // Only process if looks like a path (not http) and exists
+          if (mediaUrl && !mediaUrl.startsWith('http')) {
+            let mediaPath = mediaUrl;
+            // Seasonal fix pattern from fetchBorders
+            if (mediaPath.includes('seasonal_summer') || mediaPath.includes('seasonal_winter')) {
+              mediaPath = mediaPath
+                .replace('seasonal_summer', 'seasonal')
+                .replace('seasonal_winter', 'seasonal');
+            }
+
+            // Assume 'border-skins' for now as that's the only one joined.
+            // If we add other types later, we might need a bucket column or logic.
+            const { data: storageData } = db.public.storage
+              .from('border-skins')
+              .getPublicUrl(mediaPath);
+
+            if (storageData?.publicUrl) {
+              mediaUrl = storageData.publicUrl;
+            }
           }
 
-          // Assume 'border-skins' for now as that's the only one joined. 
-          // If we add other types later, we might need a bucket column or logic.
-          const { data: storageData } = db.public.storage.from('border-skins').getPublicUrl(mediaPath);
-
-          if (storageData?.publicUrl) {
-            mediaUrl = storageData.publicUrl;
-          }
-        }
-
-        return {
-          ...reward,
-          media_url: mediaUrl
-        };
-      }));
+          return {
+            ...reward,
+            media_url: mediaUrl,
+          };
+        })
+      );
 
       set({ rewardsMap: processedRewards });
     } catch (e) {
@@ -897,12 +919,13 @@ export const useUserStore = create<State>((set, get) => ({
   },
 
   claimReward: async (level: number) => {
-    const { user, fetchUnclaimedRewards, fetchProfile, fetchInventory, fetchTitles, fetchBorders } = get();
+    const { user, fetchUnclaimedRewards, fetchProfile, fetchInventory, fetchTitles, fetchBorders } =
+      get();
     if (!user) return false;
 
     try {
       const { data, error } = await db.gamification.rpc('claim_reward', {
-        p_level: level
+        p_level: level,
       });
 
       if (error) {
@@ -918,12 +941,11 @@ export const useUserStore = create<State>((set, get) => ({
           fetchInventory(), // Update items
           fetchTitles(), // Update titles
           fetchBorders(), // Update borders
-          get().fetchRewardsMap() // Refresh the map
+          get().fetchRewardsMap(), // Refresh the map
         ]);
         return true;
       }
       return false;
-
     } catch (e) {
       ErrorHandlerService.handle(e, { showUI: false });
       return false;
@@ -937,7 +959,7 @@ export const useUserStore = create<State>((set, get) => ({
     try {
       const { data, error } = await db.gamification.rpc('buy_shop_item', {
         p_item_name: itemId,
-        p_cost: price
+        p_cost: price,
       });
 
       if (error) throw error;
@@ -948,7 +970,6 @@ export const useUserStore = create<State>((set, get) => ({
         fetchInventory();
       }
       return { success: result.success, message: result.message };
-
     } catch (e: any) {
       const handled = ErrorHandlerService.handle(e, { showUI: false });
       return { success: false, message: handled.userMessage || 'Purchase failed' };
@@ -961,7 +982,7 @@ export const useUserStore = create<State>((set, get) => ({
 
     try {
       const { data, error } = await db.gamification.rpc('buy_lootbox', {
-        p_cost: price
+        p_cost: price,
       });
 
       if (error) throw error;
@@ -974,11 +995,10 @@ export const useUserStore = create<State>((set, get) => ({
           success: true,
           message: result.message,
           rewardType: result.reward_type,
-          rewardValue: result.reward_value
+          rewardValue: result.reward_value,
         };
       }
       return { success: false, message: result.message };
-
     } catch (e: any) {
       const handled = ErrorHandlerService.handle(e, { showUI: false });
       return { success: false, message: handled.userMessage || 'Transaction failed' };
@@ -1004,7 +1024,6 @@ export const useUserStore = create<State>((set, get) => ({
       const newSet = new Set(get().blockedUserIds);
       newSet.add(userId);
       set({ blockedUserIds: newSet });
-
     } catch (e: any) {
       ErrorHandlerService.handle(e, { showUI: false });
       throw e;
@@ -1018,7 +1037,6 @@ export const useUserStore = create<State>((set, get) => ({
       const newSet = new Set(get().blockedUserIds);
       newSet.delete(userId);
       set({ blockedUserIds: newSet });
-
     } catch (e: any) {
       ErrorHandlerService.handle(e, { showUI: false });
       throw e;
@@ -1027,7 +1045,5 @@ export const useUserStore = create<State>((set, get) => ({
 
   isBlocked: (userId: string) => {
     return get().blockedUserIds.has(userId);
-  }
+  },
 }));
-
-

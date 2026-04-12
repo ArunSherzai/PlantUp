@@ -12,6 +12,7 @@ import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import { FontAwesome6, MaterialCommunityIcons } from '@expo/vector-icons';
 import Feather from '@expo/vector-icons/Feather';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import { decode } from 'base64-arraybuffer';
 import { db } from '../../../utils/supabase';
 import { useUserStore } from '../../../stores/UserStore';
@@ -36,10 +37,11 @@ interface Props {
   showActionText: boolean;
   refreshPlants: () => void;
   onPress: () => void;
+  cardHeight?: number;
 }
 
 export const PlantCard = React.memo(
-  ({ item, onActionPress, showActionText, refreshPlants, onPress }: Props) => {
+  ({ item, onActionPress, showActionText, refreshPlants, onPress, cardHeight }: Props) => {
     const navigation = useNavigation<any>();
     const flip = useSharedValue(showActionText ? 1 : 0);
     const [typeDropdownOpen, setTypeDropdownOpen] = useState(false);
@@ -57,6 +59,7 @@ export const PlantCard = React.memo(
     const { user } = useUserStore();
     const [customImageUri, setCustomImageUri] = useState<string | null>(item.image_url || null);
     const [customImageBase64, setCustomImageBase64] = useState<string | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
 
     const [modalVisible, setModalVisible] = useState(false);
     const [connectPlantBoxVisible, setConnectPlantBoxVisible] = useState(false);
@@ -124,23 +127,31 @@ export const PlantCard = React.memo(
     };
 
     const uploadCustomImage = async (plantId: string): Promise<string | null> => {
-      if (!customImageUri || !customImageBase64) return null;
-      try {
-        const fileExt = customImageUri.split('.').pop() || 'jpg';
-        const fileName = `${plantId}.${fileExt}`;
-        const { data, error } = await db.public.storage
-          .from('plant-images')
-          .upload(fileName, decode(customImageBase64), {
-            contentType: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
-            upsert: true, // Overwrite if changing avatar
-          });
+      if (!customImageUri) return null;
 
-        if (error) throw error;
-        return data?.path || null;
-      } catch (e) {
-        ErrorHandlerService.handle(e, { showUI: false });
-        return null;
+      const base64FileData =
+        customImageBase64 ||
+        (await FileSystem.readAsStringAsync(customImageUri, {
+          encoding: FileSystem.EncodingType.Base64,
+        }));
+      const fileExtMatch = customImageUri.match(/\.([a-zA-Z0-9]+)(?:\?|$)/);
+      const fileExt = (fileExtMatch?.[1] || 'jpg').toLowerCase();
+      const normalizedExt = fileExt === 'jpeg' ? 'jpg' : fileExt;
+      const contentType = normalizedExt === 'jpg' ? 'image/jpeg' : `image/${normalizedExt}`;
+      const fileName = `${plantId}-${Date.now()}.${normalizedExt}`;
+
+      const { data, error } = await db.public.storage
+        .from('plant-images')
+        .upload(fileName, decode(base64FileData), {
+          contentType,
+          upsert: false,
+        });
+
+      if (error) {
+        throw new Error(`Image upload failed: ${error.message}`);
       }
+
+      return data?.path || null;
     };
 
     // Flip animation
@@ -177,41 +188,65 @@ export const PlantCard = React.memo(
 
     // Save data
     const handleSave = async () => {
-      let finalImageUrl = item.image_url;
+      let uploadedImagePath: string | null = null;
+      const hasNewImage = !!customImageUri && customImageUri !== item.image_url;
+      const hasChanges =
+        hasNewImage ||
+        editedName !== item.name ||
+        editedDescription !== item.description ||
+        editedType !== item.type_id;
+
+      if (!hasChanges) {
+        playSound('flip');
+        onActionPress();
+        return;
+      }
 
       try {
-        // If a NEW image was selected (we have base64 data)
-        if (customImageBase64 && user) {
+        setIsSaving(true);
+
+        if (hasNewImage) {
+          if (!user) {
+            throw new Error('You must be logged in to upload a plant image.');
+          }
+
           const uploadedUrl = await uploadCustomImage(item.id);
           if (uploadedUrl) {
-            finalImageUrl = uploadedUrl;
+            uploadedImagePath = uploadedUrl;
           } else {
             throw new Error('Image upload failed.');
           }
         }
 
-        const { error } = await db.social
-          .from('Plants')
-          .update({
-            nickname: editedName,
-            description: editedDescription,
-            plant_data_id: editedType,
-            image_url: finalImageUrl,
-          })
-          .eq('id', item.id);
+        const updates: {
+          nickname: string;
+          description: string;
+          plant_data_id?: number;
+          image_url?: string;
+        } = {
+          nickname: editedName,
+          description: editedDescription,
+          plant_data_id: editedType,
+        };
+
+        if (uploadedImagePath) {
+          updates.image_url = uploadedImagePath;
+        }
+
+        const { error } = await db.social.from('Plants').update(updates).eq('id', item.id);
 
         if (error) {
           throw error;
         }
 
-        playSound('flip');
         await refreshPlants();
-        // Only clear base64, so if they flip it back we still show the new image or original url
         setCustomImageBase64(null);
-        showModal('success', 'Saved!', 'Plant updated successfully.');
+        playSound('flip');
+        onActionPress();
       } catch (err: any) {
-        ErrorHandlerService.handle(err, { showUI: false });
         showModal('error', 'Update Failed', err.message || 'Could not update plant.');
+      } finally {
+        setIsSaving(false);
       }
     };
 
@@ -282,7 +317,12 @@ export const PlantCard = React.memo(
     }));
 
     return (
-      <View style={[styles.plantCard, showActionText && styles.plantCardExpanded]}>
+      <View
+        style={[
+          styles.plantCard,
+          showActionText && styles.plantCardExpanded,
+          cardHeight ? { height: cardHeight } : null,
+        ]}>
         {/* FRONT */}
         <TouchableOpacity
           style={styles.absoluteFill}
@@ -359,7 +399,9 @@ export const PlantCard = React.memo(
                       borderRadius: 24,
                       borderWidth: 2,
                       borderColor: 'white',
+                      backgroundColor: 'rgba(255,255,255,0.18)',
                     }}
+                    resizeMode="cover"
                   />
                   <View
                     style={{
@@ -508,8 +550,12 @@ export const PlantCard = React.memo(
                   <Text style={styles.cancelButtonText}>Cancel</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-                  <Text style={styles.buttonText}>Save</Text>
+                <TouchableOpacity
+                  style={styles.saveButton}
+                  onPress={handleSave}
+                  disabled={isSaving}
+                  activeOpacity={0.8}>
+                  <Text style={styles.buttonText}>{isSaving ? 'Saving...' : 'Save'}</Text>
                 </TouchableOpacity>
               </View>
             </View>

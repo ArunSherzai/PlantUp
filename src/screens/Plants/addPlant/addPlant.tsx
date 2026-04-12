@@ -6,20 +6,17 @@ import {
   Image,
   ActivityIndicator,
   ScrollView,
+  Keyboard,
 } from 'react-native';
 import { useUnistyles, StyleSheet } from '~/lib/unistyles';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useState, useEffect } from 'react';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Feather from '@expo/vector-icons/Feather';
 import * as ImagePicker from 'expo-image-picker';
 import { decode } from 'base64-arraybuffer';
 import { Dimensions } from 'react-native';
 import FilledButton from '~/features/auth/components/FilledButton';
 import { db } from '~/utils/supabase';
-import { useUserStore } from '~/stores/UserStore';
-import DraggableBottomSheet from '~/components/DraggableBottomSheet';
 import AlertModal from '~/components/AlertModal';
 import { getPublicPlantImageUrl } from '~/utils/media';
 import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
@@ -31,6 +28,7 @@ import {
 } from '~/features/plantlist/api/plantBox';
 import { showActionSheet, showAlertDialog } from '~/services/appDialog';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
 type PlantData = {
   id: number;
@@ -45,13 +43,19 @@ type PlantData = {
   sunlight_requirements?: string;
 };
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const IS_COMPACT_HEIGHT = SCREEN_HEIGHT < 700;
+const HEADER_HEIGHT = Math.min(Math.max(SCREEN_HEIGHT * 0.36, 220), 300);
+const SHEET_TOP = IS_COMPACT_HEIGHT ? Math.max(SCREEN_HEIGHT * 0.36, 224) : HEADER_HEIGHT - 18;
+const HEADER_TITLE_TOP = IS_COMPACT_HEIGHT ? 86 : 100;
+const HEADER_TITLE_SIZE = Math.min(Math.max(SCREEN_WIDTH * 0.105, 38), 50);
+const HEADER_TITLE_LINE_HEIGHT = Math.round(HEADER_TITLE_SIZE * 1.08);
 
 export default function AddPlantScreen() {
   const { theme } = useUnistyles();
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
-  const { user } = useUserStore();
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [nickname, setNickname] = useState('');
   const [description, setDescription] = useState('');
   const [plantDataId, setPlantDataId] = useState<number | null>(null);
@@ -90,6 +94,20 @@ export default function AddPlantScreen() {
     setModalConfig({ type, title, message });
     setModalVisible(true);
   };
+
+  useEffect(() => {
+    const showSubscription = Keyboard.addListener('keyboardDidShow', (event) => {
+      setKeyboardHeight(event.endCoordinates.height);
+    });
+    const hideSubscription = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
 
   const pickImage = async () => {
     const selection = await showActionSheet({
@@ -273,8 +291,7 @@ export default function AddPlantScreen() {
         throw new Error('No active session. Please log in again.');
       }
 
-      const userId = user.id;
-      console.log('Using user ID from auth session:', userId);
+      console.log('Using user ID from auth session:', user.id);
 
       if (!user) {
         ErrorHandlerService.handle(new Error('User not found in database'), { showUI: false });
@@ -365,287 +382,301 @@ export default function AddPlantScreen() {
   };
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <View style={styles.container}>
-        {/* Header Background */}
-        <View style={styles.headerBg}>
-          <Image
-            source={require('../../../../assets/images/updatePlant.png')}
-            style={styles.headerImage}
-            resizeMode="cover"
-          />
-          <TouchableOpacity style={styles.arrowIcon} onPress={() => navigation.goBack()}>
-            <Feather name="arrow-left" size={24} color={theme.colors.textDark} />
-          </TouchableOpacity>
-          <View style={styles.headerContainer}>
-            <Text style={styles.headerTitle}>Add</Text>
-            <Text style={styles.headerTitle}>your</Text>
-            <Text style={styles.headerTitle}>Plant!</Text>
-          </View>
+    <View style={styles.container}>
+      {/* Header Background */}
+      <View style={styles.headerBg}>
+        <Image
+          source={require('../../../../assets/images/updatePlant.png')}
+          style={styles.headerImage}
+          resizeMode="cover"
+        />
+        <TouchableOpacity style={styles.arrowIcon} onPress={() => navigation.goBack()}>
+          <Feather name="arrow-left" size={24} color={theme.colors.textDark} />
+        </TouchableOpacity>
+        <View style={styles.headerContainer}>
+          <Text style={styles.headerTitle}>Add</Text>
+          <Text style={styles.headerTitle}>your</Text>
+          <Text style={styles.headerTitle}>Plant!</Text>
         </View>
+      </View>
 
-        <View style={styles.sheetBackdrop} />
+      <View
+        style={[
+          styles.sheetContainer,
+          keyboardHeight > 0
+            ? {
+                top: Math.max(insets.top + 56, SHEET_TOP - Math.min(keyboardHeight * 0.5, 170)),
+              }
+            : null,
+        ]}>
+        <View style={styles.sheetHandleWrapper}>
+          <View style={styles.sheetHandle} />
+        </View>
+        <View style={styles.sheetInner}>
+          <KeyboardAwareScrollView
+            overScrollMode="never"
+            style={styles.formScrollView}
+            contentContainerStyle={[
+              styles.formContentContainer,
+              { paddingBottom: Math.max(Math.round(SCREEN_HEIGHT * 0.32), insets.bottom + 180) },
+            ]}
+            enableOnAndroid
+            extraHeight={32}
+            extraScrollHeight={24}
+            keyboardOpeningTime={0}
+            nestedScrollEnabled
+            scrollEnabled
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}>
+            <View style={{ alignItems: 'center', marginBottom: 20 }}>
+              <TouchableOpacity onPress={pickImage} style={styles.imagePickerButton}>
+                {customImageUri ? (
+                  <Image source={{ uri: customImageUri }} style={styles.imagePickerImage} />
+                ) : plantDataId && plantDataList.find((p) => p.id === plantDataId)?.image_url ? (
+                  <Image
+                    source={{ uri: plantDataList.find((p) => p.id === plantDataId)?.image_url }}
+                    style={styles.imagePickerImage}
+                  />
+                ) : (
+                  <Image style={styles.imagePickerImage} />
+                )}
+                <View style={styles.editIconContainer}>
+                  <Feather name="edit-2" size={16} color="white" />
+                </View>
+              </TouchableOpacity>
+            </View>
 
-        <DraggableBottomSheet
-          initialHeight={0.65}
-          maxHeight={0.94}
-          includeTabBarInset={false}>
-          <View style={styles.sheetInner}>
-            <ScrollView
-              overScrollMode="never"
-              style={styles.formScrollView}
-              contentContainerStyle={[
-                styles.formContentContainer,
-                { paddingBottom: Math.max(Math.round(SCREEN_HEIGHT * 0.32), insets.bottom + 180) },
-              ]}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}>
-              <View style={{ alignItems: 'center', marginBottom: 20 }}>
-                <TouchableOpacity onPress={pickImage} style={styles.imagePickerButton}>
-                  {customImageUri ? (
-                    <Image source={{ uri: customImageUri }} style={styles.imagePickerImage} />
-                  ) : plantDataId && plantDataList.find((p) => p.id === plantDataId)?.image_url ? (
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Nickname*</Text>
+              <TextInput
+                style={styles.input}
+                value={nickname}
+                onChangeText={setNickname}
+                placeholder="Enter plant nickname"
+                placeholderTextColor={theme.colors.text}
+                maxLength={50}
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Plant Type*</Text>
+              <TouchableOpacity
+                style={styles.dropdownButton}
+                onPress={toggleDropdown}
+                activeOpacity={0.8}>
+                <View style={styles.selectedPlantContainer}>
+                  {plantDataId && plantDataList.find((p) => p.id === plantDataId)?.image_url && (
                     <Image
                       source={{ uri: plantDataList.find((p) => p.id === plantDataId)?.image_url }}
-                      style={styles.imagePickerImage}
+                      style={styles.selectedPlantImage}
+                      resizeMode="cover"
                     />
-                  ) : (
-                    <Image style={styles.imagePickerImage} />
                   )}
-                  <View style={styles.editIconContainer}>
-                    <Feather name="edit-2" size={16} color="white" />
-                  </View>
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.inputContainer}>
-                <Text style={styles.label}>Nickname*</Text>
-                <TextInput
-                  style={styles.input}
-                  value={nickname}
-                  onChangeText={setNickname}
-                  placeholder="Enter plant nickname"
-                  placeholderTextColor={theme.colors.text}
-                  maxLength={50}
+                  <Text style={styles.dropdownButtonText}>
+                    {plantDataId
+                      ? plantDataList.find((p) => p.id === plantDataId)?.name || 'Select plant type'
+                      : 'Select plant type'}
+                  </Text>
+                </View>
+                <Feather
+                  name={isDropdownVisible ? 'chevron-up' : 'chevron-down'}
+                  size={20}
+                  color={theme.colors.text}
                 />
-              </View>
+              </TouchableOpacity>
 
-              <View style={styles.inputContainer}>
-                <Text style={styles.label}>Plant Type*</Text>
+              {isDropdownVisible && (
+                <View style={styles.dropdownContainer}>
+                  <ScrollView
+                    style={styles.dropdownScrollView}
+                    nestedScrollEnabled
+                    keyboardShouldPersistTaps="handled">
+                    {isLoadingPlants ? (
+                      <View style={styles.dropdownItem}>
+                        <ActivityIndicator size="small" color={theme.colors.primary} />
+                        <Text style={[styles.dropdownItemText, { marginLeft: 10 }]}>
+                          Loading plants...
+                        </Text>
+                      </View>
+                    ) : plantDataList.length > 0 ? (
+                      plantDataList.map((plant) => (
+                        <TouchableOpacity
+                          key={plant.id}
+                          style={styles.dropdownItem}
+                          onPress={() => {
+                            setPlantDataId(plant.id);
+                            setDropdownVisible(false);
+                          }}>
+                          <View style={styles.plantItem}>
+                            {plant.image_url && (
+                              <Image
+                                source={{ uri: plant.image_url }}
+                                style={styles.plantImage}
+                                resizeMode="cover"
+                              />
+                            )}
+                            <View style={styles.plantInfo}>
+                              <Text style={styles.dropdownItemText}>{plant.common_name}</Text>
+                              {plant.scientific_name && (
+                                <Text style={styles.dropdownItemScientific}>
+                                  {plant.scientific_name}
+                                </Text>
+                              )}
+                            </View>
+                          </View>
+                        </TouchableOpacity>
+                      ))
+                    ) : (
+                      <Text style={styles.dropdownItem}>
+                        No plant types available. Please try again later.
+                      </Text>
+                    )}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Description</Text>
+              <TextInput
+                style={[styles.input, { minHeight: 100, textAlignVertical: 'top' }]}
+                value={description}
+                onChangeText={setDescription}
+                placeholder="Tell us about your plant..."
+                placeholderTextColor={theme.colors.text}
+                multiline
+                numberOfLines={4}
+                maxLength={500}
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>PlantBox</Text>
+              <View style={styles.sensorCard}>
+                <View style={styles.sensorHeaderRow}>
+                  <Text style={styles.sensorTitle}>Sensor Connection</Text>
+                  <View
+                    style={
+                      pendingSensorBoxId ? styles.sensorBadgeConnected : styles.sensorBadgeIdle
+                    }>
+                    <Text style={styles.sensorBadgeText}>
+                      {pendingSensorBoxId ? 'Ready' : 'Not Connected'}
+                    </Text>
+                  </View>
+                </View>
+
                 <TouchableOpacity
                   style={styles.dropdownButton}
-                  onPress={toggleDropdown}
+                  onPress={() => setSensorDropdownVisible((current) => !current)}
                   activeOpacity={0.8}>
                   <View style={styles.selectedPlantContainer}>
-                    {plantDataId && plantDataList.find((p) => p.id === plantDataId)?.image_url && (
-                      <Image
-                        source={{ uri: plantDataList.find((p) => p.id === plantDataId)?.image_url }}
-                        style={styles.selectedPlantImage}
-                        resizeMode="cover"
-                      />
-                    )}
                     <Text style={styles.dropdownButtonText}>
-                      {plantDataId
-                        ? plantDataList.find((p) => p.id === plantDataId)?.name || 'Select plant type'
-                        : 'Select plant type'}
+                      {pendingSensorBoxId ? pendingSensorBoxId : 'Select a sensor'}
                     </Text>
                   </View>
                   <Feather
-                    name={isDropdownVisible ? 'chevron-up' : 'chevron-down'}
+                    name={sensorDropdownVisible ? 'chevron-up' : 'chevron-down'}
                     size={20}
                     color={theme.colors.text}
                   />
                 </TouchableOpacity>
 
-                {isDropdownVisible && (
+                {sensorDropdownVisible && (
                   <View style={styles.dropdownContainer}>
-                    <ScrollView style={styles.dropdownScrollView} keyboardShouldPersistTaps="handled">
-                      {isLoadingPlants ? (
+                    <ScrollView
+                      style={styles.dropdownScrollView}
+                      nestedScrollEnabled
+                      keyboardShouldPersistTaps="handled">
+                      {isLoadingSensors ? (
                         <View style={styles.dropdownItem}>
                           <ActivityIndicator size="small" color={theme.colors.primary} />
                           <Text style={[styles.dropdownItemText, { marginLeft: 10 }]}>
-                            Loading plants...
+                            Loading sensors...
                           </Text>
                         </View>
-                      ) : plantDataList.length > 0 ? (
-                        plantDataList.map((plant) => (
+                      ) : availableSensors.length > 0 ? (
+                        availableSensors.map((sensor) => (
                           <TouchableOpacity
-                            key={plant.id}
+                            key={sensor.controllerRecordId}
                             style={styles.dropdownItem}
                             onPress={() => {
-                              setPlantDataId(plant.id);
-                              setDropdownVisible(false);
+                              setSelectedControllerRecordId(sensor.controllerRecordId);
+                              setPendingSensorBoxId(sensor.sensorBoxId);
+                              setPendingSensorLastSeenAt(sensor.latestSeenAt);
+                              setSensorDropdownVisible(false);
                             }}>
-                            <View style={styles.plantItem}>
-                              {plant.image_url && (
-                                <Image
-                                  source={{ uri: plant.image_url }}
-                                  style={styles.plantImage}
-                                  resizeMode="cover"
-                                />
-                              )}
-                              <View style={styles.plantInfo}>
-                                <Text style={styles.dropdownItemText}>{plant.common_name}</Text>
-                                {plant.scientific_name && (
-                                  <Text style={styles.dropdownItemScientific}>
-                                    {plant.scientific_name}
-                                  </Text>
-                                )}
-                              </View>
+                            <View style={styles.sensorOptionRow}>
+                              <Text style={styles.dropdownItemText}>{sensor.sensorBoxId}</Text>
+                              <Text style={styles.dropdownItemScientific}>
+                                Controller row: {sensor.controllerRecordId}
+                              </Text>
+                              <Text style={styles.dropdownItemScientific}>
+                                Latest: {formatPlantBoxLastSeen(sensor.latestSeenAt)}
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.dropdownItemScientific,
+                                  sensor.existingPlantId && styles.sensorLinkedText,
+                                ]}>
+                                {sensor.existingPlantId
+                                  ? `Already linked to plant ${sensor.existingPlantId}`
+                                  : 'Currently unlinked'}
+                              </Text>
                             </View>
                           </TouchableOpacity>
                         ))
                       ) : (
                         <Text style={styles.dropdownItem}>
-                          No plant types available. Please try again later.
+                          No recent sensors are currently available.
                         </Text>
                       )}
                     </ScrollView>
                   </View>
                 )}
-              </View>
 
-              <View style={styles.inputContainer}>
-                <Text style={styles.label}>Description</Text>
-                <TextInput
-                  style={[styles.input, { minHeight: 100, textAlignVertical: 'top' }]}
-                  value={description}
-                  onChangeText={setDescription}
-                  placeholder="Tell us about your plant..."
-                  placeholderTextColor={theme.colors.text}
-                  multiline
-                  numberOfLines={4}
-                  maxLength={500}
-                />
-              </View>
-
-              <View style={styles.inputContainer}>
-                <Text style={styles.label}>PlantBox</Text>
-                <View style={styles.sensorCard}>
-                  <View style={styles.sensorHeaderRow}>
-                    <Text style={styles.sensorTitle}>Sensor Connection</Text>
-                    <View
-                      style={
-                        pendingSensorBoxId ? styles.sensorBadgeConnected : styles.sensorBadgeIdle
-                      }>
-                      <Text style={styles.sensorBadgeText}>
-                        {pendingSensorBoxId ? 'Ready' : 'Not Connected'}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <TouchableOpacity
-                    style={styles.dropdownButton}
-                    onPress={() => setSensorDropdownVisible((current) => !current)}
-                    activeOpacity={0.8}>
-                    <View style={styles.selectedPlantContainer}>
-                      <Text style={styles.dropdownButtonText}>
-                        {pendingSensorBoxId ? pendingSensorBoxId : 'Select a sensor'}
-                      </Text>
-                    </View>
-                    <Feather
-                      name={sensorDropdownVisible ? 'chevron-up' : 'chevron-down'}
-                      size={20}
-                      color={theme.colors.text}
-                    />
-                  </TouchableOpacity>
-
-                  {sensorDropdownVisible && (
-                    <View style={styles.dropdownContainer}>
-                      <ScrollView
-                        style={styles.dropdownScrollView}
-                        keyboardShouldPersistTaps="handled">
-                        {isLoadingSensors ? (
-                          <View style={styles.dropdownItem}>
-                            <ActivityIndicator size="small" color={theme.colors.primary} />
-                            <Text style={[styles.dropdownItemText, { marginLeft: 10 }]}>
-                              Loading sensors...
-                            </Text>
-                          </View>
-                        ) : availableSensors.length > 0 ? (
-                          availableSensors.map((sensor) => (
-                            <TouchableOpacity
-                              key={sensor.controllerRecordId}
-                              style={styles.dropdownItem}
-                              onPress={() => {
-                                setSelectedControllerRecordId(sensor.controllerRecordId);
-                                setPendingSensorBoxId(sensor.sensorBoxId);
-                                setPendingSensorLastSeenAt(sensor.latestSeenAt);
-                                setSensorDropdownVisible(false);
-                              }}>
-                              <View style={styles.sensorOptionRow}>
-                                <Text style={styles.dropdownItemText}>{sensor.sensorBoxId}</Text>
-                                <Text style={styles.dropdownItemScientific}>
-                                  Controller row: {sensor.controllerRecordId}
-                                </Text>
-                                <Text style={styles.dropdownItemScientific}>
-                                  Latest: {formatPlantBoxLastSeen(sensor.latestSeenAt)}
-                                </Text>
-                                <Text
-                                  style={[
-                                    styles.dropdownItemScientific,
-                                    sensor.existingPlantId && styles.sensorLinkedText,
-                                  ]}>
-                                  {sensor.existingPlantId
-                                    ? `Already linked to plant ${sensor.existingPlantId}`
-                                    : 'Currently unlinked'}
-                                </Text>
-                              </View>
-                            </TouchableOpacity>
-                          ))
-                        ) : (
-                          <Text style={styles.dropdownItem}>
-                            No recent sensors are currently available.
-                          </Text>
-                        )}
-                      </ScrollView>
-                    </View>
-                  )}
-
-                  {pendingSensorBoxId ? (
-                    <>
-                      <Text style={styles.sensorIdText}>{pendingSensorBoxId}</Text>
-                      <Text style={styles.sensorHelperText}>
-                        Latest reading: {formatPlantBoxLastSeen(pendingSensorLastSeenAt)}
-                      </Text>
-                      <Text style={styles.sensorHelperText}>
-                        The plant id and selected sensor id will be synced when you save the plant.
-                      </Text>
-                    </>
-                  ) : (
+                {pendingSensorBoxId ? (
+                  <>
+                    <Text style={styles.sensorIdText}>{pendingSensorBoxId}</Text>
                     <Text style={styles.sensorHelperText}>
-                      Choose any recent sensor here. If it is already linked, saving this plant will
-                      reassign it.
+                      Latest reading: {formatPlantBoxLastSeen(pendingSensorLastSeenAt)}
                     </Text>
-                  )}
-                </View>
+                    <Text style={styles.sensorHelperText}>
+                      The plant id and selected sensor id will be synced when you save the plant.
+                    </Text>
+                  </>
+                ) : (
+                  <Text style={styles.sensorHelperText}>
+                    Choose any recent sensor here. If it is already linked, saving this plant will
+                    reassign it.
+                  </Text>
+                )}
               </View>
+            </View>
 
-              <FilledButton
-                text={isLoading ? 'Saving...' : 'Save Plant'}
-                onPress={handleSave}
-                disabled={isLoading}
-                style={styles.saveButton}
-              />
-            </ScrollView>
-          </View>
-        </DraggableBottomSheet>
-
-        {/* Custom Result Modal */}
-        <AlertModal
-          visible={modalVisible}
-          type={modalConfig.type}
-          title={modalConfig.title}
-          message={modalConfig.message}
-          onClose={() => {
-            setModalVisible(false);
-            if (modalConfig.type === 'success') {
-              navigation.goBack();
-            }
-          }}
-        />
+            <FilledButton
+              text={isLoading ? 'Saving...' : 'Save Plant'}
+              onPress={handleSave}
+              disabled={isLoading}
+              style={styles.saveButton}
+            />
+          </KeyboardAwareScrollView>
+        </View>
       </View>
-    </GestureHandlerRootView>
+
+      {/* Custom Result Modal */}
+      <AlertModal
+        visible={modalVisible}
+        type={modalConfig.type}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        onClose={() => {
+          setModalVisible(false);
+          if (modalConfig.type === 'success') {
+            navigation.goBack();
+          }
+        }}
+      />
+    </View>
   );
 }
 
@@ -655,7 +686,7 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: '#FFFFFF',
   },
   headerBg: {
-    height: '42%',
+    height: HEADER_HEIGHT,
     width: '100%',
     position: 'absolute',
     top: 0,
@@ -673,21 +704,43 @@ const styles = StyleSheet.create((theme) => ({
   },
   headerContainer: {
     position: 'absolute',
-    top: 100,
+    top: HEADER_TITLE_TOP,
     left: 20,
+    width: Math.min(SCREEN_WIDTH * 0.58, 240),
   },
   headerTitle: {
-    fontSize: 48,
+    fontSize: HEADER_TITLE_SIZE,
+    lineHeight: HEADER_TITLE_LINE_HEIGHT,
     fontWeight: 'bold',
     color: theme.colors.textDark,
   },
-  sheetBackdrop: {
+  sheetContainer: {
     position: 'absolute',
     left: 0,
     right: 0,
-    top: '42%',
+    top: SHEET_TOP,
     bottom: 0,
     backgroundColor: theme.colors.surface,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 10,
+  },
+  sheetHandleWrapper: {
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.surface,
+  },
+  sheetHandle: {
+    width: 50,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: theme.colors.greyedOut,
   },
   formScrollView: {
     flex: 1,

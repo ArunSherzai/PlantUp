@@ -90,7 +90,9 @@ export const styles = StyleSheet.create((theme) => ({
     width: Math.min(Math.max(vw * 24, 88), 112),
     height: Math.min(Math.max(vw * 24, 88), 112),
     marginRight: Math.min(Math.max(vw * 4.5, 14), 20),
-    resizeMode: 'contain',
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    resizeMode: 'cover',
   },
 
   infoColumn: {

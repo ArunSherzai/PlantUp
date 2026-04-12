@@ -56,12 +56,7 @@ function RotatingPlantScene({ seed, growth }: { seed: number; growth: number }) 
 
   return (
     <group ref={groupRef}>
-      <PotModel
-        potType="PotStandard"
-        scale={1}
-        position={[0, -0.25, 0]}
-        rotation={[0, 0, 0]}
-      />
+      <PotModel potType="PotStandard" scale={1} position={[0, -0.25, 0]} rotation={[0, 0, 0]} />
       <group position={[0, -0.02, 0]}>
         <LSystemPlant3D seed={seed} growth={growth} config={lsystemConfig} />
       </group>
@@ -69,7 +64,12 @@ function RotatingPlantScene({ seed, growth }: { seed: number; growth: number }) 
   );
 }
 
-export default function RankCard({ level, xp, rankName = 'Blooming Sprout', seed = 12345 }: RankCardProps) {
+export default function RankCard({
+  level,
+  xp,
+  rankName = 'Blooming Sprout',
+  seed = 12345,
+}: RankCardProps) {
   const RANK_GRADIENTS: Record<string, [string, string]> = {
     Evergreen: ['#29d071', '#23b060'],
     Roseheart: ['#f68580', '#e57373'],
@@ -98,12 +98,17 @@ export default function RankCard({ level, xp, rankName = 'Blooming Sprout', seed
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
+    const fallbackTimer = setTimeout(() => {
+      setIsPlantReady(true);
+    }, 3500);
+
     const task = InteractionManager.runAfterInteractions(() => {
       timer = setTimeout(() => setIsPlantReady(true), 1500);
     });
     return () => {
       task.cancel();
       if (timer) clearTimeout(timer);
+      clearTimeout(fallbackTimer);
     };
   }, []);
 
@@ -113,21 +118,20 @@ export default function RankCard({ level, xp, rankName = 'Blooming Sprout', seed
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={styles.container}>
-
       {/* 3D Plant Preview - Inline Canvas like test screen */}
-      <ErrorBoundary fallback={
-        <View style={[styles.plantContainer, { justifyContent: 'center', alignItems: 'center' }]}>
-          <Text style={{ color: 'white' }}>3D View Unavailable</Text>
-        </View>
-      }>
+      <ErrorBoundary
+        fallback={
+          <View style={[styles.plantContainer, { justifyContent: 'center', alignItems: 'center' }]}>
+            <Text style={{ color: 'white' }}>3D View Unavailable</Text>
+          </View>
+        }>
         <View style={styles.plantContainer}>
           {isPlantReady ? (
             <Canvas
               dpr={[1, 2]}
               camera={{ position: [0.8, 0.5, 0.8], fov: 45, near: 0.01, far: 50 }}
               style={{ flex: 1 }}
-              onCreated={(state) => patchExpoGL(state)}
-            >
+              onCreated={(state) => patchExpoGL(state)}>
               <CameraController />
 
               {/* Lighting */}
@@ -143,7 +147,9 @@ export default function RankCard({ level, xp, rankName = 'Blooming Sprout', seed
           ) : (
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
               <ActivityIndicator color="#FFFFFF" />
-              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 8 }}>Pflanze lädt...</Text>
+              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 8 }}>
+                Pflanze lädt...
+              </Text>
             </View>
           )}
         </View>

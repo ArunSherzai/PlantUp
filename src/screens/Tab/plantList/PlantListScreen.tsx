@@ -1,33 +1,32 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
-import {
-  View,
-  Text,
-  Image,
-  FlatList,
-  ActivityIndicator,
-  Dimensions,
-} from 'react-native';
+import { View, Text, Image, FlatList, ActivityIndicator, Dimensions, Keyboard } from 'react-native';
 import { playSound } from '~/utils/SoundManager';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PlantCoinBox } from '~/components/PlantCoinBox';
 import { useNavigation } from '@react-navigation/native';
 
 import FilledButton from '~/features/auth/components/FilledButton';
-import { useFonts, Nunito_400Regular } from '@expo-google-fonts/nunito';
 
 import { StyleSheet, useUnistyles } from '~/lib/unistyles';
 
 import { PlantCard } from '~/features/plantlist/components/Plantcard';
 import { usePlants } from '~/features/plantlist/hooks/usePlants';
-import { vw, vh } from '../../../features/plantlist/styles/plantStyles';
 
 const { width, height } = Dimensions.get('window');
-const heroHeight = Math.min(Math.max(height * 0.34, 230), 320);
+const isCompactHeight = height < 700;
+const heroHeight = isCompactHeight
+  ? Math.min(Math.max(height * 0.3, 170), 220)
+  : Math.min(Math.max(height * 0.34, 230), 320);
 const sheetRadius = Math.min(Math.max(width * 0.08, 26), 34);
 const sheetOverlap = Math.min(Math.max(height * 0.03, 18), 30);
 const sidePadding = Math.min(Math.max(width * 0.06, 20), 28);
 const titleWidth = Math.min(width * 0.56, 250);
+const sheetHeight = height - (heroHeight - sheetOverlap);
+const collapsedCardHeight = Math.min(Math.max(height * 0.29, 230), 290);
+const expandedCardHeight = isCompactHeight
+  ? Math.max(250, Math.min(340, sheetHeight - Math.min(Math.max(height * 0.2, 112), 140)))
+  : Math.min(Math.max(height * 0.46, 360), 470);
 
 export default function PlantListScreen() {
   const navigation = useNavigation<any>();
@@ -40,8 +39,28 @@ export default function PlantListScreen() {
   const [actionMenuIndex, setActionMenuIndex] = useState<number | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const { plants, refreshPlants } = usePlants();
-  const [fontsLoaded] = useFonts({ Nunito_400Regular });
   const [isLoading] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const isEditingCard = actionMenuIndex !== null;
+  const shouldHideEditMeta = isEditingCard;
+  const sheetKeyboardOffset =
+    isEditingCard && keyboardHeight > 0
+      ? Math.min(keyboardHeight * 0.62, isCompactHeight ? 180 : 230)
+      : 0;
+
+  useEffect(() => {
+    const showSubscription = Keyboard.addListener('keyboardDidShow', (event) => {
+      setKeyboardHeight(event.endCoordinates.height);
+    });
+    const hideSubscription = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -60,14 +79,6 @@ export default function PlantListScreen() {
   const handleAddPlant = () => {
     navigation.navigate('Add a Plant');
   };
-
-  if (!fontsLoaded) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator color={theme.colors.typography} />
-      </View>
-    );
-  }
 
   if (isLoading) {
     return (
@@ -101,7 +112,11 @@ export default function PlantListScreen() {
       </View>
 
       {/* Bottom Sheet Container */}
-      <View style={styles.staticSheetContainer}>
+      <View
+        style={[
+          styles.staticSheetContainer,
+          sheetKeyboardOffset > 0 ? { transform: [{ translateY: -sheetKeyboardOffset }] } : null,
+        ]}>
         <View style={styles.sheetContent}>
           <View style={styles.sheetHandle} />
 
@@ -124,6 +139,10 @@ export default function PlantListScreen() {
 
           <View style={styles.carouselContainer}>
             <FlatList
+              style={[
+                styles.carouselList,
+                { height: isEditingCard ? expandedCardHeight : collapsedCardHeight },
+              ]}
               onScroll={(event) => {
                 const index = Math.round(
                   event.nativeEvent.contentOffset.x / event.nativeEvent.layoutMeasurement.width
@@ -157,12 +176,13 @@ export default function PlantListScreen() {
                   }
                   showActionText={actionMenuIndex === index}
                   refreshPlants={refreshPlants}
+                  cardHeight={actionMenuIndex === index ? expandedCardHeight : collapsedCardHeight}
                 />
               )}
             />
 
             {/* Dots */}
-            {plants && plants.length > 0 && (
+            {plants && plants.length > 0 && !shouldHideEditMeta && (
               <View style={styles.paginationContainer}>
                 {plants.map((_, i) => (
                   <View
@@ -173,14 +193,16 @@ export default function PlantListScreen() {
               </View>
             )}
 
-            {plants.length > 0 && (
+            {plants.length > 0 && !shouldHideEditMeta && (
               <Text style={styles.sheetHint}>Tap a card to open plant stats.</Text>
             )}
           </View>
 
-          <View style={styles.ctaContainer}>
-            <FilledButton style={styles.ctaButton} text="+ Add Plant" onPress={handleAddPlant} />
-          </View>
+          {!shouldHideEditMeta && (
+            <View style={styles.ctaContainer}>
+              <FilledButton style={styles.ctaButton} text="+ Add Plant" onPress={handleAddPlant} />
+            </View>
+          )}
         </View>
       </View>
     </View>
@@ -288,6 +310,10 @@ const stylesheet = (theme: any, insets: { bottom: number }) =>
     carouselContainer: {
       flex: 1,
       justifyContent: 'flex-start',
+    },
+    carouselList: {
+      flexGrow: 0,
+      flexShrink: 0,
     },
     carouselContent: {
       paddingHorizontal: Math.max(width * 0.005, 2),

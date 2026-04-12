@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, Image, ActivityIndicator, StyleSheet, TouchableOpacity, InteractionManager } from 'react-native';
+import { View, Text, Image, ActivityIndicator, StyleSheet, TouchableOpacity } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { Image as ExpoImage } from 'expo-image';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -21,41 +21,53 @@ import GradientIcon from '../../../components/GradientIcon';
 import GradientText from '../../../components/GradientText';
 // import RankCard from '../../../components/RankCard'; // Not used if inline
 import RewardItem from '../../../components/RewardItem';
-import { getRankName, Reward, getLevelProgress, getXPForNextLevel, getTotalXPForLevel } from '../../../utils/leveling';
+import {
+  getRankName,
+  Reward,
+  getLevelProgress,
+  getXPForNextLevel,
+  getTotalXPForLevel,
+} from '../../../utils/leveling';
 import PostListTab from './components/PostListTab';
 import { FontAwesome5 } from '@expo/vector-icons';
 import RewardDetailsModal from '../../../components/RewardDetailsModal';
 import PlantPotPreview, { PlantMode } from '../../../components/PlantPotPreview';
-import { useMemo, memo } from 'react';
+import { useEffect, useMemo, memo } from 'react';
 import MentorBadge from '../../../components/MentorBadge';
 import { isMentor } from '../../../utils/mentorUtils';
 import { FlatList } from 'react-native';
 import { useInboxStore } from '../../../stores/InboxStore';
 import { showAlertDialog } from '~/services/appDialog';
 
-
 // --- Sub-components to prevent full screen re-renders ---
-const StatsRow = memo(({ stats, theme, typographyColor }: { stats: any[], theme: any, typographyColor: string }) => (
-  <View style={[styles.statsRow, { backgroundColor: theme.colors.background }]}>
-    {stats.map((stat, index) => {
-      const content = (
-        <>
-          <GradientText text={String(stat.value)} style={[styles.statValue, { color: theme.colors.primary }]} />
-          <Text style={[styles.statLabel, { color: typographyColor, opacity: 0.6 }]}>{stat.label}</Text>
-        </>
-      );
-      return stat.onPress ? (
-        <TouchableOpacity key={index} style={styles.statItem} onPress={stat.onPress}>
-          {content}
-        </TouchableOpacity>
-      ) : (
-        <View key={index} style={styles.statItem}>
-          {content}
-        </View>
-      );
-    })}
-  </View>
-));
+const StatsRow = memo(
+  ({ stats, theme, typographyColor }: { stats: any[]; theme: any; typographyColor: string }) => (
+    <View style={[styles.statsRow, { backgroundColor: theme.colors.background }]}>
+      {stats.map((stat, index) => {
+        const content = (
+          <>
+            <GradientText
+              text={String(stat.value)}
+              style={[styles.statValue, { color: theme.colors.primary }]}
+            />
+            <Text style={[styles.statLabel, { color: typographyColor, opacity: 0.6 }]}>
+              {stat.label}
+            </Text>
+          </>
+        );
+        return stat.onPress ? (
+          <TouchableOpacity key={index} style={styles.statItem} onPress={stat.onPress}>
+            {content}
+          </TouchableOpacity>
+        ) : (
+          <View key={index} style={styles.statItem}>
+            {content}
+          </View>
+        );
+      })}
+    </View>
+  )
+);
 
 export default function ProfileScreen() {
   const { theme } = useUnistyles();
@@ -63,16 +75,16 @@ export default function ProfileScreen() {
   const navigation = useNavigation<any>();
 
   // Use selectors to prevent unnecessary re-renders when other parts of the store change
-  const user = useUserStore(state => state.user);
-  const profile = useUserStore(state => state.profile);
-  const fetchProfile = useUserStore(state => state.fetchProfile);
-  const fetchUnclaimedRewards = useUserStore(state => state.fetchUnclaimedRewards);
-  const unclaimedRewards = useUserStore(state => state.unclaimedRewards);
-  const claimReward = useUserStore(state => state.claimReward);
-  const rewardsMap = useUserStore(state => state.rewardsMap);
-  const fetchRewardsMap = useUserStore(state => state.fetchRewardsMap);
-  const startTutorial = useTutorialStore(state => state.startTutorial);
-  const unreadInboxCount = useInboxStore(state => state.unreadCount());
+  const user = useUserStore((state) => state.user);
+  const profile = useUserStore((state) => state.profile);
+  const fetchProfile = useUserStore((state) => state.fetchProfile);
+  const fetchUnclaimedRewards = useUserStore((state) => state.fetchUnclaimedRewards);
+  const unclaimedRewards = useUserStore((state) => state.unclaimedRewards);
+  const claimReward = useUserStore((state) => state.claimReward);
+  const rewardsMap = useUserStore((state) => state.rewardsMap);
+  const fetchRewardsMap = useUserStore((state) => state.fetchRewardsMap);
+  const startTutorial = useTutorialStore((state) => state.startTutorial);
+  const unreadInboxCount = useInboxStore((state) => state.unreadCount());
 
   const [activeTab, setActiveTab] = useState('leveling');
   const [isBioExpanded, setIsBioExpanded] = useState(false);
@@ -82,6 +94,14 @@ export default function ProfileScreen() {
 
   // New state to delay heavy 3D plant rendering to improve startup responsiveness
   const [isPlantReady, setIsPlantReady] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsPlantReady(true);
+    }, 1200);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -102,18 +122,7 @@ export default function ProfileScreen() {
         }, 500);
       }
 
-      // Defer plant rendering significantly more to ensure startup interactions are priority
-      let timer: NodeJS.Timeout;
-      const task = InteractionManager.runAfterInteractions(() => {
-        timer = setTimeout(() => {
-          setIsPlantReady(true);
-        }, 3000); // 3-second safety window for heavy assets
-      });
-
-      return () => {
-        task.cancel();
-        if (timer) clearTimeout(timer);
-      };
+      return undefined;
     }, [user, profile, fetchProfile, fetchUnclaimedRewards, startTutorial])
   );
 
@@ -125,7 +134,9 @@ export default function ProfileScreen() {
   const xpForNext = getXPForNextLevel(currentLevel);
   const xpInLevel = currentXP - currentLevelXP;
   const xpNeededInLevel = xpForNext - currentLevelXP;
-  const plantSeed = user?.id ? user.id.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0) : 12345;
+  const plantSeed = user?.id
+    ? user.id.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0)
+    : 12345;
 
   // Calculate L-System config based on growth (0-100) - moved to top level to avoid hook errors
   const lsystemConfig = useMemo(() => {
@@ -144,27 +155,42 @@ export default function ProfileScreen() {
 
   if (!user || !profile) {
     return (
-      <View style={{ flex: 1, backgroundColor: theme.colors.background, justifyContent: 'center', alignItems: 'center' }}>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: theme.colors.background,
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
   }
 
   // Placeholder data for stats (memoized)
-  const stats = useMemo(() => [
-    { label: 'Plants', value: profile?.plants_count || 0 },
-    { label: 'Coins', value: profile?.plant_coins || 0 },
-    {
-      label: 'Following',
-      value: profile?.following_count || 0,
-      onPress: () => navigation.navigate('Connections', { initialTab: 'following' })
-    },
-    {
-      label: 'Follower',
-      value: profile?.followers_count || 0,
-      onPress: () => navigation.navigate('Connections', { initialTab: 'followers' })
-    },
-  ], [profile?.plants_count, profile?.plant_coins, profile?.following_count, profile?.followers_count, navigation]);
+  const stats = useMemo(
+    () => [
+      { label: 'Plants', value: profile?.plants_count || 0 },
+      { label: 'Coins', value: profile?.plant_coins || 0 },
+      {
+        label: 'Following',
+        value: profile?.following_count || 0,
+        onPress: () => navigation.navigate('Connections', { initialTab: 'following' }),
+      },
+      {
+        label: 'Follower',
+        value: profile?.followers_count || 0,
+        onPress: () => navigation.navigate('Connections', { initialTab: 'followers' }),
+      },
+    ],
+    [
+      profile?.plants_count,
+      profile?.plant_coins,
+      profile?.following_count,
+      profile?.followers_count,
+      navigation,
+    ]
+  );
 
   const handleClaimReward = async (level: number, title: string) => {
     const success = await claimReward(level);
@@ -187,9 +213,12 @@ export default function ProfileScreen() {
 
     // 2. Specific Local Assts based on Type/ID
     switch (reward.reward_type) {
-      case 'COINS': return require('../../../../assets/images/plantupcoin.png');
-      case 'XP_BOOST': return require('../../../../assets/images/XPBoostItem.png');
-      default: return undefined;
+      case 'COINS':
+        return require('../../../../assets/images/plantupcoin.png');
+      case 'XP_BOOST':
+        return require('../../../../assets/images/XPBoostItem.png');
+      default:
+        return undefined;
     }
   };
 
@@ -229,8 +258,7 @@ export default function ProfileScreen() {
           <>
             <TouchableOpacity
               style={[styles.plantsButton, { backgroundColor: theme.colors.background }]}
-              onPress={() => navigation.navigate('UserPlants', { userId: user.id })}
-            >
+              onPress={() => navigation.navigate('UserPlants', { userId: user.id })}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <Image
                   source={require('../../../../assets/images/ProfilePlantIcon.png')}
@@ -262,7 +290,15 @@ export default function ProfileScreen() {
                   style={[styles.profileCard, { alignItems: 'center', width: '100%', padding: 20 }]} // Reusing profileCard style as base
                 >
                   {/* 3D Plant Container */}
-                  <View style={{ height: vw * 75, width: '100%', borderRadius: 25, overflow: 'hidden', backgroundColor: 'rgba(0,0,0,0.05)', marginBottom: 20 }}>
+                  <View
+                    style={{
+                      height: vw * 75,
+                      width: '100%',
+                      borderRadius: 25,
+                      overflow: 'hidden',
+                      backgroundColor: 'rgba(0,0,0,0.05)',
+                      marginBottom: 20,
+                    }}>
                     {isPlantReady ? (
                       <PlantPotPreview
                         seed={plantSeed}
@@ -279,42 +315,53 @@ export default function ProfileScreen() {
                   </View>
 
                   {/* Level Info */}
-                  <Text style={{
-                    fontSize: 32,
-                    fontWeight: '900',
-                    color: '#FFFFFF',
-                    textShadowColor: 'rgba(0, 0, 0, 0.2)',
-                    textShadowOffset: { width: 0, height: 2 },
-                    textShadowRadius: 4,
-                  }}>Level {currentLevel}</Text>
-                  <Text style={{
-                    fontSize: 14,
-                    color: 'rgba(255, 255, 255, 0.9)',
-                    marginTop: 4,
-                    marginBottom: 15,
-                    fontWeight: '600',
-                  }}>{xpInLevel} / {xpNeededInLevel} XP</Text>
+                  <Text
+                    style={{
+                      fontSize: 32,
+                      fontWeight: '900',
+                      color: '#FFFFFF',
+                      textShadowColor: 'rgba(0, 0, 0, 0.2)',
+                      textShadowOffset: { width: 0, height: 2 },
+                      textShadowRadius: 4,
+                    }}>
+                    Level {currentLevel}
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      color: 'rgba(255, 255, 255, 0.9)',
+                      marginTop: 4,
+                      marginBottom: 15,
+                      fontWeight: '600',
+                    }}>
+                    {xpInLevel} / {xpNeededInLevel} XP
+                  </Text>
 
                   {/* Progress Bar */}
-                  <View style={{
-                    width: '100%',
-                    height: 12,
-                    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-                    borderRadius: 6,
-                    overflow: 'hidden',
-                  }}>
-                    <View style={{
-                      height: '100%',
+                  <View
+                    style={{
+                      width: '100%',
+                      height: 12,
+                      backgroundColor: 'rgba(255, 255, 255, 0.25)',
                       borderRadius: 6,
-                      backgroundColor: '#FFFFFF',
-                      width: `${progress * 100}%`
-                    }} />
+                      overflow: 'hidden',
+                    }}>
+                    <View
+                      style={{
+                        height: '100%',
+                        borderRadius: 6,
+                        backgroundColor: '#FFFFFF',
+                        width: `${progress * 100}%`,
+                      }}
+                    />
                   </View>
                 </LinearGradient>
               );
             })()}
 
-            <Text style={[styles.sectionTitle, { color: theme.colors.typography }]}>Level Rewards</Text>
+            <Text style={[styles.sectionTitle, { color: theme.colors.typography }]}>
+              Level Rewards
+            </Text>
 
             {rewardsMap.length > 0 ? (
               <FlatList
@@ -346,7 +393,9 @@ export default function ProfileScreen() {
               />
             ) : (
               <View style={styles.comingSoonContainer}>
-                <Text style={[styles.comingSoonText, { color: theme.colors.typography }]}>Fetching rewards...</Text>
+                <Text style={[styles.comingSoonText, { color: theme.colors.typography }]}>
+                  Fetching rewards...
+                </Text>
               </View>
             )}
           </>
@@ -386,8 +435,7 @@ export default function ProfileScreen() {
           <View style={styles.headerTopRow}>
             <TouchableOpacity
               style={[styles.iconButton, { marginRight: 8 }]}
-              onPress={() => navigation.navigate('Notifications')}
-            >
+              onPress={() => navigation.navigate('Notifications')}>
               <View>
                 <FontAwesome6 name="bell" size={22} color={theme.colors.textDark} />
                 {unreadInboxCount > 0 && (
@@ -403,16 +451,14 @@ export default function ProfileScreen() {
             {/* Border Inventory Button */}
             <TouchableOpacity
               style={[styles.iconButton, { marginRight: 8 }]}
-              onPress={() => navigation.navigate('BorderInventory')}
-            >
+              onPress={() => navigation.navigate('BorderInventory')}>
               <FontAwesome5 name="tshirt" size={20} color={theme.colors.textDark} />
             </TouchableOpacity>
 
             {/* Settings Button */}
             <TouchableOpacity
               style={styles.iconButton}
-              onPress={() => navigation.navigate('Settings')}
-            >
+              onPress={() => navigation.navigate('Settings')}>
               <FontAwesome6 name="gear" size={24} color={theme.colors.textDark} />
             </TouchableOpacity>
           </View>
@@ -421,19 +467,17 @@ export default function ProfileScreen() {
             style={[styles.headerTitle, { color: theme.colors.textDark }]}
             adjustsFontSizeToFit
             numberOfLines={3}
-            minimumFontScale={0.5}
-          >
+            minimumFontScale={0.5}>
             Your{'\n'}Growing{'\n'}Profile!
           </Text>
         </View>
       </View>
 
       {/* Draggable Bottom Sheet */}
-      <DraggableBottomSheet initialHeight={0.70} maxHeight={0.9}>
+      <DraggableBottomSheet initialHeight={0.7} maxHeight={0.9}>
         <ScrollView
           contentContainerStyle={[styles.sheetContent, { paddingBottom: 100 }]}
           showsVerticalScrollIndicator={false}>
-
           {/* Profile Card */}
           <View style={[styles.profileCard, { backgroundColor: theme.colors.background }]}>
             <View style={styles.topRow}>
@@ -463,8 +507,7 @@ export default function ProfileScreen() {
                   <Text
                     style={[styles.userName, { color: theme.colors.text }]}
                     numberOfLines={1}
-                    adjustsFontSizeToFit
-                  >
+                    adjustsFontSizeToFit>
                     {profile?.username || user?.email?.split('@')[0] || 'Gardener'}
                   </Text>
                   {(profile?.level || 0) >= 25 && (
@@ -477,19 +520,24 @@ export default function ProfileScreen() {
                 <TouchableOpacity
                   onPress={() => navigation.navigate('TitleInventory')}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, minHeight: 32 }}
-                >
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    marginTop: 4,
+                    minHeight: 32,
+                  }}>
                   <Text
                     style={{
                       fontSize: 14,
-                      color: profile?.title ? (profile.titlecolor || theme.colors.text) : theme.colors.greyedOut,
+                      color: profile?.title
+                        ? profile.titlecolor || theme.colors.text
+                        : theme.colors.greyedOut,
                       fontWeight: profile?.title ? '600' : '400',
                       fontStyle: profile?.title ? 'normal' : 'italic',
                       marginRight: 8,
                       flexShrink: 1,
                     }}
-                    numberOfLines={1}
-                  >
+                    numberOfLines={1}>
                     {profile?.title || 'Select Title'}
                   </Text>
                   <GradientIcon name="pen" size={12} />
@@ -504,20 +552,24 @@ export default function ProfileScreen() {
                   style={[styles.userBio, { position: 'absolute', opacity: 0, zIndex: -1 }]}
                   onTextLayout={(e: { nativeEvent: { lines: any[] } }) => {
                     if (e.nativeEvent.lines.length > 1) setIsBioTruncated(true);
-                  }}
-                >
+                  }}>
                   {profile.bio}
                 </Text>
 
                 <Text
                   style={[styles.userBio, { color: theme.colors.text }]}
-                  numberOfLines={isBioExpanded ? undefined : 1}
-                >
+                  numberOfLines={isBioExpanded ? undefined : 1}>
                   {profile.bio}
                 </Text>
                 {isBioTruncated && (
                   <TouchableOpacity onPress={() => setIsBioExpanded(!isBioExpanded)}>
-                    <Text style={{ color: theme.colors.primary, fontSize: 12, marginTop: 4, fontWeight: '600' }}>
+                    <Text
+                      style={{
+                        color: theme.colors.primary,
+                        fontSize: 12,
+                        marginTop: 4,
+                        fontWeight: '600',
+                      }}>
                       {isBioExpanded ? 'Show less' : 'Show more'}
                     </Text>
                   </TouchableOpacity>
@@ -530,9 +582,7 @@ export default function ProfileScreen() {
 
           {/* Action Buttons */}
           <View style={[styles.actionRow, { backgroundColor: theme.colors.background }]}>
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => setActiveTab('leveling')}>
+            <TouchableOpacity style={styles.actionButton} onPress={() => setActiveTab('leveling')}>
               {activeTab === 'leveling' ? (
                 <View style={{ alignItems: 'center', width: '100%' }}>
                   <GradientIcon name="seedling" size={20} />
@@ -581,7 +631,6 @@ export default function ProfileScreen() {
 
           {/* Dynamic Content */}
           {renderContent()}
-
         </ScrollView>
       </DraggableBottomSheet>
 
@@ -601,7 +650,7 @@ export default function ProfileScreen() {
           }
         }}
       />
-    </View >
+    </View>
   );
 }
 

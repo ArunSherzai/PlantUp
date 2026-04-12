@@ -59,6 +59,7 @@ export function usePlants(userId?: string) {
       type_id: p.plant_data_id ?? undefined,
       description: p.description,
       image_url: getPublicPlantImageUrl(p.image_url) || undefined,
+      imagePath: p.image_url,
       sensorBoxId: latestControllerByPlant.get(p.id)?.sensorBoxId,
       sensorLastSeenAt: latestControllerByPlant.get(p.id)?.lastSeenAt,
       image: '',
