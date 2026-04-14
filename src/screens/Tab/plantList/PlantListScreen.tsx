@@ -21,6 +21,9 @@ const heroHeight = isCompactHeight
 const sheetRadius = Math.min(Math.max(width * 0.08, 26), 34);
 const sheetOverlap = Math.min(Math.max(height * 0.03, 18), 30);
 const sidePadding = Math.min(Math.max(width * 0.06, 20), 28);
+const carouselWidth = width - sidePadding * 2;
+const cardInset = Math.min(Math.max(width * 0.025, 10), 14);
+const plantCardWidth = carouselWidth - cardInset * 2;
 const titleWidth = Math.min(width * 0.56, 250);
 const sheetHeight = height - (heroHeight - sheetOverlap);
 const collapsedCardHeight = Math.min(Math.max(height * 0.29, 230), 290);
@@ -144,9 +147,7 @@ export default function PlantListScreen() {
                 { height: isEditingCard ? expandedCardHeight : collapsedCardHeight },
               ]}
               onScroll={(event) => {
-                const index = Math.round(
-                  event.nativeEvent.contentOffset.x / event.nativeEvent.layoutMeasurement.width
-                );
+                const index = Math.round(event.nativeEvent.contentOffset.x / carouselWidth);
                 // Only update if changed to avoid duplicate sounds if user scrolls a tiny bit and snap back
                 if (index !== activeIndex) {
                   setActiveIndex(index);
@@ -156,28 +157,40 @@ export default function PlantListScreen() {
               data={plants}
               keyExtractor={(item) => item.id}
               horizontal
-              pagingEnabled
+              snapToInterval={carouselWidth}
+              snapToAlignment="start"
+              disableIntervalMomentum
               decelerationRate="fast"
+              scrollEventThrottle={16}
               showsHorizontalScrollIndicator={false}
-              ItemSeparatorComponent={() => <View style={styles.cardGap} />}
               contentContainerStyle={styles.carouselContent}
+              getItemLayout={(_, index) => ({
+                length: carouselWidth,
+                offset: carouselWidth * index,
+                index,
+              })}
               ListEmptyComponent={() => (
                 <View style={styles.emptyListContainer}>
                   <Text style={styles.emptyListText}>You have no plants!</Text>
                 </View>
               )}
               renderItem={({ item, index }) => (
-                <PlantCard
-                  item={item}
-                  index={index}
-                  onPress={() => handleViewStats(item.id)}
-                  onActionPress={() =>
-                    setActionMenuIndex((prev) => (prev === index ? null : index))
-                  }
-                  showActionText={actionMenuIndex === index}
-                  refreshPlants={refreshPlants}
-                  cardHeight={actionMenuIndex === index ? expandedCardHeight : collapsedCardHeight}
-                />
+                <View style={styles.carouselPage}>
+                  <PlantCard
+                    item={item}
+                    index={index}
+                    onPress={() => handleViewStats(item.id)}
+                    onActionPress={() =>
+                      setActionMenuIndex((prev) => (prev === index ? null : index))
+                    }
+                    showActionText={actionMenuIndex === index}
+                    refreshPlants={refreshPlants}
+                    cardWidth={plantCardWidth}
+                    cardHeight={
+                      actionMenuIndex === index ? expandedCardHeight : collapsedCardHeight
+                    }
+                  />
+                </View>
               )}
             />
 
@@ -316,10 +329,11 @@ const stylesheet = (theme: any, insets: { bottom: number }) =>
       flexShrink: 0,
     },
     carouselContent: {
-      paddingHorizontal: Math.max(width * 0.005, 2),
+      paddingHorizontal: 0,
     },
-    cardGap: {
-      width: Math.min(Math.max(width * 0.04, 12), 18),
+    carouselPage: {
+      width: carouselWidth,
+      paddingHorizontal: cardInset,
     },
     emptyListContainer: {
       width: width - sidePadding * 2,

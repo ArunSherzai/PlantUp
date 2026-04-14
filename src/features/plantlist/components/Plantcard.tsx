@@ -38,10 +38,19 @@ interface Props {
   refreshPlants: () => void;
   onPress: () => void;
   cardHeight?: number;
+  cardWidth?: number;
 }
 
 export const PlantCard = React.memo(
-  ({ item, onActionPress, showActionText, refreshPlants, onPress, cardHeight }: Props) => {
+  ({
+    item,
+    onActionPress,
+    showActionText,
+    refreshPlants,
+    onPress,
+    cardHeight,
+    cardWidth,
+  }: Props) => {
     const navigation = useNavigation<any>();
     const flip = useSharedValue(showActionText ? 1 : 0);
     const [typeDropdownOpen, setTypeDropdownOpen] = useState(false);
@@ -321,6 +330,7 @@ export const PlantCard = React.memo(
         style={[
           styles.plantCard,
           showActionText && styles.plantCardExpanded,
+          cardWidth ? { width: cardWidth } : null,
           cardHeight ? { height: cardHeight } : null,
         ]}>
         {/* FRONT */}
