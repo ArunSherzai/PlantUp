@@ -21,12 +21,9 @@ import { PlantItem } from '../types/plant.types';
 import { useNavigation } from '@react-navigation/native';
 import { playSound } from '~/utils/SoundManager';
 import AlertModal from '../../../components/AlertModal';
-import ConnectPlantBoxModal from '~/components/ConnectPlantBoxModal';
 import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
 import {
-  connectPlantBoxToPlant,
   formatPlantBoxLastSeen,
-  validatePlantBoxId,
 } from '../api/plantBox';
 import { showActionSheet, showAlertDialog } from '~/services/appDialog';
 
@@ -71,7 +68,6 @@ export const PlantCard = React.memo(
     const [isSaving, setIsSaving] = useState(false);
 
     const [modalVisible, setModalVisible] = useState(false);
-    const [connectPlantBoxVisible, setConnectPlantBoxVisible] = useState(false);
     const [modalConfig, setModalConfig] = useState<{
       type: 'success' | 'error' | 'loading';
       title: string;
@@ -271,27 +267,8 @@ export const PlantCard = React.memo(
       await refreshPlants();
     };
 
-    const handlePlantBoxConnect = async (sensorBoxId: string) => {
-      const validation = await validatePlantBoxId(sensorBoxId);
-
-      if (!validation.isValid) {
-        throw new Error(validation.message);
-      }
-
-      if (validation.existingPlantId && validation.existingPlantId !== item.id) {
-        throw new Error('This PlantBox is already connected to another plant.');
-      }
-
-      await connectPlantBoxToPlant({
-        sensorBoxId: validation.sensorBoxId ?? sensorBoxId.trim(),
-        plantId: item.id,
-        userId: user?.id,
-      });
-
-      setLinkedSensorBoxId(validation.sensorBoxId ?? sensorBoxId.trim());
-      setLinkedSensorLastSeenAt(validation.latestSeenAt ?? null);
-      await refreshPlants();
-      showModal('success', 'PlantBox Connected', 'The PlantBox is now linked to this plant.');
+    const handleOpenLinkSensor = () => {
+      navigation.navigate('LinkSensor', { plantId: item.id });
     };
 
     const handleCardPress = () => {
@@ -542,7 +519,7 @@ export const PlantCard = React.memo(
 
                   <TouchableOpacity
                     style={styles.sensorLinkButton}
-                    onPress={() => setConnectPlantBoxVisible(true)}>
+                    onPress={handleOpenLinkSensor}>
                     <Text style={styles.sensorLinkButtonText}>
                       {linkedSensorBoxId ? 'Change PlantBox' : 'Connect PlantBox'}
                     </Text>
@@ -592,14 +569,6 @@ export const PlantCard = React.memo(
               onActionPress(); // flip card back
             }
           }}
-        />
-
-        <ConnectPlantBoxModal
-          visible={connectPlantBoxVisible}
-          onClose={() => setConnectPlantBoxVisible(false)}
-          onConnect={handlePlantBoxConnect}
-          initialValue={linkedSensorBoxId}
-          description="Enter a Sensor Box ID. We’ll confirm that a recent controller entry exists before linking it to this plant."
         />
       </View>
     );

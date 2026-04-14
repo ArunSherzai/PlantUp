@@ -22,7 +22,6 @@ import { getPublicPlantImageUrl } from '~/utils/media';
 import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
 import {
   connectPlantBoxToPlant,
-  fetchAvailablePlantBoxes,
   formatPlantBoxLastSeen,
   validatePlantBoxId,
 } from '~/features/plantlist/api/plantBox';
@@ -65,16 +64,6 @@ export default function AddPlantScreen() {
   const [isLoadingPlants, setIsLoadingPlants] = useState(true);
   const [customImageUri, setCustomImageUri] = useState<string | null>(null);
   const [customImageBase64, setCustomImageBase64] = useState<string | null>(null);
-  const [sensorDropdownVisible, setSensorDropdownVisible] = useState(false);
-  const [availableSensors, setAvailableSensors] = useState<
-    {
-      controllerRecordId: string;
-      sensorBoxId: string;
-      latestSeenAt: string;
-      existingPlantId: string | null;
-    }[]
-  >([]);
-  const [isLoadingSensors, setIsLoadingSensors] = useState(true);
   const [selectedControllerRecordId, setSelectedControllerRecordId] = useState<string | null>(null);
   const [pendingSensorBoxId, setPendingSensorBoxId] = useState<string | null>(null);
   const [pendingSensorLastSeenAt, setPendingSensorLastSeenAt] = useState<string | null>(null);
@@ -224,22 +213,6 @@ export default function AddPlantScreen() {
     };
 
     fetchPlantData();
-  }, []);
-
-  useEffect(() => {
-    const loadAvailableSensors = async () => {
-      try {
-        setIsLoadingSensors(true);
-        const sensors = await fetchAvailablePlantBoxes();
-        setAvailableSensors(sensors);
-      } catch (error) {
-        ErrorHandlerService.handle(error, { showUI: false });
-      } finally {
-        setIsLoadingSensors(false);
-      }
-    };
-
-    loadAvailableSensors();
   }, []);
 
   const toggleDropdown = () => {
@@ -565,75 +538,6 @@ export default function AddPlantScreen() {
                   </View>
                 </View>
 
-                <TouchableOpacity
-                  style={styles.dropdownButton}
-                  onPress={() => setSensorDropdownVisible((current) => !current)}
-                  activeOpacity={0.8}>
-                  <View style={styles.selectedPlantContainer}>
-                    <Text style={styles.dropdownButtonText}>
-                      {pendingSensorBoxId ? pendingSensorBoxId : 'Select a sensor'}
-                    </Text>
-                  </View>
-                  <Feather
-                    name={sensorDropdownVisible ? 'chevron-up' : 'chevron-down'}
-                    size={20}
-                    color={theme.colors.text}
-                  />
-                </TouchableOpacity>
-
-                {sensorDropdownVisible && (
-                  <View style={styles.dropdownContainer}>
-                    <ScrollView
-                      style={styles.dropdownScrollView}
-                      nestedScrollEnabled
-                      keyboardShouldPersistTaps="handled">
-                      {isLoadingSensors ? (
-                        <View style={styles.dropdownItem}>
-                          <ActivityIndicator size="small" color={theme.colors.primary} />
-                          <Text style={[styles.dropdownItemText, { marginLeft: 10 }]}>
-                            Loading sensors...
-                          </Text>
-                        </View>
-                      ) : availableSensors.length > 0 ? (
-                        availableSensors.map((sensor) => (
-                          <TouchableOpacity
-                            key={sensor.controllerRecordId}
-                            style={styles.dropdownItem}
-                            onPress={() => {
-                              setSelectedControllerRecordId(sensor.controllerRecordId);
-                              setPendingSensorBoxId(sensor.sensorBoxId);
-                              setPendingSensorLastSeenAt(sensor.latestSeenAt);
-                              setSensorDropdownVisible(false);
-                            }}>
-                            <View style={styles.sensorOptionRow}>
-                              <Text style={styles.dropdownItemText}>{sensor.sensorBoxId}</Text>
-                              <Text style={styles.dropdownItemScientific}>
-                                Controller row: {sensor.controllerRecordId}
-                              </Text>
-                              <Text style={styles.dropdownItemScientific}>
-                                Latest: {formatPlantBoxLastSeen(sensor.latestSeenAt)}
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.dropdownItemScientific,
-                                  sensor.existingPlantId && styles.sensorLinkedText,
-                                ]}>
-                                {sensor.existingPlantId
-                                  ? `Already linked to plant ${sensor.existingPlantId}`
-                                  : 'Currently unlinked'}
-                              </Text>
-                            </View>
-                          </TouchableOpacity>
-                        ))
-                      ) : (
-                        <Text style={styles.dropdownItem}>
-                          No recent sensors are currently available.
-                        </Text>
-                      )}
-                    </ScrollView>
-                  </View>
-                )}
-
                 {pendingSensorBoxId ? (
                   <>
                     <Text style={styles.sensorIdText}>{pendingSensorBoxId}</Text>
@@ -641,15 +545,35 @@ export default function AddPlantScreen() {
                       Latest reading: {formatPlantBoxLastSeen(pendingSensorLastSeenAt)}
                     </Text>
                     <Text style={styles.sensorHelperText}>
-                      The plant id and selected sensor id will be synced when you save the plant.
+                      The sensor will be linked when you save the plant.
                     </Text>
                   </>
                 ) : (
                   <Text style={styles.sensorHelperText}>
-                    Choose any recent sensor here. If it is already linked, saving this plant will
-                    reassign it.
+                    Connect a PlantBox to start pulling sensor readings into this plant.
                   </Text>
                 )}
+
+                <TouchableOpacity
+                  style={styles.sensorActionButton}
+                  onPress={() => {
+                    navigation.navigate('LinkSensor', {
+                      onSensorSelected: (sensor: {
+                        controllerRecordId: string;
+                        sensorBoxId: string;
+                        latestSeenAt: string;
+                      }) => {
+                        setSelectedControllerRecordId(sensor.controllerRecordId);
+                        setPendingSensorBoxId(sensor.sensorBoxId);
+                        setPendingSensorLastSeenAt(sensor.latestSeenAt);
+                      },
+                    });
+                  }}
+                  activeOpacity={0.8}>
+                  <Text style={styles.sensorActionButtonText}>
+                    {pendingSensorBoxId ? 'Change Sensor' : 'Select Sensor'}
+                  </Text>
+                </TouchableOpacity>
               </View>
             </View>
 
@@ -848,12 +772,6 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: 15,
     fontWeight: '800',
     color: '#fff',
-  },
-  sensorOptionRow: {
-    gap: 4,
-  },
-  sensorLinkedText: {
-    color: '#C96B1A',
   },
   label: {
     fontSize: 16,

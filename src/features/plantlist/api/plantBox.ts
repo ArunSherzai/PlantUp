@@ -5,9 +5,11 @@ const SENSOR_ACTIVITY_WINDOW_HOURS = 24;
 type LatestControllerRecord = {
   id: string;
   plant_id: string | null;
-  plantbox_id: string | null;
+  plantbox_id?: string | null;
+  sensor_id?: string | null;
   time: string | null;
   created_at: string | null;
+  [key: string]: any;
 };
 
 export type PlantBoxOption = {
@@ -43,8 +45,8 @@ export async function validatePlantBoxId(sensorBoxId: string): Promise<PlantBoxV
 
   const { data, error } = await db.micro
     .from('Controllers')
-    .select('id, plant_id, plantbox_id, time, created_at')
-    .eq('plantbox_id', normalizedId)
+    .select('*')
+    .or(`plantbox_id.eq.${normalizedId},sensor_id.eq.${normalizedId}`)
     .order('time', { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -76,7 +78,7 @@ export async function validatePlantBoxId(sensorBoxId: string): Promise<PlantBoxV
 
   return {
     isValid: true,
-    sensorBoxId: latestRecord.plantbox_id ?? normalizedId,
+    sensorBoxId: latestRecord.plantbox_id ?? latestRecord.sensor_id ?? normalizedId,
     latestSeenAt,
     existingPlantId: latestRecord.plant_id,
   };
@@ -85,7 +87,7 @@ export async function validatePlantBoxId(sensorBoxId: string): Promise<PlantBoxV
 export async function fetchAvailablePlantBoxes(): Promise<PlantBoxOption[]> {
   const { data, error } = await db.micro
     .from('Controllers')
-    .select('id, plant_id, plantbox_id, time, created_at')
+    .select('*')
     .order('time', { ascending: false });
 
   if (error) throw error;
@@ -94,7 +96,8 @@ export async function fetchAvailablePlantBoxes(): Promise<PlantBoxOption[]> {
 
   return (data as LatestControllerRecord[])
     .filter((record) => {
-      if (!record.plantbox_id) return false;
+      const sensorId = record.plantbox_id ?? record.sensor_id;
+      if (!sensorId) return false;
       const latestSeenAt = record.time ?? record.created_at;
       if (!latestSeenAt) return false;
       const latestSeenDate = new Date(latestSeenAt);
@@ -103,9 +106,10 @@ export async function fetchAvailablePlantBoxes(): Promise<PlantBoxOption[]> {
     })
     .map((record) => {
       const latestSeenAt = record.time ?? record.created_at ?? '';
+      const sensorId = record.plantbox_id ?? record.sensor_id ?? record.id;
       return {
         controllerRecordId: record.id,
-        sensorBoxId: record.plantbox_id ?? record.id,
+        sensorBoxId: sensorId,
         latestSeenAt,
         existingPlantId: record.plant_id,
       };
@@ -133,7 +137,7 @@ export async function connectPlantBoxToPlant(params: {
   const controllerQuery = db.micro.from('Controllers').update(updatePayload);
   const controllerUpdate = controllerRecordId
     ? controllerQuery.eq('id', controllerRecordId)
-    : controllerQuery.eq('plantbox_id', sensorBoxId);
+    : controllerQuery.or(`plantbox_id.eq.${sensorBoxId},sensor_id.eq.${sensorBoxId}`);
 
   const { error: connectError } = await controllerUpdate;
 

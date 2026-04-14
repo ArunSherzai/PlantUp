@@ -40,6 +40,7 @@ export type RootStackParamList = {
   PlantStats: { plantId: string; onlyShowSelected?: boolean };
   Plant3DTest: undefined;
   Shop: { initialTab?: 'shop' | 'inventory' };
+  LinkSensor: { plantId?: string; onSensorSelected?: (sensor: { controllerRecordId: string; sensorBoxId: string; latestSeenAt: string }) => void } | undefined;
 
   DailyMentor: { plantId: string; health: any };
   PlantTimeline: { plantId: number };
@@ -101,6 +102,7 @@ import { navigationRef, NavigationService } from '../services/NavigationService'
 import React, { useEffect } from 'react';
 import CameraScreen from '~/features/camera/CameraScreen';
 import PhotoEditorScreen from '~/features/camera/components/editor/PhotoEditorScreen';
+import LinkSensorScreen from '~/screens/Tab/linkSensor/LinkSensorScreen';
 
 import { StatusBar } from 'expo-status-bar';
 
@@ -352,6 +354,11 @@ export default function RootStack() {
                   name="PhotoEditor"
                   component={PhotoEditorScreen}
                   options={{ headerShown: false, gestureEnabled: false }}
+                />
+                <Stack.Screen
+                  name="LinkSensor"
+                  component={LinkSensorScreen}
+                  options={{ headerShown: false }}
                 />
               </Stack.Group>
 

@@ -33,20 +33,20 @@ export function usePlants(userId?: string) {
     if (plantIds.length > 0) {
       const { data: controllerData, error: controllerError } = await db.micro
         .from('Controllers')
-        .select('id, plant_id, plantbox_id, time, created_at')
+        .select('*')
         .in('plant_id', plantIds)
         .order('time', { ascending: false });
 
       if (controllerError) {
         console.log('Controller lookup error:', controllerError);
       } else {
-        controllerData.forEach((controller) => {
+        controllerData.forEach((controller: any) => {
           if (!controller.plant_id || latestControllerByPlant.has(controller.plant_id)) {
             return;
           }
 
           latestControllerByPlant.set(controller.plant_id, {
-            sensorBoxId: controller.plantbox_id ?? controller.id,
+            sensorBoxId: controller.plantbox_id ?? controller.sensor_id ?? controller.id,
             lastSeenAt: controller.time ?? controller.created_at ?? undefined,
           });
         });
