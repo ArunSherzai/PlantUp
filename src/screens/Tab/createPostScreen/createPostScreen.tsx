@@ -260,12 +260,21 @@ export default function CreatePostScreen() {
       setPlants(newPlants); // Update UI to show loading spinner
 
       try {
-        const { data: records, error } = await db.micro
-          .from('Controllers')
-          .select('*')
+        // Step 1: Get device id from Devices
+        const { data: device } = await db.micro
+          .from('Devices')
+          .select('id')
           .eq('plant_id', plant.id)
-          .order('time', { ascending: false })
-          .limit(10);
+          .maybeSingle();
+
+        const { data: records, error } = device?.id
+          ? await db.micro
+              .from('Controllers')
+              .select('*')
+              .eq('device_id', device.id)
+              .order('time', { ascending: false })
+              .limit(10)
+          : { data: [], error: null };
 
         if (error) {
           ErrorHandlerService.handle(error, { showUI: false });

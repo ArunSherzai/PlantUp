@@ -4,10 +4,10 @@ const SENSOR_ACTIVITY_WINDOW_HOURS = 24;
 
 type LatestControllerRecord = {
   id: string;
-  plant_id: string | null;
-  plantbox_id: string | null;
+  device_id: string | null;
   time: string | null;
   created_at: string | null;
+  Devices?: { plant_id: string | null } | { plant_id: string | null }[];
 };
 
 export type PlantBoxOption = {
@@ -41,10 +41,11 @@ export async function validatePlantBoxId(sensorBoxId: string): Promise<PlantBoxV
     return { isValid: false, message: 'Enter a Sensor Box ID.' };
   }
 
+  // Check if device_id exists in Controllers
   const { data, error } = await db.micro
     .from('Controllers')
-    .select('id, plant_id, plantbox_id, time, created_at')
-    .eq('plantbox_id', normalizedId)
+    .select('id, device_id, time, created_at')
+    .eq('device_id', normalizedId)
     .order('time', { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -74,42 +75,55 @@ export async function validatePlantBoxId(sensorBoxId: string): Promise<PlantBoxV
     };
   }
 
+  // Check if already assigned to a plant via Devices table
+  const { data: deviceMapping } = await db.micro
+    .from('Devices')
+    .select('plant_id')
+    .eq('id', normalizedId)
+    .maybeSingle();
+
   return {
     isValid: true,
-    sensorBoxId: latestRecord.plantbox_id ?? normalizedId,
+    sensorBoxId: latestRecord.device_id ?? normalizedId,
     latestSeenAt,
-    existingPlantId: latestRecord.plant_id,
+    existingPlantId: deviceMapping?.plant_id ?? null,
   };
 }
 
 export async function fetchAvailablePlantBoxes(): Promise<PlantBoxOption[]> {
   const { data, error } = await db.micro
     .from('Controllers')
-    .select('id, plant_id, plantbox_id, time, created_at')
+    .select('id, device_id, time, created_at')
     .order('time', { ascending: false });
 
   if (error) throw error;
 
   const recentCutoff = Date.now() - SENSOR_ACTIVITY_WINDOW_HOURS * 60 * 60 * 1000;
 
-  return (data as LatestControllerRecord[])
-    .filter((record) => {
-      if (!record.plantbox_id) return false;
-      const latestSeenAt = record.time ?? record.created_at;
-      if (!latestSeenAt) return false;
-      const latestSeenDate = new Date(latestSeenAt);
-      if (Number.isNaN(latestSeenDate.getTime())) return false;
-      return latestSeenDate.getTime() >= recentCutoff;
-    })
-    .map((record) => {
-      const latestSeenAt = record.time ?? record.created_at ?? '';
-      return {
-        controllerRecordId: record.id,
-        sensorBoxId: record.plantbox_id ?? record.id,
-        latestSeenAt,
-        existingPlantId: record.plant_id,
-      };
+  // Get existing device→plant mappings
+  const { data: mappings } = await db.micro.from('Devices').select('id, plant_id');
+  const mappingMap = new Map((mappings ?? []).map((m) => [m.id, m.plant_id]));
+
+  const results: PlantBoxOption[] = [];
+  const seenDevices = new Set<string>();
+
+  for (const record of data as LatestControllerRecord[]) {
+    if (!record.device_id || seenDevices.has(record.device_id)) continue;
+    const latestSeenAt = record.time ?? record.created_at;
+    if (!latestSeenAt) continue;
+    const latestSeenDate = new Date(latestSeenAt);
+    if (Number.isNaN(latestSeenDate.getTime()) || latestSeenDate.getTime() < recentCutoff) continue;
+
+    seenDevices.add(record.device_id);
+    results.push({
+      controllerRecordId: record.id,
+      sensorBoxId: record.device_id,
+      latestSeenAt,
+      existingPlantId: mappingMap.get(record.device_id) ?? null,
     });
+  }
+
+  return results;
 }
 
 export async function connectPlantBoxToPlant(params: {
@@ -118,24 +132,13 @@ export async function connectPlantBoxToPlant(params: {
   plantId: string;
   userId?: string;
 }) {
-  const { controllerRecordId, sensorBoxId, plantId, userId } = params;
+  const { sensorBoxId, plantId, userId } = params;
 
-  const updatePayload: { plant_id: string; user_id?: string } = { plant_id: plantId };
-  if (userId) updatePayload.user_id = userId;
+  // Upsert into Devices table — this is the source of truth for device→plant mapping
+  const { error: upsertError } = await db.micro.from('Devices').upsert(
+    { id: sensorBoxId, user_id: userId, plant_id: plantId },
+    { onConflict: 'id' }
+  );
 
-  const { error: updatePlantError } = await db.social
-    .from('Plants')
-    .update({ sensor_id: sensorBoxId })
-    .eq('id', plantId);
-
-  if (updatePlantError) throw updatePlantError;
-
-  const controllerQuery = db.micro.from('Controllers').update(updatePayload);
-  const controllerUpdate = controllerRecordId
-    ? controllerQuery.eq('id', controllerRecordId)
-    : controllerQuery.eq('plantbox_id', sensorBoxId);
-
-  const { error: connectError } = await controllerUpdate;
-
-  if (connectError) throw connectError;
+  if (upsertError) throw upsertError;
 }

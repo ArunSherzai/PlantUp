@@ -31,25 +31,38 @@ export function usePlants(userId?: string) {
     const latestControllerByPlant = new Map<string, { sensorBoxId: string; lastSeenAt?: string }>();
 
     if (plantIds.length > 0) {
-      const { data: controllerData, error: controllerError } = await db.micro
-        .from('Controllers')
-        .select('id, plant_id, plantbox_id, time, created_at')
-        .in('plant_id', plantIds)
-        .order('time', { ascending: false });
+      // Step 1: Get Devices.id for all plants
+      const { data: devices, error: deviceError } = await db.micro
+        .from('Devices')
+        .select('id, plant_id')
+        .in('plant_id', plantIds);
 
-      if (controllerError) {
-        console.log('Controller lookup error:', controllerError);
-      } else {
-        controllerData.forEach((controller) => {
-          if (!controller.plant_id || latestControllerByPlant.has(controller.plant_id)) {
-            return;
-          }
+      if (deviceError) {
+        console.log('Device lookup error:', deviceError);
+      } else if (devices && devices.length > 0) {
+        const deviceIds = devices.map((d) => d.id);
+        const plantIdByDeviceId = new Map(devices.map((d) => [d.id, d.plant_id]));
 
-          latestControllerByPlant.set(controller.plant_id, {
-            sensorBoxId: controller.plantbox_id ?? controller.id,
-            lastSeenAt: controller.time ?? controller.created_at ?? undefined,
+        // Step 2: Get latest controller row per device
+        const { data: controllerData, error: controllerError } = await db.micro
+          .from('Controllers')
+          .select('id, device_id, time, created_at')
+          .in('device_id', deviceIds)
+          .order('time', { ascending: false });
+
+        if (controllerError) {
+          console.log('Controller lookup error:', controllerError);
+        } else {
+          controllerData.forEach((controller) => {
+            const plantId = plantIdByDeviceId.get(controller.device_id);
+            if (!plantId || latestControllerByPlant.has(plantId)) return;
+
+            latestControllerByPlant.set(plantId, {
+              sensorBoxId: controller.device_id ?? controller.id,
+              lastSeenAt: controller.time ?? controller.created_at ?? undefined,
+            });
           });
-        });
+        }
       }
     }
 

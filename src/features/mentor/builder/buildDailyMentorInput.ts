@@ -82,24 +82,34 @@ export async function buildDailyMentorInput(
     }
   }
 
-  // 2. Latest reading
-  const { data: latest } = await db.micro
-    .from('Controllers')
-    .select('temperature, humidity, soil_moisture, light, electrical_conductivity, created_at')
+  // 2. Get device id then fetch latest + history
+  const { data: device } = await db.micro
+    .from('Devices')
+    .select('id')
     .eq('plant_id', plantId)
-    .order('created_at', { ascending: false })
-    .limit(1)
     .maybeSingle();
+
+  const latest = device?.id
+    ? (await db.micro
+        .from('Controllers')
+        .select('temperature, humidity, soil_moisture, light, electrical_conductivity, created_at')
+        .eq('device_id', device.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()).data
+    : null;
 
   // 3. History for trends (last 14 days, up to 200 rows is plenty)
   const cutoff = new Date(Date.now() - 14 * 86_400_000).toISOString();
-  const { data: history } = await db.micro
-    .from('Controllers')
-    .select('electrical_conductivity, soil_moisture, created_at')
-    .eq('plant_id', plantId)
-    .gte('created_at', cutoff)
-    .order('created_at', { ascending: true })
-    .limit(200);
+  const history = device?.id
+    ? (await db.micro
+        .from('Controllers')
+        .select('electrical_conductivity, soil_moisture, created_at')
+        .eq('device_id', device.id)
+        .gte('created_at', cutoff)
+        .order('created_at', { ascending: true })
+        .limit(200)).data
+    : null;
 
   // 4. Compute health
   const profile = getProfile(plantTypeName);

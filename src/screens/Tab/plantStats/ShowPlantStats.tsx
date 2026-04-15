@@ -48,14 +48,13 @@ interface PlantController {
 interface PlantSummary {
   id: string;
   nickname: string | null;
-  sensor_id?: string | null;
   plant_data?: { common_name?: string | null } | Array<{ common_name?: string | null }>;
 }
 
 async function fetchPlantById(plantId: string): Promise<PlantSummary | null> {
   const { data, error } = await db.social
     .from('Plants')
-    .select('id, nickname, sensor_id, plant_data:Plant_data(common_name)')
+    .select('id, nickname, plant_data:Plant_data!Plants_plant_data_id_fkey(common_name)')
     .eq('id', plantId)
     .maybeSingle();
 
@@ -70,7 +69,7 @@ async function fetchPlantById(plantId: string): Promise<PlantSummary | null> {
 async function fetchFirstPlantForUser(userId: string): Promise<PlantSummary | null> {
   const { data, error } = await db.social
     .from('Plants')
-    .select('id, nickname, sensor_id, plant_data:Plant_data(common_name)')
+    .select('id, nickname, plant_data:Plant_data!Plants_plant_data_id_fkey(common_name)')
     .eq('user_id', userId)
     .order('created_at', { ascending: true })
     .limit(1)
@@ -97,36 +96,41 @@ function toTimestampMs(controller?: Pick<PlantController, 'time' | 'created_at'>
 }
 
 async function fetchLatestController(
-  plantId: string,
-  sensorBoxId?: string | null
+  plantId: string
 ): Promise<PlantController | null> {
-  const fetchBy = async (column: 'plant_id' | 'plantbox_id', value?: string | null) => {
-    if (!value) return null;
+  // Step 1: Get Devices.id where plant_id matches
+  const { data: device, error: deviceError } = await db.micro
+    .from('Devices')
+    .select('id')
+    .eq('plant_id', plantId)
+    .maybeSingle();
 
-    const { data, error } = await db.micro
-      .from('Controllers')
-      .select(
-        'id, temperature, humidity, soil_moisture, light, electrical_conductivity, time, created_at'
-      )
-      .eq(column, value)
-      .order('time', { ascending: false })
-      .limit(10);
+  if (deviceError) {
+    ErrorHandlerService.handle(deviceError, { showUI: false });
+    return null;
+  }
+  if (!device?.id) return null;
 
-    if (error) {
-      ErrorHandlerService.handle(error, { showUI: false });
-      return null;
-    }
+  // Step 2: Fetch Controllers where device_id = Devices.id
+  const { data, error } = await db.micro
+    .from('Controllers')
+    .select(
+      'id, temperature, humidity, soil_moisture, light, electrical_conductivity, time, created_at'
+    )
+    .eq('device_id', device.id)
+    .order('time', { ascending: false })
+    .limit(10);
 
-    const rows = ((data as PlantController[] | null) ?? []).sort(
-      (a, b) => toTimestampMs(b) - toTimestampMs(a)
-    );
+  if (error) {
+    ErrorHandlerService.handle(error, { showUI: false });
+    return null;
+  }
 
-    return rows[0] ?? null;
-  };
+  const rows = ((data as PlantController[] | null) ?? []).sort(
+    (a, b) => toTimestampMs(b) - toTimestampMs(a)
+  );
 
-  const directMatch = await fetchBy('plant_id', plantId);
-  if (directMatch) return directMatch;
-  return fetchBy('plantbox_id', sensorBoxId);
+  return rows[0] ?? null;
 }
 
 const RANGE_LABELS: Record<TimeRangeKey, string> = {
@@ -205,7 +209,9 @@ export default function ShowPlantStats() {
     }
   }, [profile, startTutorial]);
 
-    const { chartData } = useMemo(() => {
+
+
+  const { chartData } = useMemo(() => {
     if (!historyData.length) {
       return { chartData: [] };
     }
@@ -215,10 +221,10 @@ export default function ShowPlantStats() {
       const timestamp = getControllerTimestamp(point);
       const label = timestamp
         ? new Date(timestamp).toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false,
-          })
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+        })
         : '--:--';
 
       let value = 0;
@@ -258,6 +264,7 @@ export default function ShowPlantStats() {
       light: sorted.map((point) => point.light),
       ec: sorted.map((point) => point.electrical_conductivity),
     };
+
   }, [allHistoryData]);
 
   const trackPlantStatsQuestViews = useCallback(async (plantId: string, range: TimeRangeKey) => {
@@ -291,7 +298,7 @@ export default function ShowPlantStats() {
     setLoadingHistory(true);
 
     try {
-      const serverLatest = await fetchLatestController(plant.id, plant.sensor_id);
+      const serverLatest = await fetchLatestController(plant.id);
 
       if (serverLatest) {
         setLatest(serverLatest);
@@ -299,15 +306,23 @@ export default function ShowPlantStats() {
 
         const { limit, hours } = TIME_RANGES[range];
 
-        const loadHistory = async (column: 'plant_id' | 'plantbox_id', value?: string | null) => {
-          if (!value) return null;
+        const loadHistory = async (plantId: string) => {
+          // Step 1: Get Devices.id where plant_id matches
+          const { data: device, error: deviceError } = await db.micro
+            .from('Devices')
+            .select('id')
+            .eq('plant_id', plantId)
+            .maybeSingle();
 
+          if (deviceError || !device?.id) return null;
+
+          // Step 2: Fetch Controllers where device_id = Devices.id
           const { data, error } = await db.micro
             .from('Controllers')
             .select(
               'id, temperature, humidity, soil_moisture, light, electrical_conductivity, time, created_at'
             )
-            .eq(column, value)
+            .eq('device_id', device.id)
             .order('time', { ascending: false })
             .limit(TIME_RANGES['All Time'].limit);
 
@@ -323,10 +338,7 @@ export default function ShowPlantStats() {
           return rows;
         };
 
-        const baseData =
-          (await loadHistory('plant_id', plant.id)) ??
-          (await loadHistory('plantbox_id', plant.sensor_id)) ??
-          [];
+        const baseData = (await loadHistory(plant.id)) ?? [];
 
         if (baseData.length > 0) {
           setAllHistoryData(baseData);
@@ -355,11 +367,7 @@ export default function ShowPlantStats() {
         setAllHistoryData([]);
         setHistoryData([]);
         isDataFreshRef.current = false;
-        setEmptyStateMessage(
-          plant.sensor_id
-            ? 'This plant has a Sensor Box, but no measurements were found yet.'
-            : 'This plant is not linked to a Sensor Box yet.'
-        );
+        setEmptyStateMessage('This plant is not linked to a Sensor Box yet.');
       }
     } catch (err) {
       ErrorHandlerService.handle(err, { showUI: false });
@@ -426,17 +434,17 @@ export default function ShowPlantStats() {
 
   const fullHealth: HealthResult | null = latest
     ? calculateHealthFull(latest as unknown as Record<string, number | null>, selectedPlantType, {
-        history: historyData as unknown as Array<Record<string, any>>,
-      })
+      history: historyData as unknown as Array<Record<string, any>>,
+    })
     : null;
 
   const health = fullHealth?.health_percent ?? (latest ? calculateHealth(latest) : null);
   const statusLabel = isDataFreshRef.current ? 'Live data connected' : 'Waiting for live data';
   const lastUpdatedText = getControllerTimestamp(latest)
     ? new Date(getControllerTimestamp(latest) as string).toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-      })
+      hour: '2-digit',
+      minute: '2-digit',
+    })
     : null;
 
   if (loading) return <LoadingScreen />;
@@ -574,7 +582,7 @@ export default function ShowPlantStats() {
             </View>
 
             <HistoryCard
-              historyData={historyData}
+              historyData={allHistoryData}
               calculateAverages={calculateAverages}
               lastXdays={lastXdays}
             />

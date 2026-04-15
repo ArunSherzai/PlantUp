@@ -47,7 +47,7 @@ export function usePlantProgress(plantId: string) {
             // Fetch Plant Details
             const { data: plantData, error: plantError } = await db.social
                 .from('Plants')
-                .select('id, nickname, created_at, Plant_data(common_name, image_url)')
+                .select('id, nickname, created_at, Plant_data!Plants_plant_data_id_fkey(common_name, image_url)')
                 .eq('id', plantId)
                 .single();
 
