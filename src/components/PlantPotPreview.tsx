@@ -22,21 +22,27 @@ type Props = {
   lsystemConfig?: Partial<LSystemConfig>;
   cameraY?: number;
   cameraDistance?: number;
+  cameraTargetY?: number;
 };
 
 // Component to set initial camera position
-function InitialCamera({ cameraY, cameraDistance }: { cameraY: number; cameraDistance: number }) {
+function InitialCamera({
+  cameraY,
+  cameraDistance,
+  cameraTargetY,
+}: {
+  cameraY: number;
+  cameraDistance: number;
+  cameraTargetY: number;
+}) {
   const { camera } = useThree();
-  const initialized = useRef(false);
 
   useEffect(() => {
-    if (!initialized.current) {
-      const xz = cameraDistance * 0.7;
-      camera.position.set(xz, cameraY, xz);
-      camera.lookAt(0, 0.4, 0);
-      initialized.current = true;
-    }
-  }, [cameraY, cameraDistance, camera]);
+    const xz = cameraDistance * 0.7;
+    camera.position.set(xz, cameraY, xz);
+    camera.lookAt(0, cameraTargetY, 0);
+    camera.updateProjectionMatrix();
+  }, [cameraY, cameraDistance, cameraTargetY, camera]);
 
   return null;
 }
@@ -154,6 +160,7 @@ export default function PlantPotPreview({
   lsystemConfig,
   cameraY = 0.85,
   cameraDistance = 1.5,
+  cameraTargetY = 0.4,
 }: Props) {
   const [isSceneLoaded, setIsSceneLoaded] = useState(false);
 
@@ -183,12 +190,16 @@ export default function PlantPotPreview({
             setIsSceneLoaded(true);
           }}>
           {/* Initial Camera Position Setup */}
-          <InitialCamera cameraY={cameraY} cameraDistance={cameraDistance} />
+          <InitialCamera
+            cameraY={cameraY}
+            cameraDistance={cameraDistance}
+            cameraTargetY={cameraTargetY}
+          />
 
           {/* Orbit Controls for Zoom/Pan */}
           <OrbitControls
             makeDefault
-            target={[0, 0.4, 0]}
+            target={[0, cameraTargetY, 0]}
             enableZoom={true}
             enablePan={false}
             minPolarAngle={0}

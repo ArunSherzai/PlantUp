@@ -260,16 +260,28 @@ export default function CreatePostScreen() {
       setPlants(newPlants); // Update UI to show loading spinner
 
       try {
-        const { data: records, error } = await db.micro
-          .from('Controllers')
-          .select('*')
+        const { data: deviceData } = await db.micro
+          .from('Devices')
+          .select('id')
           .eq('plant_id', plant.id)
-          .order('time', { ascending: false })
-          .limit(10);
+          .maybeSingle();
 
-        if (error) {
-          ErrorHandlerService.handle(error, { showUI: false });
-          throw error;
+        const deviceId = deviceData?.id;
+
+        let records = [];
+        if (deviceId) {
+          const { data: ctrlData, error } = await db.micro
+            .from('Controllers')
+            .select('*')
+            .eq('device_id', deviceId)
+            .order('time', { ascending: false })
+            .limit(10);
+
+          if (error) {
+            ErrorHandlerService.handle(error, { showUI: false });
+            throw error;
+          }
+          records = ctrlData || [];
         }
 
         console.log('[CreatePost] Fetched records:', records);

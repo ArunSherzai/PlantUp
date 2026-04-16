@@ -306,6 +306,9 @@ export default function ProfileScreen() {
                         mode="lsystem"
                         lsystemConfig={lsystemConfig}
                         potType="PotStandard"
+                        cameraY={0.7}
+                        cameraDistance={2.2}
+                        cameraTargetY={0.22}
                       />
                     ) : (
                       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>

@@ -405,13 +405,17 @@ export const useUserStore = create<State>((set, get) => ({
       .from('Users')
       .select('username, plant_coins, avatar_path, bio, tutorial_progress')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
     const [statsResult, userResult] = await Promise.all([statsPromise, userPromise]);
 
-    // Debug Logs
-    if (statsResult.error) ErrorHandlerService.handle(statsResult.error, { showUI: false });
-    if (userResult.error) ErrorHandlerService.handle(userResult.error, { showUI: false });
+    // Debug Logs. Skip PGRST116 (0 rows) as it's expected sometimes.
+    if (statsResult.error && statsResult.error.code !== 'PGRST116') {
+      ErrorHandlerService.handle(statsResult.error, { showUI: false });
+    }
+    if (userResult.error && userResult.error.code !== 'PGRST116') {
+      ErrorHandlerService.handle(userResult.error, { showUI: false });
+    }
 
     const statsData = statsResult.data;
     const userData = userResult.data;

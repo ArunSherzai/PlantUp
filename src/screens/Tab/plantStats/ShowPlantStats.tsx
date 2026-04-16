@@ -49,13 +49,147 @@ interface PlantSummary {
   id: string;
   nickname: string | null;
   sensor_id?: string | null;
-  plant_data?: { common_name?: string | null } | Array<{ common_name?: string | null }>;
+  plant_data?: PlantDataSummary | PlantDataSummary[];
+}
+
+interface PlantDataSummary {
+  [key: string]: string | number | null | undefined;
+  common_name?: string | null;
+  ideal_temperature_min_winter?: number | null;
+  ideal_temperature_min_summer?: number | null;
+  ideal_temperature_max_winter?: number | null;
+  ideal_temperature_max_summer?: number | null;
+  ideal_soil_moisture_min_summer?: number | null;
+  ideal_soil_moisture_min_winter?: number | null;
+  ideal_soil_moisture_max_summer?: number | null;
+  ideal_soil_moisture_max_winter?: number | null;
+  ideal_humidity_min_winter?: number | null;
+  ideal_humidity_min_summer?: number | null;
+  ideal_humidity_max_winter?: number | null;
+  ideal_humidity_max_summer?: number | null;
+  ideal_ec_min_winter?: number | null;
+  ideal_ec_min_summer?: number | null;
+  ideal_ec_max_winter?: number | null;
+  ideal_ec_max_summer?: number | null;
+  ideal_light_min_winter?: number | null;
+  ideal_light_min_summer?: number | null;
+  ideal_light_max_winter?: number | null;
+  ideal_light_max_summer?: number | null;
+  ideal_soil_type?: string | null;
+}
+
+const PLANT_DATA_SELECT = `
+  common_name,
+  ideal_temperature_min_winter,
+  ideal_temperature_min_summer,
+  ideal_temperature_max_winter,
+  ideal_temperature_max_summer,
+  ideal_soil_moisture_min_summer,
+  ideal_soil_moisture_min_winter,
+  ideal_soil_moisture_max_summer,
+  ideal_soil_moisture_max_winter,
+  ideal_humidity_min_winter,
+  ideal_humidity_min_summer,
+  ideal_humidity_max_winter,
+  ideal_humidity_max_summer,
+  ideal_ec_min_winter,
+  ideal_ec_min_summer,
+  ideal_ec_max_winter,
+  ideal_ec_max_summer,
+  ideal_light_min_winter,
+  ideal_light_min_summer,
+  ideal_light_max_winter,
+  ideal_light_max_summer,
+  ideal_soil_type
+`;
+
+function getPlantData(plant?: PlantSummary | null): PlantDataSummary | null {
+  if (!plant?.plant_data) return null;
+  return Array.isArray(plant.plant_data) ? (plant.plant_data[0] ?? null) : plant.plant_data;
+}
+
+function getCareSeason(date = new Date()): 'summer' | 'winter' {
+  const month = date.getMonth();
+  return month >= 10 || month <= 1 ? 'winter' : 'summer';
+}
+
+function formatIdealRange(min?: number | null, max?: number | null, unit = '', decimals = 0) {
+  if (min == null && max == null) return null;
+
+  const formatValue = (value: number) => `${value.toFixed(decimals)}${unit}`;
+  if (min != null && max != null) return `${formatValue(min)} - ${formatValue(max)}`;
+  if (min != null) return `from ${formatValue(min)}`;
+  return `up to ${formatValue(max as number)}`;
+}
+
+function getIdealNumber(plantData: PlantDataSummary, key: string) {
+  const value = plantData[key];
+  return typeof value === 'number' ? value : null;
+}
+
+function buildIdealStats(plantData: PlantDataSummary | null, season: 'summer' | 'winter') {
+  if (!plantData) return [];
+
+  const seasonalKey = season === 'winter' ? 'winter' : 'summer';
+  return [
+    {
+      label: 'Temperature',
+      icon: 'temperature-half',
+      value: formatIdealRange(
+        getIdealNumber(plantData, `ideal_temperature_min_${seasonalKey}`),
+        getIdealNumber(plantData, `ideal_temperature_max_${seasonalKey}`),
+        '°C'
+      ),
+    },
+    {
+      label: 'Soil moisture',
+      icon: 'droplet',
+      value: formatIdealRange(
+        getIdealNumber(plantData, `ideal_soil_moisture_min_${seasonalKey}`),
+        getIdealNumber(plantData, `ideal_soil_moisture_max_${seasonalKey}`),
+        '%'
+      ),
+    },
+    {
+      label: 'Humidity',
+      icon: 'cloud',
+      value: formatIdealRange(
+        getIdealNumber(plantData, `ideal_humidity_min_${seasonalKey}`),
+        getIdealNumber(plantData, `ideal_humidity_max_${seasonalKey}`),
+        '%'
+      ),
+    },
+    {
+      label: 'EC',
+      icon: 'bolt',
+      value: formatIdealRange(
+        getIdealNumber(plantData, `ideal_ec_min_${seasonalKey}`),
+        getIdealNumber(plantData, `ideal_ec_max_${seasonalKey}`),
+        ' mS/cm',
+        2
+      ),
+    },
+    {
+      label: 'Light',
+      icon: 'sun',
+      value: formatIdealRange(
+        getIdealNumber(plantData, `ideal_light_min_${seasonalKey}`),
+        getIdealNumber(plantData, `ideal_light_max_${seasonalKey}`),
+        ' lux'
+      ),
+    },
+    {
+      label: 'Soil type',
+      icon: 'seedling',
+      value: plantData.ideal_soil_type?.trim() || null,
+    },
+  ].filter((item) => item.value);
 }
 
 async function fetchPlantById(plantId: string): Promise<PlantSummary | null> {
   const { data, error } = await db.social
     .from('Plants')
-    .select('id, nickname, sensor_id, plant_data:Plant_data(common_name)')
+    .select(`id, nickname, plant_data:Plant_data!Plants_plant_data_id_fkey(${PLANT_DATA_SELECT})`)
     .eq('id', plantId)
     .maybeSingle();
 
@@ -70,7 +204,7 @@ async function fetchPlantById(plantId: string): Promise<PlantSummary | null> {
 async function fetchFirstPlantForUser(userId: string): Promise<PlantSummary | null> {
   const { data, error } = await db.social
     .from('Plants')
-    .select('id, nickname, sensor_id, plant_data:Plant_data(common_name)')
+    .select(`id, nickname, plant_data:Plant_data!Plants_plant_data_id_fkey(${PLANT_DATA_SELECT})`)
     .eq('user_id', userId)
     .order('created_at', { ascending: true })
     .limit(1)
@@ -96,37 +230,26 @@ function toTimestampMs(controller?: Pick<PlantController, 'time' | 'created_at'>
   return Number.isFinite(date.getTime()) ? date.getTime() : Number.NEGATIVE_INFINITY;
 }
 
-async function fetchLatestController(
-  plantId: string,
-  sensorBoxId?: string | null
-): Promise<PlantController | null> {
-  const fetchBy = async (column: 'plant_id' | 'plantbox_id', value?: string | null) => {
-    if (!value) return null;
+async function fetchLatestController(deviceId: string): Promise<PlantController | null> {
+  const { data, error } = await db.micro
+    .from('Controllers')
+    .select(
+      'id, temperature, humidity, soil_moisture, light, electrical_conductivity, time, created_at'
+    )
+    .eq('device_id', deviceId)
+    .order('time', { ascending: false })
+    .limit(10);
 
-    const { data, error } = await db.micro
-      .from('Controllers')
-      .select(
-        'id, temperature, humidity, soil_moisture, light, electrical_conductivity, time, created_at'
-      )
-      .eq(column, value)
-      .order('time', { ascending: false })
-      .limit(10);
+  if (error) {
+    ErrorHandlerService.handle(error, { showUI: false });
+    return null;
+  }
 
-    if (error) {
-      ErrorHandlerService.handle(error, { showUI: false });
-      return null;
-    }
+  const rows = ((data as PlantController[] | null) ?? []).sort(
+    (a, b) => toTimestampMs(b) - toTimestampMs(a)
+  );
 
-    const rows = ((data as PlantController[] | null) ?? []).sort(
-      (a, b) => toTimestampMs(b) - toTimestampMs(a)
-    );
-
-    return rows[0] ?? null;
-  };
-
-  const directMatch = await fetchBy('plant_id', plantId);
-  if (directMatch) return directMatch;
-  return fetchBy('plantbox_id', sensorBoxId);
+  return rows[0] ?? null;
 }
 
 const RANGE_LABELS: Record<TimeRangeKey, string> = {
@@ -193,6 +316,7 @@ export default function ShowPlantStats() {
   >('Temperature');
   const [timeRange, setTimeRange] = useState<TimeRangeKey>('Last 1 Hour');
   const [barColor, setBarColor] = useState('#fdae11');
+  const [isIdealStatsOpen, setIsIdealStatsOpen] = useState(false);
 
   const profile = useUserStore((state) => state.profile);
   const startTutorial = useTutorialStore((state) => state.startTutorial);
@@ -205,7 +329,7 @@ export default function ShowPlantStats() {
     }
   }, [profile, startTutorial]);
 
-    const { chartData } = useMemo(() => {
+  const { chartData } = useMemo(() => {
     if (!historyData.length) {
       return { chartData: [] };
     }
@@ -291,7 +415,24 @@ export default function ShowPlantStats() {
     setLoadingHistory(true);
 
     try {
-      const serverLatest = await fetchLatestController(plant.id, plant.sensor_id);
+      const { data: deviceData } = await db.micro
+        .from('Devices')
+        .select('id')
+        .eq('plant_id', plant.id)
+        .maybeSingle();
+
+      const deviceId = deviceData?.id;
+
+      if (!deviceId) {
+        setLatest(null);
+        setAllHistoryData([]);
+        setHistoryData([]);
+        isDataFreshRef.current = false;
+        setEmptyStateMessage('This plant is not linked to a Sensor Box yet.');
+        return;
+      }
+
+      const serverLatest = await fetchLatestController(deviceId);
 
       if (serverLatest) {
         setLatest(serverLatest);
@@ -299,34 +440,22 @@ export default function ShowPlantStats() {
 
         const { limit, hours } = TIME_RANGES[range];
 
-        const loadHistory = async (column: 'plant_id' | 'plantbox_id', value?: string | null) => {
-          if (!value) return null;
+        const { data, error } = await db.micro
+          .from('Controllers')
+          .select(
+            'id, temperature, humidity, soil_moisture, light, electrical_conductivity, time, created_at'
+          )
+          .eq('device_id', deviceId)
+          .order('time', { ascending: false })
+          .limit(TIME_RANGES['All Time'].limit);
 
-          const { data, error } = await db.micro
-            .from('Controllers')
-            .select(
-              'id, temperature, humidity, soil_moisture, light, electrical_conductivity, time, created_at'
-            )
-            .eq(column, value)
-            .order('time', { ascending: false })
-            .limit(TIME_RANGES['All Time'].limit);
+        if (error) {
+          ErrorHandlerService.handle(error, { showUI: false });
+        }
 
-          if (error) {
-            ErrorHandlerService.handle(error, { showUI: false });
-            return null;
-          }
-
-          const rows = ((data as PlantController[] | null) ?? []).sort(
-            (a, b) => toTimestampMs(b) - toTimestampMs(a)
-          );
-
-          return rows;
-        };
-
-        const baseData =
-          (await loadHistory('plant_id', plant.id)) ??
-          (await loadHistory('plantbox_id', plant.sensor_id)) ??
-          [];
+        const baseData = ((data as PlantController[] | null) ?? []).sort(
+          (a, b) => toTimestampMs(b) - toTimestampMs(a)
+        );
 
         if (baseData.length > 0) {
           setAllHistoryData(baseData);
@@ -355,11 +484,7 @@ export default function ShowPlantStats() {
         setAllHistoryData([]);
         setHistoryData([]);
         isDataFreshRef.current = false;
-        setEmptyStateMessage(
-          plant.sensor_id
-            ? 'This plant has a Sensor Box, but no measurements were found yet.'
-            : 'This plant is not linked to a Sensor Box yet.'
-        );
+        setEmptyStateMessage('This plant has a Sensor Box, but no measurements were found yet.');
       }
     } catch (err) {
       ErrorHandlerService.handle(err, { showUI: false });
@@ -420,9 +545,16 @@ export default function ShowPlantStats() {
     }
   }, [fetchPlantData, selectedPlant, timeRange, trackPlantStatsQuestViews]);
 
+  useEffect(() => {
+    setIsIdealStatsOpen(false);
+  }, [selectedPlant?.id]);
+
   const selectedPlantType = Array.isArray(selectedPlant?.plant_data)
     ? selectedPlant.plant_data[0]?.common_name
     : selectedPlant?.plant_data?.common_name;
+  const selectedPlantData = getPlantData(selectedPlant);
+  const careSeason = getCareSeason();
+  const idealStats = buildIdealStats(selectedPlantData, careSeason);
 
   const fullHealth: HealthResult | null = latest
     ? calculateHealthFull(latest as unknown as Record<string, number | null>, selectedPlantType, {
@@ -479,6 +611,64 @@ export default function ShowPlantStats() {
             )}
 
             <SnapshotBoxes latest={latest} />
+
+            {selectedPlantData && idealStats.length > 0 && (
+              <View style={[styles.idealStatsCard, { backgroundColor: theme.colors.background }]}>
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  style={styles.idealStatsHeader}
+                  onPress={() => setIsIdealStatsOpen((current) => !current)}>
+                  <View style={styles.idealStatsTitleWrap}>
+                    <Text style={[styles.idealStatsEyebrow, { color: theme.colors.primary }]}>
+                      Ideal conditions
+                    </Text>
+                    <Text style={[styles.idealStatsTitle, { color: theme.colors.text }]}>
+                      {selectedPlantData.common_name || 'This plant'}
+                    </Text>
+                  </View>
+                  <View style={styles.idealStatsHeaderActions}>
+                    <View
+                      style={[styles.seasonPill, { backgroundColor: `${theme.colors.primary}18` }]}>
+                      <Text style={[styles.seasonPillText, { color: theme.colors.primary }]}>
+                        {careSeason === 'winter' ? 'Winter' : 'Summer'}
+                      </Text>
+                    </View>
+                    <FontAwesome6
+                      name={isIdealStatsOpen ? 'chevron-up' : 'chevron-down'}
+                      size={14}
+                      color={theme.colors.greyedOut}
+                    />
+                  </View>
+                </TouchableOpacity>
+
+                {isIdealStatsOpen && (
+                  <View style={styles.idealStatsGrid}>
+                    {idealStats.map((item) => (
+                      <View
+                        key={item.label}
+                        style={[
+                          styles.idealStatItem,
+                          { borderColor: `${theme.colors.greyedOut}22` },
+                        ]}>
+                        <FontAwesome6
+                          name={item.icon as any}
+                          size={14}
+                          color={theme.colors.primary}
+                        />
+                        <View style={styles.idealStatTextWrap}>
+                          <Text style={[styles.idealStatLabel, { color: theme.colors.greyedOut }]}>
+                            {item.label}
+                          </Text>
+                          <Text style={[styles.idealStatValue, { color: theme.colors.text }]}>
+                            {item.value}
+                          </Text>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+            )}
 
             <View style={styles.infoRow}>
               <TouchableOpacity
@@ -711,6 +901,81 @@ const styles = StyleSheet.create((theme) => ({
   },
   statusRow: {
     marginBottom: 8,
+  },
+  idealStatsCard: {
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginTop: 8,
+    marginBottom: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  idealStatsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  idealStatsTitleWrap: {
+    flex: 1,
+    paddingRight: 10,
+  },
+  idealStatsEyebrow: {
+    fontSize: 12,
+    fontFamily: theme.fonts.header,
+    marginBottom: 3,
+  },
+  idealStatsTitle: {
+    fontSize: 16,
+    fontFamily: theme.fonts.header,
+  },
+  seasonPill: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  idealStatsHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  seasonPillText: {
+    fontSize: 12,
+    fontFamily: theme.fonts.header,
+  },
+  idealStatsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginTop: 12,
+  },
+  idealStatItem: {
+    width: '48%',
+    minHeight: 64,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  idealStatTextWrap: {
+    flex: 1,
+    marginLeft: 8,
+  },
+  idealStatLabel: {
+    fontSize: 11,
+    fontFamily: theme.fonts.regular,
+    marginBottom: 2,
+  },
+  idealStatValue: {
+    fontSize: 13,
+    lineHeight: 17,
+    fontFamily: theme.fonts.header,
   },
   miniTrendRow: {
     flexDirection: 'row',

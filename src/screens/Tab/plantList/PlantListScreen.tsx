@@ -180,8 +180,12 @@ export default function PlantListScreen() {
                     item={item}
                     index={index}
                     onPress={() => handleViewStats(item.id)}
-                    onActionPress={() =>
-                      setActionMenuIndex((prev) => (prev === index ? null : index))
+                    onActionPress={(nextOpen) =>
+                      setActionMenuIndex((prev) => {
+                        if (nextOpen === true) return index;
+                        if (nextOpen === false) return null;
+                        return prev === index ? null : index;
+                      })
                     }
                     showActionText={actionMenuIndex === index}
                     refreshPlants={refreshPlants}

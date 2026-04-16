@@ -36,7 +36,7 @@ export function formatPlantBoxLastSeen(timestamp?: string | null) {
   return date.toLocaleString();
 }
 
-export async function validatePlantBoxId(sensorBoxId: string): Promise<PlantBoxValidationResult> {
+export async function validatePlantBoxId(sensorBoxId: string, currentUserId?: string): Promise<PlantBoxValidationResult> {
   const normalizedId = sensorBoxId.trim();
 
   if (!normalizedId) {
@@ -44,43 +44,29 @@ export async function validatePlantBoxId(sensorBoxId: string): Promise<PlantBoxV
   }
 
   const { data, error } = await db.micro
-    .from('Controllers')
+    .from('Devices')
     .select('*')
-    .or(`plantbox_id.eq.${normalizedId},sensor_id.eq.${normalizedId}`)
-    .order('time', { ascending: false })
-    .limit(1)
+    .eq('id', normalizedId)
     .maybeSingle();
 
   if (error) throw error;
 
-  const latestRecord = data as LatestControllerRecord | null;
-  if (!latestRecord) {
-    return { isValid: false, message: 'No sensor data was found for this Sensor Box ID.' };
+  if (!data) {
+    return { isValid: false, message: 'No PlantBox found with this ID.' };
   }
 
-  const latestSeenAt = latestRecord.time ?? latestRecord.created_at;
-  if (!latestSeenAt) {
-    return { isValid: false, message: 'This Sensor Box has no usable timestamp yet.' };
+  // We allow overwriting existing assignments if someone else has claimed it
+  /*
+  if (data.user_id && currentUserId && data.user_id !== currentUserId) {
+    return { isValid: false, message: 'This PlantBox is already registered to another user.' };
   }
-
-  const latestSeenDate = new Date(latestSeenAt);
-  if (Number.isNaN(latestSeenDate.getTime())) {
-    return { isValid: false, message: 'The latest Sensor Box entry has an invalid timestamp.' };
-  }
-
-  const recentCutoff = Date.now() - SENSOR_ACTIVITY_WINDOW_HOURS * 60 * 60 * 1000;
-  if (latestSeenDate.getTime() < recentCutoff) {
-    return {
-      isValid: false,
-      message: `This Sensor Box has no recent data in the last ${SENSOR_ACTIVITY_WINDOW_HOURS} hours.`,
-    };
-  }
+  */
 
   return {
     isValid: true,
-    sensorBoxId: latestRecord.plantbox_id ?? latestRecord.sensor_id ?? normalizedId,
-    latestSeenAt,
-    existingPlantId: latestRecord.plant_id,
+    sensorBoxId: data.id,
+    latestSeenAt: data.last_seen_at ?? data.created_at,
+    existingPlantId: null, // Devices table does not track plant_id in this context
   };
 }
 
@@ -117,29 +103,29 @@ export async function fetchAvailablePlantBoxes(): Promise<PlantBoxOption[]> {
 }
 
 export async function connectPlantBoxToPlant(params: {
-  controllerRecordId?: string;
   sensorBoxId: string;
   plantId: string;
   userId?: string;
 }) {
-  const { controllerRecordId, sensorBoxId, plantId, userId } = params;
+  const { sensorBoxId, plantId, userId } = params;
 
-  const updatePayload: { plant_id: string; user_id?: string } = { plant_id: plantId };
-  if (userId) updatePayload.user_id = userId;
 
-  const { error: updatePlantError } = await db.social
-    .from('Plants')
-    .update({ sensor_id: sensorBoxId })
-    .eq('id', plantId);
+  // The device connection is handled entirely in the microcontroller schema.
+  // There is no sensor_id in the Plants table.
+  const { data, error: assignError } = await db.micro
+    .from('Devices')
+    .update({ plant_id: plantId, user_id: userId })
+    .eq('id', sensorBoxId)
+    .select()
+    .single();
+    
+  if (assignError) {
+    if (assignError.code === 'PGRST116') {
+      throw new Error('PlantBox connection failed. It may be registered to someone else.');
+    }
+    throw assignError;
+  }
+  if (!data) throw new Error('PlantBox connection failed or you do not have permission to claim it.');
 
-  if (updatePlantError) throw updatePlantError;
-
-  const controllerQuery = db.micro.from('Controllers').update(updatePayload);
-  const controllerUpdate = controllerRecordId
-    ? controllerQuery.eq('id', controllerRecordId)
-    : controllerQuery.or(`plantbox_id.eq.${sensorBoxId},sensor_id.eq.${sensorBoxId}`);
-
-  const { error: connectError } = await controllerUpdate;
-
-  if (connectError) throw connectError;
+  // Controllers table is linked via device_id to the Devices table, so updating the device is sufficient.
 }

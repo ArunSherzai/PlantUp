@@ -36,7 +36,7 @@ import {
 } from '../utils/leveling';
 import { useNavigation } from '@react-navigation/native';
 import { Image as ExpoImage } from 'expo-image';
-import { showAlertDialog } from '~/services/appDialog';
+import { showAlertDialog, showConfirmDialog } from '~/services/appDialog';
 
 const { width } = Dimensions.get('window');
 const vw = width / 100;
@@ -50,7 +50,13 @@ export default function UserProfile({ userId, isOwner }: Props) {
   const { theme } = useUnistyles();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
-  const { user: currentUser } = useUserStore(); // Current logged in user (viewer)
+  const {
+    user: currentUser,
+    blockedUserIds,
+    fetchBlockedUsers,
+    blockUser,
+    unblockUser,
+  } = useUserStore(); // Current logged in user (viewer)
 
   // Explicitly derive owner status if not passed, but trusting prop is better for flexibility
   const isCurrentUser = isOwner ?? currentUser?.id === userId;
@@ -82,7 +88,8 @@ export default function UserProfile({ userId, isOwner }: Props) {
       refreshUserPosts();
       refreshLikedPosts();
       refreshConnections();
-    }, [userId, refreshProfile])
+      fetchBlockedUsers();
+    }, [userId, refreshProfile, fetchBlockedUsers])
   );
 
   // Defer heavy 3D plant rendering to improve startup responsiveness
@@ -128,8 +135,13 @@ export default function UserProfile({ userId, isOwner }: Props) {
   }, [currentLevel]);
 
   const isFollowing = followers.some((u) => u.id === currentUser?.id);
+  const isBlocked = blockedUserIds.has(userId);
 
   const handleFollowAction = async () => {
+    if (isBlocked) {
+      return;
+    }
+
     try {
       if (isFollowing) {
         console.log('[UserProfile] Unfollowing user:', userId);
@@ -138,11 +150,46 @@ export default function UserProfile({ userId, isOwner }: Props) {
         console.log('[UserProfile] Following user:', userId);
         await followUser(userId);
       }
-      // Force refresh both connections and stats
-      await refreshConnections();
       refreshStats();
     } catch (e) {
       console.error('[UserProfile] Follow/Unfollow error:', e);
+    }
+  };
+
+  const handleBlockAction = async () => {
+    try {
+      if (isBlocked) {
+        const confirmed = await showConfirmDialog({
+          title: 'Unblock User?',
+          message: `You will be able to follow and interact with ${profile?.username || 'this user'} again.`,
+          confirmLabel: 'Unblock',
+          confirmRole: 'default',
+        });
+
+        if (!confirmed) return;
+
+        await unblockUser(userId);
+        await refreshConnections();
+        refreshStats();
+        return;
+      }
+
+      const confirmed = await showConfirmDialog({
+        title: 'Block User?',
+        message: `${profile?.username || 'This user'} will no longer be connected with you.`,
+        confirmLabel: 'Block',
+        confirmRole: 'destructive',
+      });
+
+      if (!confirmed) return;
+
+      await blockUser(userId);
+      if (isFollowing) {
+        await unfollowUser(userId);
+      }
+      refreshStats();
+    } catch (e) {
+      console.error('[UserProfile] Block/Unblock error:', e);
     }
   };
 
@@ -263,6 +310,9 @@ export default function UserProfile({ userId, isOwner }: Props) {
                         mode="lsystem"
                         lsystemConfig={lsystemConfig}
                         potType="PotStandard"
+                        cameraY={0.7}
+                        cameraDistance={2.2}
+                        cameraTargetY={0.22}
                       />
                     ) : (
                       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -456,16 +506,44 @@ export default function UserProfile({ userId, isOwner }: Props) {
               ) : null}
 
               {!isCurrentUser && (
-                <TouchableOpacity
-                  style={[
-                    styles.followButton,
-                    { backgroundColor: isFollowing ? '#8E44AD' : theme.colors.primary },
-                  ]}
-                  onPress={handleFollowAction}>
-                  <Text style={styles.followButtonText}>
-                    {isFollowing ? 'Following' : 'Follow'}
-                  </Text>
-                </TouchableOpacity>
+                <View style={styles.profileActions}>
+                  {!isBlocked && (
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      style={[
+                        styles.followButton,
+                        { backgroundColor: isFollowing ? '#8E44AD' : theme.colors.primary },
+                      ]}
+                      onPress={handleFollowAction}>
+                      <Text style={styles.followButtonText}>
+                        {isFollowing ? 'Following' : 'Follow'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    style={[
+                      styles.blockButton,
+                      {
+                        borderColor: isBlocked ? theme.colors.primary : '#E55050',
+                        backgroundColor: isBlocked ? theme.colors.primary : 'transparent',
+                      },
+                    ]}
+                    onPress={handleBlockAction}>
+                    <FontAwesome6
+                      name={isBlocked ? 'lock-open' : 'ban'}
+                      size={12}
+                      color={isBlocked ? '#FFF' : '#E55050'}
+                    />
+                    <Text
+                      style={[styles.blockButtonText, { color: isBlocked ? '#FFF' : '#E55050' }]}>
+                      {isBlocked ? 'Unblock' : 'Block'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               )}
             </View>
           </View>
@@ -606,7 +684,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   userInfo: {
     flex: 1,
-    overflow: 'hidden',
+    overflow: 'visible',
   },
   nameRow: {
     flexDirection: 'row',
@@ -624,12 +702,22 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.typography,
     marginTop: 4,
   },
-  followButton: {
+  profileActions: {
     marginTop: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    width: '100%',
+  },
+  followButton: {
+    minWidth: 96,
+    minHeight: 40,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
     borderRadius: 25,
-    alignSelf: 'flex-start',
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
     shadowColor: '#000',
@@ -640,6 +728,21 @@ const styles = StyleSheet.create((theme) => ({
   },
   followButtonText: {
     color: '#FFF',
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
+  blockButton: {
+    minHeight: 40,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 25,
+    borderWidth: 1.5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  blockButtonText: {
     fontWeight: 'bold',
     fontSize: 12,
   },

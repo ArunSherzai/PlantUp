@@ -284,7 +284,7 @@ export default function AddPlantScreen() {
       }
 
       if (pendingSensorBoxId) {
-        const sensorValidation = await validatePlantBoxId(pendingSensorBoxId);
+        const sensorValidation = await validatePlantBoxId(pendingSensorBoxId, user.id);
 
         if (!sensorValidation.isValid) {
           throw new Error(
@@ -334,7 +334,6 @@ export default function AddPlantScreen() {
 
       if (pendingSensorBoxId) {
         await connectPlantBoxToPlant({
-          controllerRecordId: selectedControllerRecordId ?? undefined,
           sensorBoxId: pendingSensorBoxId,
           plantId: insertedPlant.id,
           userId: user.id,

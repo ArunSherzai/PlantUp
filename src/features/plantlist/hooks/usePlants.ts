@@ -8,69 +8,122 @@ export function usePlants(userId?: string) {
   const [plants, setPlants] = useState<PlantItem[]>([]);
 
   const refreshPlants = async () => {
-    let targetId = userId;
+    try {
+      let targetId = userId;
 
-    if (!targetId) {
-      const { data: userData } = await db.public.auth.getUser();
-      targetId = userData?.user?.id;
-    }
+      if (!targetId) {
+        const { data: userData, error: userError } = await db.public.auth.getUser();
+        if (userError) {
+          throw userError;
+        }
+        targetId = userData?.user?.id;
+      }
 
-    if (!targetId) return;
+      if (!targetId) return;
 
-    const { data, error } = await db.social
-      .from('Plants')
-      .select('id, nickname, description, image_url, plant_data_id')
-      .eq('user_id', targetId);
+      console.log('[usePlants] refresh started', { userId: targetId });
 
-    if (error) {
-      console.log('Reload error:', error);
-      return;
-    }
+      const { data, error } = await db.social
+        .from('Plants')
+        .select('id, nickname, description, image_url, plant_data_id')
+        .eq('user_id', targetId);
 
-    const plantIds = data.map((plant) => plant.id);
-    const latestControllerByPlant = new Map<string, { sensorBoxId: string; lastSeenAt?: string }>();
+      if (error) {
+        throw error;
+      }
 
-    if (plantIds.length > 0) {
-      const { data: controllerData, error: controllerError } = await db.micro
-        .from('Controllers')
-        .select('*')
-        .in('plant_id', plantIds)
-        .order('time', { ascending: false });
+      const plantRows = data ?? [];
+      const plantIds = plantRows.map((plant) => plant.id);
+      const latestControllerByPlant = new Map<
+        string,
+        { sensorBoxId: string; lastSeenAt?: string }
+      >();
 
-      if (controllerError) {
-        console.log('Controller lookup error:', controllerError);
-      } else {
-        controllerData.forEach((controller: any) => {
-          if (!controller.plant_id || latestControllerByPlant.has(controller.plant_id)) {
-            return;
+      if (plantIds.length > 0) {
+        // Step 1: Find all devices associated with these plants
+        const { data: deviceData, error: deviceError } = await db.micro
+          .from('Devices')
+          .select('id, plant_id')
+          .in('plant_id', plantIds);
+
+        if (deviceError) {
+          console.error('[usePlants] device lookup failed', deviceError);
+        } else if (deviceData && deviceData.length > 0) {
+          const deviceIds = deviceData.map((d) => d.id);
+          const deviceToPlantMap = new Map(deviceData.map((d) => [d.id, d.plant_id]));
+
+          // Step 2: Fetch the latest controller data for those devices
+          const { data: controllerData, error: controllerError } = await db.micro
+            .from('Controllers')
+            .select('*')
+            .in('device_id', deviceIds)
+            .order('time', { ascending: false });
+
+          if (controllerError) {
+            console.error('[usePlants] controller lookup failed', controllerError);
+          } else {
+            (controllerData ?? []).forEach((controller: any) => {
+              const associatedPlantId = deviceToPlantMap.get(controller.device_id);
+              if (!associatedPlantId || latestControllerByPlant.has(associatedPlantId)) {
+                return;
+              }
+
+              latestControllerByPlant.set(associatedPlantId, {
+                sensorBoxId: controller.device_id,
+                lastSeenAt: controller.time ?? controller.created_at ?? undefined,
+              });
+            });
           }
 
-          latestControllerByPlant.set(controller.plant_id, {
-            sensorBoxId: controller.plantbox_id ?? controller.sensor_id ?? controller.id,
-            lastSeenAt: controller.time ?? controller.created_at ?? undefined,
+          // Even if there's no controller data yet, we should map empty devices so the UI knows they are connected
+          deviceData.forEach((d) => {
+            if (!latestControllerByPlant.has(d.plant_id)) {
+              latestControllerByPlant.set(d.plant_id, {
+                sensorBoxId: d.id,
+                lastSeenAt: undefined,
+              });
+            }
           });
-        });
+        }
       }
+
+      const mapped: PlantItem[] = plantRows.map((p, idx) => ({
+        id: p.id,
+        name: p.nickname ?? '',
+        type_id: p.plant_data_id ?? undefined,
+        description: p.description ?? '',
+        image_url: getPublicPlantImageUrl(p.image_url) || undefined,
+        imagePath: p.image_url,
+        sensorBoxId: latestControllerByPlant.get(p.id)?.sensorBoxId,
+        sensorLastSeenAt: latestControllerByPlant.get(p.id)?.lastSeenAt,
+        image: '',
+        gradientColors: customGradients[idx % customGradients.length],
+      }));
+
+      setPlants((previousPlants) => {
+        if (previousPlants.length === 0) {
+          return mapped;
+        }
+
+        const refreshedById = new Map(mapped.map((plant) => [plant.id, plant]));
+        const previousOrderIds = previousPlants.map((plant) => plant.id);
+        const orderedExistingPlants = previousOrderIds
+          .map((plantId) => refreshedById.get(plantId))
+          .filter((plant): plant is PlantItem => Boolean(plant));
+        const newlyAddedPlants = mapped.filter((plant) => !previousOrderIds.includes(plant.id));
+
+        return [...orderedExistingPlants, ...newlyAddedPlants];
+      });
+
+      console.log('[usePlants] refresh finished', { userId: targetId, count: mapped.length });
+    } catch (error) {
+      console.error('[usePlants] refresh failed', error);
+      throw error;
     }
-
-    const mapped: PlantItem[] = data.map((p, idx) => ({
-      id: p.id,
-      name: p.nickname,
-      type_id: p.plant_data_id ?? undefined,
-      description: p.description,
-      image_url: getPublicPlantImageUrl(p.image_url) || undefined,
-      imagePath: p.image_url,
-      sensorBoxId: latestControllerByPlant.get(p.id)?.sensorBoxId,
-      sensorLastSeenAt: latestControllerByPlant.get(p.id)?.lastSeenAt,
-      image: '',
-      gradientColors: customGradients[idx % customGradients.length],
-    }));
-
-    setPlants(mapped);
   };
 
   useEffect(() => {
-    refreshPlants();
+    void refreshPlants().catch(() => undefined);
   }, [userId]);
 
   return { plants, refreshPlants };

@@ -130,15 +130,15 @@ export function usePlantTipSystem() {
         groupKey: tip.plantId ? `${tip.severity}:${tip.plantId}` : undefined,
         navigationTarget: tip.plantId
           ? {
-              name: 'PlantStats',
-              params: {
-                plantId: tip.plantId,
-                onlyShowSelected: true,
-              },
-            }
-          : {
-              name: 'TabNavigator',
+            name: 'PlantStats',
+            params: {
+              plantId: tip.plantId,
+              onlyShowSelected: true,
             },
+          }
+          : {
+            name: 'TabNavigator',
+          },
       });
     }
 
@@ -181,7 +181,7 @@ export function usePlantTipSystem() {
 
     const { data: plants } = await db.social
       .from('Plants')
-      .select('id, nickname, sensor_id, plant_data:Plant_data(*)')
+      .select('id, nickname, plant_data:Plant_data!Plants_plant_data_id_fkey(*)')
       .eq('user_id', user.id);
 
     if (!plants || plants.length === 0) return false;
@@ -192,19 +192,29 @@ export function usePlantTipSystem() {
     for (const plant of plants) {
       const controllerSelect =
         'temperature, humidity, soil_moisture, light, electrical_conductivity, created_at, time';
-      const sensorId = typeof plant.sensor_id === 'string' ? plant.sensor_id.trim() : '';
-      let controllerQuery = db.micro
-        .from('Controllers')
-        .select(controllerSelect)
-        .order('time', { ascending: false })
-        .order('created_at', { ascending: false })
-        .limit(1);
 
-      controllerQuery = sensorId
-        ? controllerQuery.or(`plant_id.eq.${plant.id},plantbox_id.eq.${sensorId}`)
-        : controllerQuery.eq('plant_id', plant.id);
+      const { data: deviceData } = await db.micro
+        .from('Devices')
+        .select('id')
+        .eq('plant_id', plant.id)
+        .maybeSingle();
 
-      const { data: latestController } = await controllerQuery.maybeSingle();
+      const deviceId = deviceData?.id;
+
+      let latestController = null;
+
+      if (deviceId) {
+        const { data } = await db.micro
+          .from('Controllers')
+          .select(controllerSelect)
+          .eq('device_id', deviceId)
+          .order('time', { ascending: false })
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        latestController = data;
+      }
 
       const { data: latestProgress } = await db.social
         .from('Plant_progress_photos')
