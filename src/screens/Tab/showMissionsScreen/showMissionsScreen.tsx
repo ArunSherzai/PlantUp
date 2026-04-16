@@ -32,7 +32,6 @@ import { useTutorialStore } from '../../../stores/TutorialStore';
 import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
 import { showAlertDialog } from '~/services/appDialog';
 
-
 const { height, width } = Dimensions.get('window');
 
 // Removed hardcoded layout constants in favor of responsive units
@@ -60,14 +59,14 @@ type UserQuest = {
 const getStreakMultiplier = (streak: number) => {
   if (streak < 10) return 1.0;
   if (streak < 20) return 1.25;
-  if (streak < 30) return 1.50;
+  if (streak < 30) return 1.5;
   if (streak < 39) return 1.75;
   return 2.0;
 };
 
 import { useNavigation } from '@react-navigation/native';
 
-// ... 
+// ...
 
 export default function ShowMissionsScreen() {
   const { theme } = useUnistyles();
@@ -75,7 +74,12 @@ export default function ShowMissionsScreen() {
   const [quests, setQuests] = useState<UserQuest[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [xpToast, setXPToast] = useState<{ visible: boolean; startXP: number; endXP: number; level: number } | null>(null);
+  const [xpToast, setXPToast] = useState<{
+    visible: boolean;
+    startXP: number;
+    endXP: number;
+    level: number;
+  } | null>(null);
   const [selectedQuestForModal, setSelectedQuestForModal] = useState<UserQuest | null>(null);
   const [recentlyClaimedQuest, setRecentlyClaimedQuest] = useState<UserQuest | null>(null);
 
@@ -168,7 +172,7 @@ export default function ShowMissionsScreen() {
           if (!hasShown) {
             setShowRescueOverlay(true);
           } else {
-            // Already shown, ensure thaw doesn't re-trigger or maybe it should act melted? 
+            // Already shown, ensure thaw doesn't re-trigger or maybe it should act melted?
             // For now, if already shown, we assume "melted" state or standard view.
           }
         }
@@ -188,72 +192,74 @@ export default function ShowMissionsScreen() {
   };
 
   // --- CLAIM LOGIC ---
-  const handleClaim = useCallback(async (userQuestId: number) => {
-    // Capture Start State immediately (Closure value is reliable as logical 'Before' state)
-    const startXP = profile?.xp || 0;
-    const currentLevel = profile?.level || 1;
+  const handleClaim = useCallback(
+    async (userQuestId: number) => {
+      // Capture Start State immediately (Closure value is reliable as logical 'Before' state)
+      const startXP = profile?.xp || 0;
+      const currentLevel = profile?.level || 1;
 
-    try {
-      setLoading(true);
+      try {
+        setLoading(true);
 
-      // Call RPC
-      const { data, error } = await db.public.rpc('claim_quest', {
-        user_quest_id: userQuestId,
-      });
-
-      if (error) throw error;
-
-      const result = data as any;
-      if (!result.success) {
-        await showAlertDialog({
-          title: 'Info',
-          message: result.message || 'Could not claim quest.',
-          variant: 'warning',
+        // Call RPC
+        const { data, error } = await db.public.rpc('claim_quest', {
+          user_quest_id: userQuestId,
         });
-        return;
-      }
 
-      // Update Local State
-      const gainedXP = result.xp_gained;
-      const newStreak = result.new_streak;
-      const multiplier = result.multiplier;
+        if (error) throw error;
 
-      const endXP = startXP + gainedXP;
-
-      // 1. Trigger XP Toast (Visual feedback first)
-      setXPToast({
-        visible: true,
-        startXP: startXP,
-        endXP: endXP,
-        level: currentLevel
-      });
-
-      // 2. Update Profile Store
-      await addXP(gainedXP);
-      const todayDate = new Date().toISOString().split('T')[0];
-      updateStreak(newStreak, todayDate);
-
-      // 3. Update Quest List locally to avoid full refetch
-      setQuests((currentQuests) => {
-        const questToClaim = currentQuests.find(q => q.id === userQuestId);
-        if (questToClaim) {
-          // We use the updated status 'claimed' for the modal
-          setRecentlyClaimedQuest({ ...questToClaim, status: 'claimed' });
+        const result = data as any;
+        if (!result.success) {
+          await showAlertDialog({
+            title: 'Info',
+            message: result.message || 'Could not claim quest.',
+            variant: 'warning',
+          });
+          return;
         }
-        return currentQuests.map((q) => {
-          if (q.id === userQuestId) {
-            return { ...q, status: 'claimed' };
-          }
-          return q;
-        });
-      });
 
-    } catch (e) {
-      ErrorHandlerService.handle(e);
-    } finally {
-      setLoading(false);
-    }
-  }, [addXP, updateStreak, profile]); // Add profile to deps to use latest value
+        // Update Local State
+        const gainedXP = result.xp_gained;
+        const newStreak = result.new_streak;
+        const multiplier = result.multiplier;
+
+        const endXP = startXP + gainedXP;
+
+        // 1. Trigger XP Toast (Visual feedback first)
+        setXPToast({
+          visible: true,
+          startXP: startXP,
+          endXP: endXP,
+          level: currentLevel,
+        });
+
+        // 2. Update Profile Store
+        await addXP(gainedXP);
+        const todayDate = new Date().toISOString().split('T')[0];
+        updateStreak(newStreak, todayDate);
+
+        // 3. Update Quest List locally to avoid full refetch
+        setQuests((currentQuests) => {
+          const questToClaim = currentQuests.find((q) => q.id === userQuestId);
+          if (questToClaim) {
+            // We use the updated status 'claimed' for the modal
+            setRecentlyClaimedQuest({ ...questToClaim, status: 'claimed' });
+          }
+          return currentQuests.map((q) => {
+            if (q.id === userQuestId) {
+              return { ...q, status: 'claimed' };
+            }
+            return q;
+          });
+        });
+      } catch (e) {
+        ErrorHandlerService.handle(e);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [addXP, updateStreak, profile]
+  ); // Add profile to deps to use latest value
 
   // Listen filtern
   const dailyQuests = quests.filter((q) => {
@@ -285,6 +291,10 @@ export default function ShowMissionsScreen() {
   const boostMultiplier = isBoostActive ? 0.5 : 0;
 
   const totalMultiplier = streakMultiplier + boostMultiplier;
+  const formattedPlantCoins =
+    profile?.plant_coins == null
+      ? '0'
+      : profile.plant_coins.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -305,23 +315,33 @@ export default function ShowMissionsScreen() {
 
           {/* Top Right Shop Button */}
           <View style={{ position: 'absolute', top: vh * 1, right: vw * 5, zIndex: 100 }}>
-             <TouchableOpacity 
-                onPress={() => navigation.navigate('Shop')}
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Shop')}
+              style={{
+                backgroundColor: 'rgba(255,255,255,0.2)',
+                paddingHorizontal: vw * 3.5,
+                paddingVertical: vh * 1.1,
+                borderRadius: vw * 5,
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.4)',
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: vw * 2,
+              }}>
+              <FontAwesome6 name="shop" size={vw * 4.6} color="white" />
+              <Text style={{ color: 'white', fontWeight: 'bold', fontSize: vw * 3.4 }}>Shop</Text>
+              <View
                 style={{
-                    backgroundColor: 'rgba(255,255,255,0.2)', 
-                    paddingHorizontal: vw * 4,
-                    paddingVertical: vh * 1.2, 
-                    borderRadius: vw * 5, 
-                    borderWidth: 1, 
-                    borderColor: 'rgba(255,255,255,0.4)',
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: vw * 2
+                  width: 1,
+                  height: vh * 2.4,
+                  backgroundColor: 'rgba(255,255,255,0.35)',
                 }}
-             >
-                 <FontAwesome6 name="shop" size={vw * 5} color="white" />
-                 <Text style={{ color: 'white', fontWeight: 'bold', fontSize: vw * 3.5 }}>Shop</Text>
-             </TouchableOpacity>
+              />
+              <FontAwesome6 name="coins" size={vw * 4} color="#FFD76B" />
+              <Text style={{ color: 'white', fontWeight: '900', fontSize: vw * 3.4 }}>
+                {formattedPlantCoins}
+              </Text>
+            </TouchableOpacity>
           </View>
 
           <MaskedView
@@ -341,13 +361,11 @@ export default function ShowMissionsScreen() {
         </View>
 
         {/* STREAK RESCUE OVERLAY */}
-        {showRescueOverlay && (
-          <StreakSavedOverlay onDismiss={handleDismissRescueOverlay} />
-        )}
+        {showRescueOverlay && <StreakSavedOverlay onDismiss={handleDismissRescueOverlay} />}
 
         {/* DRAGGABLE BOTTOM SHEET */}
         {/* Set initialHeight to 0.50 to leave top 50% for header/streak (increased gap) */}
-        <DraggableBottomSheet initialHeight={0.50} maxHeight={0.75}>
+        <DraggableBottomSheet initialHeight={0.5} maxHeight={0.75}>
           <View style={{ flex: 1, paddingHorizontal: 20 }}>
             {loading && !refreshing ? (
               <ActivityIndicator
@@ -365,10 +383,14 @@ export default function ShowMissionsScreen() {
                 initialNumToRender={6} // Rendert genug für den ersten Blick.
                 maxToRenderPerBatch={4} // Lädt moderat nach beim Scrollen.
                 windowSize={7} // Behält ein bisschen was im Speicher (weniger Ruckeln beim Zurückscrollen).
-
                 contentContainerStyle={{ paddingBottom: height * 0.5 }}
                 showsVerticalScrollIndicator={false}
-                ListHeaderComponent={<MultiplierBanner multiplier={totalMultiplier} isBoosterActive={!!isBoostActive} />}
+                ListHeaderComponent={
+                  <MultiplierBanner
+                    multiplier={totalMultiplier}
+                    isBoosterActive={!!isBoostActive}
+                  />
+                }
                 renderSectionHeader={({ section: { title } }) => (
                   <View style={styles.sectionHeaderContainer}>
                     <Text style={styles.sectionTitle}>{title}</Text>
@@ -417,8 +439,6 @@ export default function ShowMissionsScreen() {
             )}
           </View>
         </DraggableBottomSheet>
-
-
       </View>
 
       {xpToast?.visible && (
@@ -427,19 +447,23 @@ export default function ShowMissionsScreen() {
           startXP={xpToast.startXP}
           endXP={xpToast.endXP}
           level={xpToast.level}
-          onComplete={() => setXPToast(prev => prev ? { ...prev, visible: false } : null)}
+          onComplete={() => setXPToast((prev) => (prev ? { ...prev, visible: false } : null))}
         />
       )}
 
       {/* REWARD DETAILS MODAL (For claimed quests to show Happy Sprig) */}
       <RewardDetailsModal
         visible={!!selectedQuestForModal}
-        reward={selectedQuestForModal ? {
-          level: 1, // Dummy
-          title: selectedQuestForModal.Quests.title,
-          description: selectedQuestForModal.Quests.description,
-          // Use fallback icon
-        } : null}
+        reward={
+          selectedQuestForModal
+            ? {
+                level: 1, // Dummy
+                title: selectedQuestForModal.Quests.title,
+                description: selectedQuestForModal.Quests.description,
+                // Use fallback icon
+              }
+            : null
+        }
         isClaimed={true} // Always claimed when viewing history? Or check status
         isLocked={false}
         onClose={() => setSelectedQuestForModal(null)}
@@ -528,15 +552,13 @@ function QuestCard({
                 />
               )}
               <FontAwesome6
-                name={hasMultiplier ? "fire" : "star"}
+                name={hasMultiplier ? 'fire' : 'star'}
                 size={12}
                 color={xpTextColor}
                 style={{ marginRight: 4 }}
                 solid
               />
-              <Text style={[styles.xpText, { color: xpTextColor }]}>
-                {displayXP} XP
-              </Text>
+              <Text style={[styles.xpText, { color: xpTextColor }]}>{displayXP} XP</Text>
             </View>
           )
         )}
@@ -573,19 +595,25 @@ function QuestCard({
   return content;
 }
 
-const MultiplierBanner = ({ multiplier, isBoosterActive }: { multiplier: number, isBoosterActive: boolean }) => {
+const MultiplierBanner = ({
+  multiplier,
+  isBoosterActive,
+}: {
+  multiplier: number;
+  isBoosterActive: boolean;
+}) => {
   if (multiplier <= 1.0) return null;
 
   // Dynamic text
-  let title = "XP Bonus Active! 🔥";
+  let title = 'XP Bonus Active! 🔥';
   let subtitle = `You're earning ${multiplier}x XP on all quests!`;
 
   if (isBoosterActive && multiplier > 1.5) {
     // Both active (e.g. 1.25 streak + 0.5 boost = 1.75)
-    title = "Mega XP Boost! 🚀";
+    title = 'Mega XP Boost! 🚀';
     subtitle = `Booster & Streak combined: ${multiplier}x XP!`;
   } else if (isBoosterActive) {
-    title = "Fertilizer Boost Active! 🌱";
+    title = 'Fertilizer Boost Active! 🌱';
     subtitle = `Your values are boosted by +0.5x!`;
   }
 
@@ -637,7 +665,7 @@ const styles = StyleSheet.create((theme) => ({
     fontWeight: '900',
     color: 'white',
     lineHeight: vw * 11,
-    textAlign: 'left' // Left align
+    textAlign: 'left', // Left align
   },
   comingSoonBar: {
     borderRadius: 18,
@@ -653,7 +681,12 @@ const styles = StyleSheet.create((theme) => ({
   wrapper: { width: '100%', flexDirection: 'column' },
 
   sectionHeaderContainer: { marginBottom: vh * 1 },
-  sectionTitle: { fontSize: vw * 4.5, fontWeight: 'bold', color: theme.colors.text, textAlign: 'center' },
+  sectionTitle: {
+    fontSize: vw * 4.5,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+    textAlign: 'center',
+  },
   itemWrapperMint: {
     backgroundColor: theme.colors.surface,
     paddingHorizontal: vw * 4,
@@ -688,7 +721,12 @@ const styles = StyleSheet.create((theme) => ({
     elevation: 2,
   },
   questTitle: { fontSize: vw * 3.8, fontWeight: '600', color: theme.colors.text },
-  questDescription: { fontSize: vw * 3, color: theme.colors.typography, marginTop: 2, lineHeight: vw * 4 },
+  questDescription: {
+    fontSize: vw * 3,
+    color: theme.colors.typography,
+    marginTop: 2,
+    lineHeight: vw * 4,
+  },
   xpContainer: {
     flexDirection: 'row',
     alignItems: 'center',

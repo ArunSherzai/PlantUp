@@ -3,7 +3,6 @@ import { useFocusEffect } from '@react-navigation/native';
 import { View, Text, Image, FlatList, ActivityIndicator, Dimensions, Keyboard } from 'react-native';
 import { playSound } from '~/utils/SoundManager';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { PlantCoinBox } from '~/components/PlantCoinBox';
 import { useNavigation } from '@react-navigation/native';
 
 import FilledButton from '~/features/auth/components/FilledButton';
@@ -102,7 +101,6 @@ export default function PlantListScreen() {
           style={styles.headerImage}
           resizeMode="cover"
         />
-        <PlantCoinBox />
         <View style={[styles.headerContainer, { top: insets.top + heroHeight * 0.29 }]}>
           <Text
             style={styles.headerTitle}
