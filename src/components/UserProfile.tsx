@@ -505,47 +505,45 @@ export default function UserProfile({ userId, isOwner }: Props) {
                 </Text>
               ) : null}
 
-              {!isCurrentUser && (
+              {!isCurrentUser && !isBlocked && (
                 <View style={styles.profileActions}>
-                  {!isBlocked && (
-                    <TouchableOpacity
-                      activeOpacity={0.8}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      style={[
-                        styles.followButton,
-                        { backgroundColor: isFollowing ? '#8E44AD' : theme.colors.primary },
-                      ]}
-                      onPress={handleFollowAction}>
-                      <Text style={styles.followButtonText}>
-                        {isFollowing ? 'Following' : 'Follow'}
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-
                   <TouchableOpacity
                     activeOpacity={0.8}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     style={[
-                      styles.blockButton,
-                      {
-                        borderColor: isBlocked ? theme.colors.primary : '#E55050',
-                        backgroundColor: isBlocked ? theme.colors.primary : 'transparent',
-                      },
+                      styles.followButton,
+                      { backgroundColor: isFollowing ? '#8E44AD' : theme.colors.primary },
                     ]}
-                    onPress={handleBlockAction}>
-                    <FontAwesome6
-                      name={isBlocked ? 'lock-open' : 'ban'}
-                      size={12}
-                      color={isBlocked ? '#FFF' : '#E55050'}
-                    />
-                    <Text
-                      style={[styles.blockButtonText, { color: isBlocked ? '#FFF' : '#E55050' }]}>
-                      {isBlocked ? 'Unblock' : 'Block'}
+                    onPress={handleFollowAction}>
+                    <Text style={styles.followButtonText}>
+                      {isFollowing ? 'Following' : 'Follow'}
                     </Text>
                   </TouchableOpacity>
                 </View>
               )}
             </View>
+
+            {!isCurrentUser && (
+              <TouchableOpacity
+                activeOpacity={0.8}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityRole="button"
+                accessibilityLabel={isBlocked ? 'Unblock user' : 'Block user'}
+                style={[
+                  styles.blockIconButton,
+                  {
+                    borderColor: isBlocked ? theme.colors.primary : '#E55050',
+                    backgroundColor: isBlocked ? theme.colors.primary : theme.colors.background,
+                  },
+                ]}
+                onPress={handleBlockAction}>
+                <FontAwesome6
+                  name={isBlocked ? 'lock-open' : 'ban'}
+                  size={13}
+                  color={isBlocked ? '#FFF' : '#E55050'}
+                />
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Stats */}
@@ -664,8 +662,10 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.background,
     borderRadius: 20,
     padding: 20,
+    paddingRight: 52,
     flexDirection: 'row',
     alignItems: 'center',
+    position: 'relative',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -706,13 +706,13 @@ const styles = StyleSheet.create((theme) => ({
     marginTop: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 8,
     width: '100%',
+    zIndex: 3,
+    elevation: 5,
   },
   followButton: {
-    minWidth: 96,
-    minHeight: 40,
+    width: 112,
+    minHeight: 44,
     paddingVertical: 10,
     paddingHorizontal: 18,
     borderRadius: 25,
@@ -725,26 +725,25 @@ const styles = StyleSheet.create((theme) => ({
     shadowOpacity: 0.2,
     shadowRadius: 3,
     elevation: 4,
+    zIndex: 4,
   },
   followButtonText: {
     color: '#FFF',
     fontWeight: 'bold',
     fontSize: 12,
   },
-  blockButton: {
-    minHeight: 40,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 25,
+  blockIconButton: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     borderWidth: 1.5,
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-  },
-  blockButtonText: {
-    fontWeight: 'bold',
-    fontSize: 12,
+    zIndex: 5,
+    elevation: 6,
   },
   statsRow: {
     flexDirection: 'row',
