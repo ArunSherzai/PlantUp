@@ -40,46 +40,41 @@ export function usePlants(userId?: string) {
       >();
 
       if (plantIds.length > 0) {
-        // Step 1: Find all devices associated with these plants
-        const { data: deviceData, error: deviceError } = await db.micro
+        const { data: devices, error: deviceError } = await db.micro
           .from('Devices')
           .select('id, plant_id')
           .in('plant_id', plantIds);
 
         if (deviceError) {
           console.error('[usePlants] device lookup failed', deviceError);
-        } else if (deviceData && deviceData.length > 0) {
-          const deviceIds = deviceData.map((d) => d.id);
-          const deviceToPlantMap = new Map(deviceData.map((d) => [d.id, d.plant_id]));
+        } else if (devices && devices.length > 0) {
+          const deviceIds = devices.map((device) => device.id);
+          const plantIdByDeviceId = new Map(devices.map((device) => [device.id, device.plant_id]));
 
-          // Step 2: Fetch the latest controller data for those devices
           const { data: controllerData, error: controllerError } = await db.micro
             .from('Controllers')
-            .select('*')
+            .select('id, device_id, time, created_at')
             .in('device_id', deviceIds)
             .order('time', { ascending: false });
 
           if (controllerError) {
             console.error('[usePlants] controller lookup failed', controllerError);
           } else {
-            (controllerData ?? []).forEach((controller: any) => {
-              const associatedPlantId = deviceToPlantMap.get(controller.device_id);
-              if (!associatedPlantId || latestControllerByPlant.has(associatedPlantId)) {
-                return;
-              }
+            (controllerData ?? []).forEach((controller) => {
+              const plantId = plantIdByDeviceId.get(controller.device_id);
+              if (!plantId || latestControllerByPlant.has(plantId)) return;
 
-              latestControllerByPlant.set(associatedPlantId, {
-                sensorBoxId: controller.device_id,
+              latestControllerByPlant.set(plantId, {
+                sensorBoxId: controller.device_id ?? controller.id,
                 lastSeenAt: controller.time ?? controller.created_at ?? undefined,
               });
             });
           }
 
-          // Even if there's no controller data yet, we should map empty devices so the UI knows they are connected
-          deviceData.forEach((d) => {
-            if (!latestControllerByPlant.has(d.plant_id)) {
-              latestControllerByPlant.set(d.plant_id, {
-                sensorBoxId: d.id,
+          devices.forEach((device) => {
+            if (!latestControllerByPlant.has(device.plant_id)) {
+              latestControllerByPlant.set(device.plant_id, {
+                sensorBoxId: device.id,
                 lastSeenAt: undefined,
               });
             }

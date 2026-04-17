@@ -48,7 +48,6 @@ interface PlantController {
 interface PlantSummary {
   id: string;
   nickname: string | null;
-  sensor_id?: string | null;
   plant_data?: PlantDataSummary | PlantDataSummary[];
 }
 
@@ -248,7 +247,6 @@ async function fetchLatestController(deviceId: string): Promise<PlantController 
   const rows = ((data as PlantController[] | null) ?? []).sort(
     (a, b) => toTimestampMs(b) - toTimestampMs(a)
   );
-
   return rows[0] ?? null;
 }
 
@@ -764,7 +762,7 @@ export default function ShowPlantStats() {
             </View>
 
             <HistoryCard
-              historyData={historyData}
+              historyData={allHistoryData}
               calculateAverages={calculateAverages}
               lastXdays={lastXdays}
             />

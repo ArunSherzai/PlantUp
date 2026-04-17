@@ -130,15 +130,15 @@ export function usePlantTipSystem() {
         groupKey: tip.plantId ? `${tip.severity}:${tip.plantId}` : undefined,
         navigationTarget: tip.plantId
           ? {
-            name: 'PlantStats',
-            params: {
-              plantId: tip.plantId,
-              onlyShowSelected: true,
-            },
-          }
+              name: 'PlantStats',
+              params: {
+                plantId: tip.plantId,
+                onlyShowSelected: true,
+              },
+            }
           : {
-            name: 'TabNavigator',
-          },
+              name: 'TabNavigator',
+            },
       });
     }
 

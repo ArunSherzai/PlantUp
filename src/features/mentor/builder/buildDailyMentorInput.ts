@@ -16,14 +16,12 @@ import { getProfile } from '../config/plantProfiles';
  * Derive Northern-Hemisphere season from a date.
  * Vienna is in Central Europe so standard N-hemisphere rules apply.
  */
-export function deriveSeason(
-  date: Date = new Date()
-): 'winter' | 'spring' | 'summer' | 'autumn' {
+export function deriveSeason(date: Date = new Date()): 'winter' | 'spring' | 'summer' | 'autumn' {
   const month = date.getMonth(); // 0-indexed
-  if (month <= 1 || month === 11) return 'winter';   // Dec, Jan, Feb
-  if (month <= 4) return 'spring';                    // Mar, Apr, May
-  if (month <= 7) return 'summer';                    // Jun, Jul, Aug
-  return 'autumn';                                    // Sep, Oct, Nov
+  if (month <= 1 || month === 11) return 'winter'; // Dec, Jan, Feb
+  if (month <= 4) return 'spring'; // Mar, Apr, May
+  if (month <= 7) return 'summer'; // Jun, Jul, Aug
+  return 'autumn'; // Sep, Oct, Nov
 }
 
 // ---- growth stage heuristic ------------------------------------------------
@@ -32,9 +30,7 @@ export function deriveSeason(
  * Infer growth stage from the age in days (very simple heuristic).
  * In a real app this could come from a user toggle in the UI.
  */
-function inferGrowthStage(
-  ageDays?: number
-): 'seedling' | 'veg' | 'mature' | 'dormant' | undefined {
+function inferGrowthStage(ageDays?: number): 'seedling' | 'veg' | 'mature' | 'dormant' | undefined {
   if (ageDays == null) return undefined;
   if (ageDays < 21) return 'seedling';
   if (ageDays < 60) return 'veg';
@@ -82,41 +78,40 @@ export async function buildDailyMentorInput(
     }
   }
 
-  // First look up the device mapping
-  const { data: deviceData } = await db.micro
+  // 2. Get device id then fetch latest + history
+  const { data: device } = await db.micro
     .from('Devices')
     .select('id')
     .eq('plant_id', plantId)
     .maybeSingle();
 
-  const deviceId = deviceData?.id;
-
-  // 2. Latest reading
-  let latest = null;
-  if (deviceId) {
-    const { data } = await db.micro
-      .from('Controllers')
-      .select('temperature, humidity, soil_moisture, light, electrical_conductivity, created_at')
-      .eq('device_id', deviceId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    latest = data;
-  }
+  const latest = device?.id
+    ? (
+        await db.micro
+          .from('Controllers')
+          .select(
+            'temperature, humidity, soil_moisture, light, electrical_conductivity, created_at'
+          )
+          .eq('device_id', device.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      ).data
+    : null;
 
   // 3. History for trends (last 14 days, up to 200 rows is plenty)
   const cutoff = new Date(Date.now() - 14 * 86_400_000).toISOString();
-  let history = null;
-  if (deviceId) {
-    const { data } = await db.micro
-      .from('Controllers')
-      .select('electrical_conductivity, soil_moisture, created_at')
-      .eq('device_id', deviceId)
-      .gte('created_at', cutoff)
-      .order('created_at', { ascending: true })
-      .limit(200);
-    history = data;
-  }
+  const history = device?.id
+    ? (
+        await db.micro
+          .from('Controllers')
+          .select('electrical_conductivity, soil_moisture, created_at')
+          .eq('device_id', device.id)
+          .gte('created_at', cutoff)
+          .order('created_at', { ascending: true })
+          .limit(200)
+      ).data
+    : null;
 
   // 4. Compute health
   const profile = getProfile(plantTypeName);

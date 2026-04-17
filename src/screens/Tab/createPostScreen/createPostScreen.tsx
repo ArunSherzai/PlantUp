@@ -36,7 +36,6 @@ import { playSound } from '~/utils/SoundManager';
 import { ErrorHandlerService } from '~/core/error/services/ErrorHandlerService';
 import { showAlertDialog } from '~/services/appDialog';
 
-
 const { height, width } = Dimensions.get('window');
 
 // Limit: 50 MB (Damit auch Videos passen)
@@ -109,7 +108,9 @@ export default function CreatePostScreen() {
   }, [route.params?.capturedMedia]);
 
   // --- FUNKTION: FOTO & VIDEO AUSWÄHLEN ---
-  const pickMedia = async (mediaType: ImagePicker.MediaTypeOptions = ImagePicker.MediaTypeOptions.All) => {
+  const pickMedia = async (
+    mediaType: ImagePicker.MediaTypeOptions = ImagePicker.MediaTypeOptions.All
+  ) => {
     closeMenu();
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: mediaType,
@@ -212,14 +213,19 @@ export default function CreatePostScreen() {
         console.log('[CreatePost] No plants found.');
         await showAlertDialog({
           title: 'No Plants',
-          message: 'You haven\'t added any plants yet.',
+          message: "You haven't added any plants yet.",
           variant: 'warning',
         });
         return;
       }
 
       // Initialize plants with empty records and collapsed state
-      const initializedPlants = userPlants.map(p => ({ ...p, records: [], expanded: false, loadingRecords: false }));
+      const initializedPlants = userPlants.map((p) => ({
+        ...p,
+        records: [],
+        expanded: false,
+        loadingRecords: false,
+      }));
       setPlants(initializedPlants);
       setShowSensorSelection(true);
     } catch (e) {
@@ -240,7 +246,7 @@ export default function CreatePostScreen() {
     console.log('[CreatePost] Plant info:', plant);
 
     // Create a new copy of plants to avoid direct mutation
-    const newPlants = plants.map((p, i) => i === plantIndex ? { ...p } : p);
+    const newPlants = plants.map((p, i) => (i === plantIndex ? { ...p } : p));
 
     // If collapsing, just toggle off
     if (plant.expanded) {
@@ -260,28 +266,25 @@ export default function CreatePostScreen() {
       setPlants(newPlants); // Update UI to show loading spinner
 
       try {
-        const { data: deviceData } = await db.micro
+        // Step 1: Get device id from Devices
+        const { data: device } = await db.micro
           .from('Devices')
           .select('id')
           .eq('plant_id', plant.id)
           .maybeSingle();
 
-        const deviceId = deviceData?.id;
+        const { data: records, error } = device?.id
+          ? await db.micro
+              .from('Controllers')
+              .select('*')
+              .eq('device_id', device.id)
+              .order('time', { ascending: false })
+              .limit(10)
+          : { data: [], error: null };
 
-        let records = [];
-        if (deviceId) {
-          const { data: ctrlData, error } = await db.micro
-            .from('Controllers')
-            .select('*')
-            .eq('device_id', deviceId)
-            .order('time', { ascending: false })
-            .limit(10);
-
-          if (error) {
-            ErrorHandlerService.handle(error, { showUI: false });
-            throw error;
-          }
-          records = ctrlData || [];
+        if (error) {
+          ErrorHandlerService.handle(error, { showUI: false });
+          throw error;
         }
 
         console.log('[CreatePost] Fetched records:', records);
@@ -292,16 +295,15 @@ export default function CreatePostScreen() {
         // We need to re-copy potentially if other plants changed, but usually only one action happens at a time here.
         // Better: use function update or just update the index of current state if possible, but map is safer.
 
-        setPlants(currentPlants => {
+        setPlants((currentPlants) => {
           const updated = [...currentPlants];
           updated[plantIndex] = {
             ...updated[plantIndex],
             loadingRecords: false,
-            records: records || []
+            records: records || [],
           };
           return updated;
         });
-
       } catch (e) {
         ErrorHandlerService.handle(e, { showUI: false });
         await showAlertDialog({
@@ -310,7 +312,7 @@ export default function CreatePostScreen() {
           variant: 'error',
         });
 
-        setPlants(currentPlants => {
+        setPlants((currentPlants) => {
           const updated = [...currentPlants];
           updated[plantIndex] = { ...updated[plantIndex], loadingRecords: false };
           return updated;
@@ -377,7 +379,8 @@ export default function CreatePostScreen() {
               {
                 compressionMethod: 'auto',
                 minimumFileSizeForCompress: 2, // MB
-                getCancellationId: (cancellationId: string) => console.log('compression id', cancellationId),
+                getCancellationId: (cancellationId: string) =>
+                  console.log('compression id', cancellationId),
               },
               (progress: number) => {
                 // Map 0-1 to 0-40%
@@ -386,7 +389,9 @@ export default function CreatePostScreen() {
             );
 
             // Strip file:// prefix if compressor returns it on some versions/platforms (safety check)
-            uploadUri = compressedUri.startsWith('file://') ? compressedUri : `file://${compressedUri}`;
+            uploadUri = compressedUri.startsWith('file://')
+              ? compressedUri
+              : `file://${compressedUri}`;
             console.log('Compression success. New URI:', uploadUri);
           } catch (e) {
             console.warn('Compression failed, falling back to original file:', e);
@@ -533,7 +538,6 @@ export default function CreatePostScreen() {
 
   return (
     <View style={styles.container}>
-
       {/* HEADER BACKGROUND AND TITLE */}
       <View style={styles.headerBg}>
         <Image
@@ -542,7 +546,7 @@ export default function CreatePostScreen() {
           resizeMode="cover"
         />
         <View style={styles.overlay} />
-        
+
         <View style={[styles.headerContent, { paddingTop: insets.top + 10 }]}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <FontAwesome6 name="chevron-left" size={20} color="white" />
@@ -551,9 +555,8 @@ export default function CreatePostScreen() {
             style={styles.headerTitle}
             adjustsFontSizeToFit
             numberOfLines={3}
-            minimumFontScale={0.5}
-          >
-            Create{"\n"}a{"\n"}Post!
+            minimumFontScale={0.5}>
+            Create{'\n'}a{'\n'}Post!
           </Text>
         </View>
       </View>
@@ -577,7 +580,9 @@ export default function CreatePostScreen() {
                 {loading ? (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <ActivityIndicator color="white" size="small" />
-                    <Text style={{ color: 'white', fontSize: 12, fontWeight: '600' }}>{progress}%</Text>
+                    <Text style={{ color: 'white', fontSize: 12, fontWeight: '600' }}>
+                      {progress}%
+                    </Text>
                   </View>
                 ) : (
                   <Text style={styles.postButtonText}>Post</Text>
@@ -604,144 +609,169 @@ export default function CreatePostScreen() {
               textAlignVertical="top"
             />
 
-          {/* 3. PREVIEW AREA: MEDIA or THOUGHT */}
-          <View style={styles.previewWrapper}>
-            {media ? (
-              media.type === 'document' || media.type === 'sensor' ? (
-                // Document/Sensor Card Style (Keep Compact)
-                <View style={styles.previewBar}>
-                  {media.type === 'sensor' ? (
-                    <View style={{ width: '100%', paddingVertical: 10 }}>
-                      <View style={[styles.previewContent, { marginBottom: 10 }]}>
-                        <FontAwesome6 name="leaf" size={16} color="#329D9C" />
+            {/* 3. PREVIEW AREA: MEDIA or THOUGHT */}
+            <View style={styles.previewWrapper}>
+              {media ? (
+                media.type === 'document' || media.type === 'sensor' ? (
+                  // Document/Sensor Card Style (Keep Compact)
+                  <View style={styles.previewBar}>
+                    {media.type === 'sensor' ? (
+                      <View style={{ width: '100%', paddingVertical: 10 }}>
+                        <View style={[styles.previewContent, { marginBottom: 10 }]}>
+                          <FontAwesome6 name="leaf" size={16} color="#329D9C" />
+                          <Text style={styles.previewText} numberOfLines={1}>
+                            {media.name}
+                          </Text>
+                          <TouchableOpacity
+                            onPress={() => setMedia(null)}
+                            style={{ marginLeft: 'auto' }}>
+                            <FontAwesome6 name="xmark" size={16} color="#999" />
+                          </TouchableOpacity>
+                        </View>
+                        <SensorDisplayCard data={media.sensorData} />
+                      </View>
+                    ) : (
+                      <View style={[styles.previewContent, { width: '100%' }]}>
+                        <FontAwesome6 name="file-lines" size={16} color={theme.colors.primary} />
                         <Text style={styles.previewText} numberOfLines={1}>
-                          {media.name}
+                          {media.name || media.type}
                         </Text>
-                        <TouchableOpacity onPress={() => setMedia(null)} style={{ marginLeft: 'auto' }}>
-                          <FontAwesome6 name="xmark" size={16} color="#999" />
+                        <TouchableOpacity
+                          onPress={() => setMedia(null)}
+                          style={{ marginLeft: 'auto' }}>
+                          <FontAwesome6 name="xmark" size={16} color={theme.colors.greyedOut} />
                         </TouchableOpacity>
                       </View>
-                      <SensorDisplayCard data={media.sensorData} />
-                    </View>
-                  ) : (
-                    <View style={[styles.previewContent, { width: '100%' }]}>
-                      <FontAwesome6 name="file-lines" size={16} color={theme.colors.primary} />
-                      <Text style={styles.previewText} numberOfLines={1}>
-                        {media.name || media.type}
-                      </Text>
-                      <TouchableOpacity onPress={() => setMedia(null)} style={{ marginLeft: 'auto' }}>
-                        <FontAwesome6 name="xmark" size={16} color={theme.colors.greyedOut} />
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                </View>
-              ) : (
-                // Media Preview (Video/Image) - 9:16 Aspect Ratio
-                <View style={styles.feedPreviewContainer}>
-                  {media.type === 'video' ? (
-                    <View style={{ flex: 1, position: 'relative' }}>
-                      <Video
-                        source={{ uri: media.uri }}
-                        style={styles.feedMediaImage}
-                        resizeMode="contain"
-                        controls={false}
-                        paused={isVideoPaused}
-                        repeat={true}
-                      />
-                      <Pressable
-                        onPress={() => setIsVideoPaused(!isVideoPaused)}
-                        style={StyleSheet.absoluteFill}
-                      >
-                        {/* Centered Play Icon */}
-                        {isVideoPaused && (
-                          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                            <View style={styles.playIconContainer}>
-                              <FontAwesome6 name="play" size={40} color="rgba(255,255,255,0.8)" />
-                            </View>
-                          </View>
-                        )}
-                      </Pressable>
-                    </View>
-                  ) : (
-                    <TouchableOpacity onPress={() => setFullScreenImage(media.uri)} style={{ flex: 1 }}>
-                      <Image
-                        source={{ uri: media.uri }}
-                        style={styles.feedMediaImage}
-                        resizeMode="contain"
-                      />
-                    </TouchableOpacity>
-                  )}
-
-                  {/* Remove Button (Top Right) */}
-                  <TouchableOpacity
-                    style={styles.closeButtonOverlay}
-                    onPress={() => setMedia(null)}
-                  >
-                    <FontAwesome6 name="xmark" size={18} color="white" />
-                  </TouchableOpacity>
-                </View>
-              )
-            ) : caption.length > 0 ? (
-              // THOUGHT BUBBLE PREVIEW (If no media, but text exists)
-              <LinearGradient
-                colors={[
-                  theme.colors.surface,
-                  (theme.colors.surface.toUpperCase() === '#FFFFFF' || theme.colors.surface.toUpperCase() === '#FFF')
-                    ? '#F0F0F0'
-                    : '#2A2E32'
-                ]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[
-                  styles.imageContainer,
-                  { aspectRatio: 0.8 } // Default aspect ratio for preview
-                ]}
-              >
-                {/* Decorative Background Elements */}
-                <View style={styles.backgroundDecoration}>
-                  <FontAwesome6 name="leaf" size={80} color={theme.colors.primary} style={{ opacity: 0.03, transform: [{ rotate: '-20deg' }] }} />
-                </View>
-                <View style={{ position: 'absolute', top: height * 0.02, right: width * 0.04, opacity: 0.1 }}>
-                  <FontAwesome6 name="quote-right" size={30} color={theme.colors.primary} />
-                </View>
-
-                {/* Stylized Curved Accent */}
-                <View style={[styles.curvedAccent, { backgroundColor: theme.colors.primary }]} />
-
-                {/* Badge at top */}
-                <View style={styles.badgeContainer}>
-                  <View style={[styles.badge, { backgroundColor: theme.colors.primary + '20' }]}>
-                    <Text style={[styles.badgeText, { color: theme.colors.primary }]}>Thought</Text>
+                    )}
                   </View>
-                </View>
+                ) : (
+                  // Media Preview (Video/Image) - 9:16 Aspect Ratio
+                  <View style={styles.feedPreviewContainer}>
+                    {media.type === 'video' ? (
+                      <View style={{ flex: 1, position: 'relative' }}>
+                        <Video
+                          source={{ uri: media.uri }}
+                          style={styles.feedMediaImage}
+                          resizeMode="contain"
+                          controls={false}
+                          paused={isVideoPaused}
+                          repeat={true}
+                        />
+                        <Pressable
+                          onPress={() => setIsVideoPaused(!isVideoPaused)}
+                          style={StyleSheet.absoluteFill}>
+                          {/* Centered Play Icon */}
+                          {isVideoPaused && (
+                            <View
+                              style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                              <View style={styles.playIconContainer}>
+                                <FontAwesome6 name="play" size={40} color="rgba(255,255,255,0.8)" />
+                              </View>
+                            </View>
+                          )}
+                        </Pressable>
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        onPress={() => setFullScreenImage(media.uri)}
+                        style={{ flex: 1 }}>
+                        <Image
+                          source={{ uri: media.uri }}
+                          style={styles.feedMediaImage}
+                          resizeMode="contain"
+                        />
+                      </TouchableOpacity>
+                    )}
 
-                {/* Main Content */}
-                <View style={{ paddingHorizontal: width * 0.04, flex: 1, justifyContent: 'center', zIndex: 1 }}>
-                  {(() => {
-                    const cleanCaption = caption ? caption.replace(/#\w+/g, '').trim() : "No content";
-                    const isShort = cleanCaption.length < 60;
+                    {/* Remove Button (Top Right) */}
+                    <TouchableOpacity
+                      style={styles.closeButtonOverlay}
+                      onPress={() => setMedia(null)}>
+                      <FontAwesome6 name="xmark" size={18} color="white" />
+                    </TouchableOpacity>
+                  </View>
+                )
+              ) : caption.length > 0 ? (
+                // THOUGHT BUBBLE PREVIEW (If no media, but text exists)
+                <LinearGradient
+                  colors={[
+                    theme.colors.surface,
+                    theme.colors.surface.toUpperCase() === '#FFFFFF' ||
+                    theme.colors.surface.toUpperCase() === '#FFF'
+                      ? '#F0F0F0'
+                      : '#2A2E32',
+                  ]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[
+                    styles.imageContainer,
+                    { aspectRatio: 0.8 }, // Default aspect ratio for preview
+                  ]}>
+                  {/* Decorative Background Elements */}
+                  <View style={styles.backgroundDecoration}>
+                    <FontAwesome6
+                      name="leaf"
+                      size={80}
+                      color={theme.colors.primary}
+                      style={{ opacity: 0.03, transform: [{ rotate: '-20deg' }] }}
+                    />
+                  </View>
+                  <View
+                    style={{
+                      position: 'absolute',
+                      top: height * 0.02,
+                      right: width * 0.04,
+                      opacity: 0.1,
+                    }}>
+                    <FontAwesome6 name="quote-right" size={30} color={theme.colors.primary} />
+                  </View>
 
-                    return (
-                      <Text
-                        style={[
-                          styles.textBody,
-                          {
-                            color: theme.colors.text,
-                            fontSize: isShort ? width * 0.045 : width * 0.035,
-                            fontWeight: isShort ? '700' : '500',
-                            lineHeight: isShort ? width * 0.06 : width * 0.05,
-                          }
-                        ]}
-                        numberOfLines={6}
-                      >
-                        {cleanCaption}
+                  {/* Stylized Curved Accent */}
+                  <View style={[styles.curvedAccent, { backgroundColor: theme.colors.primary }]} />
+
+                  {/* Badge at top */}
+                  <View style={styles.badgeContainer}>
+                    <View style={[styles.badge, { backgroundColor: theme.colors.primary + '20' }]}>
+                      <Text style={[styles.badgeText, { color: theme.colors.primary }]}>
+                        Thought
                       </Text>
-                    );
-                  })()}
-                </View>
-              </LinearGradient>
-            ) : null}
-          </View>
+                    </View>
+                  </View>
+
+                  {/* Main Content */}
+                  <View
+                    style={{
+                      paddingHorizontal: width * 0.04,
+                      flex: 1,
+                      justifyContent: 'center',
+                      zIndex: 1,
+                    }}>
+                    {(() => {
+                      const cleanCaption = caption
+                        ? caption.replace(/#\w+/g, '').trim()
+                        : 'No content';
+                      const isShort = cleanCaption.length < 60;
+
+                      return (
+                        <Text
+                          style={[
+                            styles.textBody,
+                            {
+                              color: theme.colors.text,
+                              fontSize: isShort ? width * 0.045 : width * 0.035,
+                              fontWeight: isShort ? '700' : '500',
+                              lineHeight: isShort ? width * 0.06 : width * 0.05,
+                            },
+                          ]}
+                          numberOfLines={6}>
+                          {cleanCaption}
+                        </Text>
+                      );
+                    })()}
+                  </View>
+                </LinearGradient>
+              ) : null}
+            </View>
           </KeyboardAwareScrollView>
 
           {/* 4. BUTTON UNTEN */}
@@ -768,9 +798,6 @@ export default function CreatePostScreen() {
             <Text style={styles.modalTitle}>Add to your post</Text>
 
             <View style={styles.gridContainer}>
-
-
-
               {/* GIF Button Removed */}
               <AttachmentCard
                 icon="file-lines"
@@ -821,8 +848,7 @@ export default function CreatePostScreen() {
                     {/* Plant Header */}
                     <TouchableOpacity
                       style={styles.plantHeader}
-                      onPress={() => togglePlantExpansion(index)}
-                    >
+                      onPress={() => togglePlantExpansion(index)}>
                       <View style={styles.plantHeaderLeft}>
                         <View style={styles.listItemIcon}>
                           <FontAwesome6 name="leaf" size={18} color="#00C853" />
@@ -830,7 +856,7 @@ export default function CreatePostScreen() {
                         <Text style={styles.listItemTitle}>{plant.nickname}</Text>
                       </View>
                       <FontAwesome6
-                        name={plant.expanded ? "chevron-up" : "chevron-down"}
+                        name={plant.expanded ? 'chevron-up' : 'chevron-down'}
                         size={16}
                         color={theme.colors.greyedOut}
                       />
@@ -840,7 +866,11 @@ export default function CreatePostScreen() {
                     {plant.expanded && (
                       <View style={styles.recordsList}>
                         {plant.loadingRecords ? (
-                          <ActivityIndicator size="small" color="#329D9C" style={{ marginVertical: 10 }} />
+                          <ActivityIndicator
+                            size="small"
+                            color="#329D9C"
+                            style={{ marginVertical: 10 }}
+                          />
                         ) : plant.records.length === 0 ? (
                           <Text style={styles.noRecordsText}>No recent data found.</Text>
                         ) : (
@@ -848,17 +878,26 @@ export default function CreatePostScreen() {
                             <TouchableOpacity
                               key={`${record.id}-${rIndex}`}
                               style={styles.recordItem}
-                              onPress={() => selectSensorRecord(plant, record)}
-                            >
-                              <FontAwesome6 name="clock" size={14} color="#329D9C" style={{ width: 20 }} />
+                              onPress={() => selectSensorRecord(plant, record)}>
+                              <FontAwesome6
+                                name="clock"
+                                size={14}
+                                color="#329D9C"
+                                style={{ width: 20 }}
+                              />
                               <Text style={styles.recordTime}>
                                 {new Date(record.time).toLocaleString([], {
-                                  month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
                                 })}
                               </Text>
                               <View style={styles.recordValues}>
                                 <Text style={styles.recordValueText}>🌡️ {record.temperature}°</Text>
-                                <Text style={styles.recordValueText}>💧 {record.soil_moisture}%</Text>
+                                <Text style={styles.recordValueText}>
+                                  💧 {record.soil_moisture}%
+                                </Text>
                               </View>
                             </TouchableOpacity>
                           ))
@@ -879,8 +918,7 @@ export default function CreatePostScreen() {
         transparent={true}
         animationType="fade"
         statusBarTranslucent={true}
-        onRequestClose={() => setFullScreenImage(null)}
-      >
+        onRequestClose={() => setFullScreenImage(null)}>
         <View style={styles.fullScreenContainer}>
           <StatusBar hidden={true} />
           <Image
@@ -890,8 +928,7 @@ export default function CreatePostScreen() {
           />
           <TouchableOpacity
             style={styles.closeFullScreenButton}
-            onPress={() => setFullScreenImage(null)}
-          >
+            onPress={() => setFullScreenImage(null)}>
             <FontAwesome6 name="xmark" size={24} color="white" />
           </TouchableOpacity>
         </View>
@@ -961,7 +998,7 @@ const styles = StyleSheet.create((theme: any) => ({
   // Content Container
   staticSheetContainer: {
     flex: 1,
-    marginTop: height * 0.40,
+    marginTop: height * 0.4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -3 },
     shadowOpacity: 0.1,
