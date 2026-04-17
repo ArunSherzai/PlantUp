@@ -47,15 +47,15 @@ export default function RewardItem({ title, description, image, isUnlocked, isCl
                 ) : (
                     <LinearGradient
                         colors={isClaimed 
-                            ? [theme.colors.secondary, theme.colors.secondary] 
-                            : (isUnlocked ? ['#4CAF50', '#81C784'] : ['#BDBDBD', '#E0E0E0'])
+                            ? [theme.colors.secondaryTint, theme.colors.secondaryTint]
+                            : (isUnlocked ? [theme.colors.secondary, theme.colors.primary] : ['#BDBDBD', '#E0E0E0'])
                         }
                         style={styles.iconWrapper}
                     >
                         <FontAwesome6 
                             name={isClaimed ? "check" : (isUnlocked ? "gift" : "lock")} 
                             size={ICON_SIZE * 0.5} 
-                            color="white" 
+                            color={isClaimed ? theme.colors.primary : 'white'} 
                         />
                     </LinearGradient>
                 )}
@@ -81,17 +81,20 @@ const styles = StyleSheet.create((theme) => ({
         shadowColor: theme.colors.text,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,
-        shadowRadius: 4,
-        elevation: 2,
+        shadowRadius: 8,
+        elevation: 3,
         marginRight: 10,
         width: SCREEN_WIDTH * 0.45,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
     },
     lockedContainer: {
         opacity: 0.7,
     },
     claimedContainer: {
-        opacity: 0.5,
-        backgroundColor: theme.colors.greyedOut || '#eee',
+        opacity: 1,
+        backgroundColor: theme.colors.secondaryTint,
+        borderColor: theme.colors.primary,
     },
     iconContainer: {
         marginRight: SCREEN_WIDTH * 0.03,

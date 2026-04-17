@@ -42,14 +42,6 @@ import { useFocusEffect } from '@react-navigation/native';
 
 export default function MessageDetailScreen({ route, navigation }: Props) {
   const { id, name, avatar, userId: otherUserId } = route.params;
-  console.log(
-    '[MessageDetail] otherUserId:',
-    otherUserId,
-    'convId:',
-    id,
-    'isSprig:',
-    id === 'sprig'
-  );
   const { theme } = useUnistyles();
   const insets = useSafeAreaInsets(); // Hook
   const [inputText, setInputText] = useState('');

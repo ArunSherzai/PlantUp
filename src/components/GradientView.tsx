@@ -56,7 +56,7 @@ const styles = StyleSheet.create((theme) => ({
     
   },
   innerContainer: {
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.surface,
     width: '100%',
     height: '100%',
   },

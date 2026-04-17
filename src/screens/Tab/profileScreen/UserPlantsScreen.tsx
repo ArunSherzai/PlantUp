@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, FlatList, Image, TouchableOpacity, Dimensions } from 'react-native';
 import { StyleSheet, useUnistyles } from '~/lib/unistyles';
 import { useNavigation, useFocusEffect, useRoute, RouteProp } from '@react-navigation/native';
@@ -6,12 +6,37 @@ import { usePlants } from '../../../features/plantlist/hooks/usePlants';
 import GradientIcon from '../../../components/GradientIcon';
 import { RootStackParamList } from '../../../navigation/Root';
 import { useUserStore } from '../../../stores/UserStore';
+import { calculateHealth, calculateHealthFull } from '~/features/plantstats/api/healthScore';
+import { db } from '~/utils/supabase';
+import { PlantItem } from '../../../features/plantlist/types/plant.types';
 
 const { width } = Dimensions.get('window');
 const COLUMN_COUNT = 2; // 🟢 Changed to 2 for larger cards
 const SPACING = 15; // 🟢 Increased spacing
 // Calculate width: (Total Width - Outside Padding - Middle Gap) / 2
 const ITEM_WIDTH = (width - (20 * 2) - SPACING) / COLUMN_COUNT;
+
+type ControllerReading = {
+    id: string;
+    device_id: string;
+    temperature: number | null;
+    humidity: number | null;
+    soil_moisture: number | null;
+    light: number | null;
+    electrical_conductivity: number | null;
+    time?: string | null;
+    created_at?: string | null;
+};
+
+const CONTROLLER_HEALTH_SELECT =
+    'id, device_id, temperature, humidity, soil_moisture, light, electrical_conductivity, time, created_at';
+
+const getHealthColor = (health: number | null | undefined, theme: any) => {
+    if (health == null) return theme.colors.greyedOut;
+    if (health >= 70) return theme.colors.primary;
+    if (health >= 40) return '#F59E0B';
+    return '#EF4444';
+};
 
 export default function UserPlantsScreen() {
     const { theme } = useUnistyles();
@@ -24,6 +49,7 @@ export default function UserPlantsScreen() {
     const isOwner = targetUserId === currentUser?.id;
 
     const { plants, refreshPlants } = usePlants(targetUserId);
+    const [healthByPlantId, setHealthByPlantId] = useState<Record<string, number | null>>({});
 
     useFocusEffect(
         useCallback(() => {
@@ -31,9 +57,71 @@ export default function UserPlantsScreen() {
         }, [targetUserId])
     );
 
-    const renderItem = ({ item }: { item: any }) => {
-        // Mock health for now
-        const health = 75;
+    useEffect(() => {
+        let cancelled = false;
+
+        const loadHealthScores = async () => {
+            if (plants.length === 0) {
+                setHealthByPlantId({});
+                return;
+            }
+
+            const healthEntries = await Promise.all(
+                plants.map(async (plant) => {
+                    if (!plant.sensorBoxId) {
+                        return [plant.id, null] as const;
+                    }
+
+                    try {
+                        const { data, error } = await db.micro
+                            .from('Controllers')
+                            .select(CONTROLLER_HEALTH_SELECT)
+                            .eq('device_id', plant.sensorBoxId)
+                            .order('time', { ascending: false })
+                            .limit(200);
+
+                        if (error) {
+                            console.error('[UserPlants] health lookup failed', error);
+                            return [plant.id, null] as const;
+                        }
+
+                        const history = ((data ?? []) as ControllerReading[]).filter(Boolean);
+                        const latest = history[0];
+
+                        if (!latest) {
+                            return [plant.id, null] as const;
+                        }
+
+                        const fullHealth = calculateHealthFull(
+                            latest as unknown as Record<string, number | null>,
+                            plant.plantTypeName,
+                            { history: history as unknown as Array<Record<string, any>> }
+                        );
+                        const health = fullHealth?.health_percent ?? calculateHealth(latest);
+
+                        return [plant.id, health] as const;
+                    } catch (error) {
+                        console.error('[UserPlants] health calculation failed', error);
+                        return [plant.id, null] as const;
+                    }
+                })
+            );
+
+            if (!cancelled) {
+                setHealthByPlantId(Object.fromEntries(healthEntries));
+            }
+        };
+
+        void loadHealthScores();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [plants]);
+
+    const renderItem = ({ item }: { item: PlantItem }) => {
+        const health = healthByPlantId[item.id];
+        const healthColor = getHealthColor(health, theme);
 
         return (
             <TouchableOpacity
@@ -45,8 +133,10 @@ export default function UserPlantsScreen() {
                 }}
             >
                 <View style={styles.healthBadge}>
-                    <View style={[styles.healthCircle, { borderColor: health > 50 ? theme.colors.primary : '#ef4444' }]}>
-                        <Text style={styles.healthText}>{health}%</Text>
+                    <View style={[styles.healthCircle, { borderColor: healthColor }]}>
+                        <Text style={[styles.healthText, { color: healthColor }]}>
+                            {health == null ? '--' : `${health}%`}
+                        </Text>
                     </View>
                 </View>
 
@@ -68,8 +158,8 @@ export default function UserPlantsScreen() {
                 </View>
 
                 <View style={styles.infoContainer}>
-                    <Text style={styles.plantName} numberOfLines={1}>{item.nickname || item.name}</Text>
-                    <Text style={styles.subText}>{item.species || 'Plant'}</Text>
+                    <Text style={styles.plantName} numberOfLines={1}>{item.name}</Text>
+                    <Text style={styles.subText}>{item.plantTypeName || 'Plant'}</Text>
                 </View>
             </TouchableOpacity>
         );

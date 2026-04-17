@@ -25,7 +25,9 @@ export function usePlants(userId?: string) {
 
       const { data, error } = await db.social
         .from('Plants')
-        .select('id, nickname, description, image_url, plant_data_id')
+        .select(
+          'id, nickname, description, image_url, plant_data_id, plant_data:Plant_data!Plants_plant_data_id_fkey(common_name)'
+        )
         .eq('user_id', targetId);
 
       if (error) {
@@ -82,18 +84,23 @@ export function usePlants(userId?: string) {
         }
       }
 
-      const mapped: PlantItem[] = plantRows.map((p, idx) => ({
-        id: p.id,
-        name: p.nickname ?? '',
-        type_id: p.plant_data_id ?? undefined,
-        description: p.description ?? '',
-        image_url: getPublicPlantImageUrl(p.image_url) || undefined,
-        imagePath: p.image_url,
-        sensorBoxId: latestControllerByPlant.get(p.id)?.sensorBoxId,
-        sensorLastSeenAt: latestControllerByPlant.get(p.id)?.lastSeenAt,
-        image: '',
-        gradientColors: customGradients[idx % customGradients.length],
-      }));
+      const mapped: PlantItem[] = plantRows.map((p, idx) => {
+        const plantData = Array.isArray(p.plant_data) ? p.plant_data[0] : p.plant_data;
+
+        return {
+          id: p.id,
+          name: p.nickname ?? '',
+          type_id: p.plant_data_id ?? undefined,
+          plantTypeName: plantData?.common_name ?? undefined,
+          description: p.description ?? '',
+          image_url: getPublicPlantImageUrl(p.image_url) || undefined,
+          imagePath: p.image_url,
+          sensorBoxId: latestControllerByPlant.get(p.id)?.sensorBoxId,
+          sensorLastSeenAt: latestControllerByPlant.get(p.id)?.lastSeenAt,
+          image: '',
+          gradientColors: customGradients[idx % customGradients.length],
+        };
+      });
 
       setPlants((previousPlants) => {
         if (previousPlants.length === 0) {

@@ -504,8 +504,8 @@ export const useUserStore = create<State>((set, get) => ({
   },
 
   fetchDeepProfile: async () => {
-    const { user, profile } = get();
-    if (!user || !profile) return;
+    const { user } = get();
+    if (!user) return;
 
     // 1. Fetch Counts & Titles in parallel
     const plantsPromise = db.social
@@ -568,17 +568,21 @@ export const useUserStore = create<State>((set, get) => ({
       }
     }
 
-    set({
-      profile: {
-        ...profile,
-        plants_count: plantsResult.count || 0,
-        followers_count: followersResult.count || 0,
-        following_count: followingResult.count || 0,
-        title: titleInfo?.titlename,
-        titlecolor: titleInfo?.color,
-        equipped_border: equippedBorderData,
-      },
-    });
+    set((state) =>
+      state.profile
+        ? {
+            profile: {
+              ...state.profile,
+              plants_count: plantsResult.count || 0,
+              followers_count: followersResult.count || 0,
+              following_count: followingResult.count || 0,
+              title: titleInfo?.titlename,
+              titlecolor: titleInfo?.color,
+              equipped_border: equippedBorderData,
+            },
+          }
+        : {}
+    );
   },
 
   addXP: async (amount: number) => {
@@ -747,10 +751,10 @@ export const useUserStore = create<State>((set, get) => ({
       }
     }
 
-    // We can skip fetchProfile() if the optimistic update worked,
-    // but keeping it as a background sync is safer.
-    // We don't await it to unblock UI.
-    fetchProfile();
+    void (async () => {
+      await fetchProfile();
+      await get().fetchDeepProfile();
+    })();
   },
 
   fetchTitles: async () => {
@@ -849,8 +853,10 @@ export const useUserStore = create<State>((set, get) => ({
       }
     }
 
-    // Background sync
-    fetchProfile();
+    void (async () => {
+      await fetchProfile();
+      await get().fetchDeepProfile();
+    })();
   },
 
   fetchUnclaimedRewards: async () => {

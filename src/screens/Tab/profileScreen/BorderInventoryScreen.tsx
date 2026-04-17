@@ -32,6 +32,8 @@ export default function BorderInventoryScreen() {
     await equipBorder(borderId);
   };
 
+  const hasEquippedBorder = ownedBorders.some(b => b.is_equipped);
+
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Header */}
@@ -82,8 +84,11 @@ export default function BorderInventoryScreen() {
             <View
               style={[
                 styles.card,
-                { backgroundColor: theme.colors.surface },
-                !ownedBorders.some(b => b.is_equipped) && { borderColor: theme.colors.accent, borderWidth: 2 }
+                {
+                  backgroundColor: hasEquippedBorder ? theme.colors.surface : theme.colors.secondaryTint,
+                  borderColor: hasEquippedBorder ? theme.colors.border : theme.colors.primary,
+                },
+                { borderWidth: 1 },
               ]}
             >
               <View style={styles.previewContainer}>
@@ -102,15 +107,17 @@ export default function BorderInventoryScreen() {
               <TouchableOpacity
                 style={[
                   styles.equipButton,
-                  { backgroundColor: !ownedBorders.some(b => b.is_equipped) ? theme.colors.accent : theme.colors.primary }
+                  {
+                    backgroundColor: hasEquippedBorder ? theme.colors.primary : theme.colors.secondaryTint,
+                  }
                 ]}
-                disabled={!ownedBorders.some(b => b.is_equipped)}
+                disabled={!hasEquippedBorder}
                 onPress={() => handleEquip(null as any)}
               >
-                {!ownedBorders.some(b => b.is_equipped) ? (
+                {!hasEquippedBorder ? (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                    <FontAwesome6 name="check" size={12} color="#fff" />
-                    <Text style={styles.equipButtonText}>Equipped</Text>
+                    <FontAwesome6 name="check" size={12} color={theme.colors.primary} />
+                    <Text style={[styles.equipButtonText, { color: theme.colors.primary }]}>Equipped</Text>
                   </View>
                 ) : (
                   <Text style={styles.equipButtonText}>Equip</Text>
@@ -123,8 +130,11 @@ export default function BorderInventoryScreen() {
                 key={border.id}
                 style={[
                   styles.card,
-                  { backgroundColor: theme.colors.surface },
-                  border.is_equipped && { borderColor: theme.colors.accent, borderWidth: 2 }
+                  {
+                    backgroundColor: border.is_equipped ? theme.colors.secondaryTint : theme.colors.surface,
+                    borderColor: border.is_equipped ? theme.colors.primary : theme.colors.border,
+                  },
+                  { borderWidth: 1 },
                 ]}
               >
                 <View style={styles.previewContainer}>
@@ -171,15 +181,17 @@ export default function BorderInventoryScreen() {
                 <TouchableOpacity
                   style={[
                     styles.equipButton,
-                    { backgroundColor: border.is_equipped ? theme.colors.accent : theme.colors.primary }
+                    {
+                      backgroundColor: border.is_equipped ? theme.colors.secondaryTint : theme.colors.primary,
+                    }
                   ]}
                   disabled={border.is_equipped}
                   onPress={() => handleEquip(border.id)}
                 >
                   {border.is_equipped ? (
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                      <FontAwesome6 name="check" size={12} color="#fff" />
-                      <Text style={styles.equipButtonText}>Equipped</Text>
+                      <FontAwesome6 name="check" size={12} color={theme.colors.primary} />
+                      <Text style={[styles.equipButtonText, { color: theme.colors.primary }]}>Equipped</Text>
                     </View>
                   ) : (
                     <Text style={styles.equipButtonText}>Equip</Text>
@@ -247,8 +259,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
     elevation: 3,
   },
   previewContainer: {

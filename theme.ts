@@ -1,17 +1,19 @@
 export const lightTheme = {
   colors: {
-    primary: '#4FDA74',
-    secondary: '#329D9C',
+    primary: '#25B45F',
+    secondary: '#7EDDA0',
     accent: '#205072',
     background: '#FFFFFF',
     //lightBackground: '#CFF4D2',
     surface: '#FFFFFF',
+    secondaryTint: '#EAF8EF',
+    border: '#EEEEEE',
     typography: '#292D32',
     text: '#292D32',
     textDark: '#FFFFFF',
     greyedOut: '#BFC1C0',
     icon: '#292D32',
-    gradient: ['#329D9C', '#4FDA74'],
+    gradient: ['#7EDDA0', '#25B45F'],
   },
   fonts: {
     regular: 'Nunito-Regular',
@@ -46,18 +48,20 @@ export const lightTheme = {
 
 export const darkTheme = {
   colors: {
-    primary: '#4FDA74',
-    secondary: '#329D9C',
+    primary: '#25B45F',
+    secondary: '#7EDDA0',
     accent: '#205072',
     background: '#121212',
     // lightBackground: '#293033',
     surface: '#1E1E1E',
+    secondaryTint: 'rgba(37, 180, 95, 0.14)',
+    border: 'rgba(255,255,255,0.08)',
     typography: '#E4E6EB',
     text: '#E4E6EB',
     textDark: '#FFFFFF',
     greyedOut: '#5A5D5F',
     icon: '#E4E6EB',
-    gradient: ['#329D9C', '#4FDA74'],
+    gradient: ['#7EDDA0', '#25B45F'],
   },
   fonts: {
     regular: 'Nunito',

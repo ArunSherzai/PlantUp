@@ -21,8 +21,7 @@ import { usePlants } from '../features/plantlist/hooks/usePlants';
 import { usePosts } from '../hooks/usePosts';
 import { useConnections } from '../features/social/hooks/useConnections';
 import MasonryFeedGrid from './MasonryFeedGrid';
-import DraggableBottomSheet from './DraggableBottomSheet';
-import { GestureHandlerRootView, ScrollView } from 'react-native-gesture-handler';
+import { ScrollView } from 'react-native-gesture-handler';
 import GradientIcon from './GradientIcon';
 import GradientText from './GradientText';
 import PlantPotPreview from './PlantPotPreview';
@@ -40,6 +39,31 @@ import { showAlertDialog, showConfirmDialog } from '~/services/appDialog';
 
 const { width } = Dimensions.get('window');
 const vw = width / 100;
+
+const withAlpha = (color: string | null | undefined, alpha: number) => {
+  if (!color) return null;
+
+  const trimmed = color.trim();
+  const hexMatch = trimmed.match(/^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i);
+
+  if (!hexMatch) {
+    return trimmed;
+  }
+
+  let hex = hexMatch[1];
+  if (hex.length === 3) {
+    hex = hex
+      .split('')
+      .map((char) => char + char)
+      .join('');
+  }
+
+  const r = parseInt(hex.slice(0, 2), 16);
+  const g = parseInt(hex.slice(2, 4), 16);
+  const b = parseInt(hex.slice(4, 6), 16);
+
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
 
 type Props = {
   userId: string;
@@ -79,6 +103,7 @@ export default function UserProfile({ userId, isOwner }: Props) {
   const { followers, followUser, unfollowUser, refreshConnections } = useConnections(userId);
 
   const [activeTab, setActiveTab] = React.useState<'leveling' | 'posts' | 'likes'>('leveling');
+  const [plantPreviewKey, setPlantPreviewKey] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
@@ -90,6 +115,13 @@ export default function UserProfile({ userId, isOwner }: Props) {
       refreshConnections();
       fetchBlockedUsers();
     }, [userId, refreshProfile, fetchBlockedUsers])
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      setPlantPreviewKey((current) => current + 1);
+      return undefined;
+    }, [])
   );
 
   // Defer heavy 3D plant rendering to improve startup responsiveness
@@ -212,6 +244,14 @@ export default function UserProfile({ userId, isOwner }: Props) {
     },
   ];
 
+  const titleColor = profile?.title ? profile.titlecolor || theme.colors.primary : theme.colors.primary;
+  const backgroundGradient = [
+    withAlpha(titleColor, 0.24) || theme.colors.secondaryTint,
+    theme.colors.secondaryTint,
+    withAlpha(titleColor, 0.08) || theme.colors.background,
+    theme.colors.background,
+  ] as const;
+
   const getBorderStyle = useCallback((borderUrl: string) => {
     // Avatar in this component is 100x100
     const avatarSize = 100;
@@ -305,6 +345,7 @@ export default function UserProfile({ userId, isOwner }: Props) {
                   <View style={styles.plantViewContainer}>
                     {isPlantReady ? (
                       <PlantPotPreview
+                        key={`public-profile-plant-${userId}-${plantPreviewKey}`}
                         seed={plantSeed}
                         growth={currentLevel}
                         mode="lsystem"
@@ -408,36 +449,24 @@ export default function UserProfile({ userId, isOwner }: Props) {
   };
 
   return (
-    <View style={styles.container}>
-      {/* Header Background */}
-      <View style={styles.headerBg}>
-        <Image
-          source={require('../../assets/images/profileScreenBackground.png')}
-          style={styles.headerGradient}
-          resizeMode="cover"
-        />
-        <View style={[styles.headerContent, { paddingTop: insets.top + 20 }]}>
-          <View style={styles.headerTopRow}>
-            <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
-              <FontAwesome6 name="chevron-left" size={20} color="#FFF" />
-            </TouchableOpacity>
-          </View>
-          <Text
-            style={[styles.headerTitle, { color: '#FFF' }]}
-            adjustsFontSizeToFit
-            numberOfLines={3}
-            minimumFontScale={0.5}>
-            {isCurrentUser
-              ? 'Your\nGrowing\nProfile!'
-              : `${profile?.username || 'User'}'s\nProfile`}
-          </Text>
+    <LinearGradient
+      colors={backgroundGradient}
+      locations={[0, 0.3, 0.68, 1]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.container}>
+      <View style={[styles.sheetHeader, { paddingTop: insets.top + 6 }]}>
+        <View style={styles.headerTopRow}>
+          <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
+            <FontAwesome6 name="chevron-left" size={20} color={theme.colors.text} />
+          </TouchableOpacity>
         </View>
       </View>
 
-      <DraggableBottomSheet initialHeight={0.65} maxHeight={0.9}>
-        <ScrollView
-          contentContainerStyle={[styles.sheetContent, { paddingBottom: 100 }]}
-          showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={[styles.sheetContent, { paddingBottom: 100 }]}
+        showsVerticalScrollIndicator={false}>
           {/* Profile Card */}
           <View style={styles.profileCard}>
             <View style={[styles.avatarContainer, { position: 'relative' }]}>
@@ -610,11 +639,10 @@ export default function UserProfile({ userId, isOwner }: Props) {
           </View>
 
           {renderContent()}
-        </ScrollView>
-      </DraggableBottomSheet>
+      </ScrollView>
 
       {/* Removed duplicate SpriteComponent */}
-    </View>
+    </LinearGradient>
   );
 }
 
@@ -654,12 +682,16 @@ const styles = StyleSheet.create((theme) => ({
     fontWeight: '900',
     lineHeight: 42,
   },
+  sheetHeader: {
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+  },
   sheetContent: {
     paddingHorizontal: 20,
     paddingTop: 20,
   },
   profileCard: {
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.surface,
     borderRadius: 20,
     padding: 20,
     paddingRight: 52,
@@ -668,9 +700,11 @@ const styles = StyleSheet.create((theme) => ({
     position: 'relative',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     marginBottom: 20,
   },
   avatarContainer: {
@@ -748,22 +782,24 @@ const styles = StyleSheet.create((theme) => ({
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.surface,
     borderRadius: 20,
     padding: 20,
     marginBottom: 15,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowRadius: 8,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   statItem: {
     alignItems: 'center',
   },
   statValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 19,
+    fontWeight: '800',
     color: theme.colors.primary,
   },
   statLabel: {
@@ -775,14 +811,16 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 20,
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.surface,
     borderRadius: 15,
     padding: 15,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowRadius: 8,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   actionButton: {
     flex: 1,
@@ -796,7 +834,7 @@ const styles = StyleSheet.create((theme) => ({
     borderRadius: 1.5,
   },
   plantsButton: {
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.surface,
     borderRadius: 15,
     padding: 15,
     flexDirection: 'row',
@@ -804,10 +842,12 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: 'center',
     marginBottom: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowRadius: 8,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   plantsButtonText: {
     fontSize: 16,
@@ -826,15 +866,20 @@ const styles = StyleSheet.create((theme) => ({
     marginBottom: 250,
   },
   comingSoonContainer: {
-    backgroundColor: theme.colors.surface + 'B3',
+    backgroundColor: theme.colors.secondaryTint,
     borderRadius: 15,
     padding: 30,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: theme.colors.greyedOut,
+    borderColor: theme.colors.border,
     borderStyle: 'dashed',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 2,
   },
   comingSoonText: {
     fontSize: 16,
@@ -853,6 +898,8 @@ const styles = StyleSheet.create((theme) => ({
     shadowOpacity: 0.15,
     shadowRadius: 10,
     elevation: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   plantViewContainer: {
     width: '100%',

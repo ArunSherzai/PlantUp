@@ -1,22 +1,45 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, Image, ActivityIndicator, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, Image, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { Image as ExpoImage } from 'expo-image';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { useUnistyles } from '~/lib/unistyles';
+import { StyleSheet, useUnistyles } from '~/lib/unistyles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { StatusBar } from 'expo-status-bar';
 import { Dimensions } from 'react-native';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 const vw = width / 100;
-const vh = height / 100;
+
+const withAlpha = (color: string | null | undefined, alpha: number) => {
+  if (!color) return null;
+
+  const trimmed = color.trim();
+  const hexMatch = trimmed.match(/^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i);
+
+  if (!hexMatch) {
+    return trimmed;
+  }
+
+  let hex = hexMatch[1];
+  if (hex.length === 3) {
+    hex = hex
+      .split('')
+      .map((char) => char + char)
+      .join('');
+  }
+
+  const r = parseInt(hex.slice(0, 2), 16);
+  const g = parseInt(hex.slice(2, 4), 16);
+  const b = parseInt(hex.slice(4, 6), 16);
+
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
 
 import { useUserStore } from '../../../stores/UserStore';
 import { useTutorialStore } from '../../../stores/TutorialStore';
-import DraggableBottomSheet from '../../../components/DraggableBottomSheet';
 import GradientIcon from '../../../components/GradientIcon';
 import GradientText from '../../../components/GradientText';
 // import RankCard from '../../../components/RankCard'; // Not used if inline
@@ -42,7 +65,7 @@ import { showAlertDialog } from '~/services/appDialog';
 // --- Sub-components to prevent full screen re-renders ---
 const StatsRow = memo(
   ({ stats, theme, typographyColor }: { stats: any[]; theme: any; typographyColor: string }) => (
-    <View style={[styles.statsRow, { backgroundColor: theme.colors.background }]}>
+    <View style={[styles.statsRow, { backgroundColor: theme.colors.surface }]}>
       {stats.map((stat, index) => {
         const content = (
           <>
@@ -78,6 +101,9 @@ export default function ProfileScreen() {
   const user = useUserStore((state) => state.user);
   const profile = useUserStore((state) => state.profile);
   const fetchProfile = useUserStore((state) => state.fetchProfile);
+  const fetchDeepProfile = useUserStore((state) => state.fetchDeepProfile);
+  const fetchTitles = useUserStore((state) => state.fetchTitles);
+  const fetchBorders = useUserStore((state) => state.fetchBorders);
   const fetchUnclaimedRewards = useUserStore((state) => state.fetchUnclaimedRewards);
   const unclaimedRewards = useUserStore((state) => state.unclaimedRewards);
   const claimReward = useUserStore((state) => state.claimReward);
@@ -85,15 +111,23 @@ export default function ProfileScreen() {
   const fetchRewardsMap = useUserStore((state) => state.fetchRewardsMap);
   const startTutorial = useTutorialStore((state) => state.startTutorial);
   const unreadInboxCount = useInboxStore((state) => state.unreadCount());
+  const equippedInventoryTitle = useUserStore((state) =>
+    state.ownedTitles.find((title) => title.is_equipped)
+  );
+  const equippedInventoryBorder = useUserStore((state) =>
+    state.ownedBorders.find((border) => border.is_equipped)
+  );
 
   const [activeTab, setActiveTab] = useState('leveling');
   const [isBioExpanded, setIsBioExpanded] = useState(false);
   const [isBioTruncated, setIsBioTruncated] = useState(false);
   // Just use 'any' for now since Reward type in leveling.ts might not match perfectly with DB reward
   const [selectedReward, setSelectedReward] = useState<any>(null);
+  const [plantPreviewKey, setPlantPreviewKey] = useState(0);
 
   // New state to delay heavy 3D plant rendering to improve startup responsiveness
   const [isPlantReady, setIsPlantReady] = useState(false);
+  const userId = user?.id;
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -105,25 +139,49 @@ export default function ProfileScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      // If we already have a profile, we can skip immediate fetch to improve responsiveness
-      // But we still want to refresh occasionally.
-      if (user) {
-        // ALWAYS fetch profile and rewards when screen comes into focus
-        fetchProfile();
+      if (userId) {
+        // Keep equipped cosmetics fresh for the visible profile header, not only inventory.
+        void (async () => {
+          await fetchProfile();
+          await Promise.all([fetchDeepProfile(), fetchTitles(), fetchBorders()]);
+        })();
         fetchUnclaimedRewards();
       }
 
-      // --- TUTORIAL TRIGGER (Profile Basics) ---
-      if (profile && profile.tutorial_progress) {
-        setTimeout(() => {
-          if (!profile.tutorial_progress['profile_tutorial']) {
-            startTutorial('profile_tutorial');
-          }
-        }, 500);
-      }
-
       return undefined;
-    }, [user, profile, fetchProfile, fetchUnclaimedRewards, startTutorial])
+    }, [
+      userId,
+      fetchProfile,
+      fetchDeepProfile,
+      fetchTitles,
+      fetchBorders,
+      fetchUnclaimedRewards,
+    ])
+  );
+
+  const hasProfile = !!profile;
+  const hasCompletedProfileTutorial = profile?.tutorial_progress?.profile_tutorial;
+
+  useEffect(() => {
+    if (!hasProfile || hasCompletedProfileTutorial) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      const latestProgress = useUserStore.getState().profile?.tutorial_progress;
+      if (!latestProgress?.profile_tutorial) {
+        startTutorial('profile_tutorial');
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [hasProfile, hasCompletedProfileTutorial, startTutorial]);
+
+  useFocusEffect(
+    useCallback(() => {
+      setPlantPreviewKey((current) => current + 1);
+      return undefined;
+    }, [])
   );
 
   // Derived Values - moved before useMemo because they are used as dependencies
@@ -153,20 +211,6 @@ export default function ProfileScreen() {
     };
   }, [currentLevel]);
 
-  if (!user || !profile) {
-    return (
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: theme.colors.background,
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-      </View>
-    );
-  }
-
   // Placeholder data for stats (memoized)
   const stats = useMemo(
     () => [
@@ -191,6 +235,19 @@ export default function ProfileScreen() {
       navigation,
     ]
   );
+
+  const displayTitle = profile?.title || equippedInventoryTitle?.name;
+  const displayTitleColor =
+    profile?.titlecolor || equippedInventoryTitle?.color || theme.colors.primary;
+  const displayBorder = profile?.equipped_border || equippedInventoryBorder;
+
+  const titleColor = displayTitle ? displayTitleColor : theme.colors.primary;
+  const backgroundGradient = [
+    withAlpha(titleColor, 0.24) || theme.colors.secondaryTint,
+    theme.colors.secondaryTint,
+    withAlpha(titleColor, 0.08) || theme.colors.background,
+    theme.colors.background,
+  ] as const;
 
   const handleClaimReward = async (level: number, title: string) => {
     const success = await claimReward(level);
@@ -251,13 +308,27 @@ export default function ProfileScreen() {
     };
   }, []);
 
+  if (!user || !profile) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: theme.colors.background,
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
+
   const renderContent = () => {
     switch (activeTab) {
       case 'leveling':
         return (
           <>
             <TouchableOpacity
-              style={[styles.plantsButton, { backgroundColor: theme.colors.background }]}
+              style={[styles.plantsButton, { backgroundColor: theme.colors.surface }]}
               onPress={() => navigation.navigate('UserPlants', { userId: user.id })}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <Image
@@ -301,6 +372,7 @@ export default function ProfileScreen() {
                     }}>
                     {isPlantReady ? (
                       <PlantPotPreview
+                        key={`profile-plant-${user.id}-${plantPreviewKey}`}
                         seed={plantSeed}
                         growth={currentLevel}
                         mode="lsystem"
@@ -423,66 +495,49 @@ export default function ProfileScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <StatusBar style="light" />
-      {/* Header Background */}
-      <View style={styles.headerBg}>
-        <Image
-          source={require('../../../../assets/images/profileScreenBackground.png')}
-          style={styles.headerGradient}
-          resizeMode="cover"
-        />
+    <LinearGradient
+      colors={backgroundGradient}
+      locations={[0, 0.3, 0.68, 1]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.container}>
+      <StatusBar style="auto" />
 
-        <View style={[styles.headerContent, { paddingTop: insets.top }]}>
-          {/* Header Top Row: Borders & Settings */}
-          <View style={styles.headerTopRow}>
-            <TouchableOpacity
-              style={[styles.iconButton, { marginRight: 8 }]}
-              onPress={() => navigation.navigate('Notifications')}>
-              <View>
-                <FontAwesome6 name="bell" size={22} color={theme.colors.textDark} />
-                {unreadInboxCount > 0 && (
-                  <View style={styles.headerBadge}>
-                    <Text style={styles.headerBadgeText}>
-                      {unreadInboxCount > 99 ? '99+' : unreadInboxCount}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </TouchableOpacity>
+      <View style={[styles.sheetHeader, { paddingTop: insets.top + 6 }]}>
+        <View style={styles.headerTopRow}>
+          <TouchableOpacity
+            style={[styles.iconButton, { marginRight: 8 }]}
+            onPress={() => navigation.navigate('Notifications')}>
+            <View>
+              <FontAwesome6 name="bell" size={22} color={theme.colors.text} />
+              {unreadInboxCount > 0 && (
+                <View style={styles.headerBadge}>
+                  <Text style={styles.headerBadgeText}>
+                    {unreadInboxCount > 99 ? '99+' : unreadInboxCount}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </TouchableOpacity>
 
-            {/* Border Inventory Button */}
-            <TouchableOpacity
-              style={[styles.iconButton, { marginRight: 8 }]}
-              onPress={() => navigation.navigate('BorderInventory')}>
-              <FontAwesome5 name="tshirt" size={20} color={theme.colors.textDark} />
-            </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.iconButton, { marginRight: 8 }]}
+            onPress={() => navigation.navigate('BorderInventory')}>
+            <FontAwesome5 name="tshirt" size={20} color={theme.colors.text} />
+          </TouchableOpacity>
 
-            {/* Settings Button */}
-            <TouchableOpacity
-              style={styles.iconButton}
-              onPress={() => navigation.navigate('Settings')}>
-              <FontAwesome6 name="gear" size={24} color={theme.colors.textDark} />
-            </TouchableOpacity>
-          </View>
-
-          <Text
-            style={[styles.headerTitle, { color: theme.colors.textDark }]}
-            adjustsFontSizeToFit
-            numberOfLines={3}
-            minimumFontScale={0.5}>
-            Your{'\n'}Growing{'\n'}Profile!
-          </Text>
+          <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Settings')}>
+            <FontAwesome6 name="gear" size={24} color={theme.colors.text} />
+          </TouchableOpacity>
         </View>
       </View>
 
-      {/* Draggable Bottom Sheet */}
-      <DraggableBottomSheet initialHeight={0.7} maxHeight={0.9}>
-        <ScrollView
-          contentContainerStyle={[styles.sheetContent, { paddingBottom: 100 }]}
-          showsVerticalScrollIndicator={false}>
-          {/* Profile Card */}
-          <View style={[styles.profileCard, { backgroundColor: theme.colors.background }]}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={[styles.sheetContent, { paddingBottom: 100 }]}
+        showsVerticalScrollIndicator={false}>
+        {/* Profile Card */}
+        <View style={[styles.profileCard, { backgroundColor: theme.colors.surface }]}>
             <View style={styles.topRow}>
               <View style={[styles.avatarContainer, { position: 'relative' }]}>
                 <Image
@@ -494,11 +549,11 @@ export default function ProfileScreen() {
                   style={[styles.avatar, { backgroundColor: theme.colors.greyedOut }]}
                   resizeMode="cover"
                 />
-                {profile?.equipped_border?.media_url && (
+                {displayBorder?.media_url && (
                   <ExpoImage
-                    key={profile.equipped_border.media_url} // Force re-mount on change!
-                    source={{ uri: profile.equipped_border.media_url }}
-                    style={getProfileBorderStyle(profile.equipped_border.media_url)}
+                    key={displayBorder.media_url} // Force re-mount on change!
+                    source={{ uri: displayBorder.media_url }}
+                    style={getProfileBorderStyle(displayBorder.media_url)}
                     pointerEvents="none"
                     contentFit="contain"
                   />
@@ -532,16 +587,14 @@ export default function ProfileScreen() {
                   <Text
                     style={{
                       fontSize: 14,
-                      color: profile?.title
-                        ? profile.titlecolor || theme.colors.text
-                        : theme.colors.greyedOut,
-                      fontWeight: profile?.title ? '600' : '400',
-                      fontStyle: profile?.title ? 'normal' : 'italic',
+                      color: displayTitle ? displayTitleColor : theme.colors.greyedOut,
+                      fontWeight: displayTitle ? '600' : '400',
+                      fontStyle: displayTitle ? 'normal' : 'italic',
                       marginRight: 8,
                       flexShrink: 1,
                     }}
                     numberOfLines={1}>
-                    {profile?.title || 'Select Title'}
+                    {displayTitle || 'Select Title'}
                   </Text>
                   <GradientIcon name="pen" size={12} />
                 </TouchableOpacity>
@@ -584,7 +637,7 @@ export default function ProfileScreen() {
           <StatsRow stats={stats} theme={theme} typographyColor={theme.colors.typography} />
 
           {/* Action Buttons */}
-          <View style={[styles.actionRow, { backgroundColor: theme.colors.background }]}>
+          <View style={[styles.actionRow, { backgroundColor: theme.colors.surface }]}>
             <TouchableOpacity style={styles.actionButton} onPress={() => setActiveTab('leveling')}>
               {activeTab === 'leveling' ? (
                 <View style={{ alignItems: 'center', width: '100%' }}>
@@ -634,8 +687,7 @@ export default function ProfileScreen() {
 
           {/* Dynamic Content */}
           {renderContent()}
-        </ScrollView>
-      </DraggableBottomSheet>
+      </ScrollView>
 
       {/* Reward Details Modal */}
       <RewardDetailsModal
@@ -653,28 +705,13 @@ export default function ProfileScreen() {
           }
         }}
       />
-    </View>
+    </LinearGradient>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create((theme) => ({
   container: {
     flex: 1,
-  },
-  headerBg: {
-    height: '55%',
-    width: '100%',
-    position: 'absolute',
-    top: 0,
-  },
-  headerGradient: {
-    flex: 1,
-  },
-  headerContent: {
-    position: 'absolute',
-    top: 0,
-    left: 20,
-    right: 20,
   },
   headerTopRow: {
     flexDirection: 'row',
@@ -707,20 +744,27 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     lineHeight: vw * 11,
   },
+  sheetHeader: {
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+  },
   sheetContent: {
     paddingHorizontal: 20,
     paddingTop: 20,
   },
   profileCard: {
+    backgroundColor: theme.colors.surface,
     borderRadius: 20,
     padding: 16,
     flexDirection: 'column',
     alignItems: 'flex-start',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     marginBottom: 20,
   },
   topRow: {
@@ -759,16 +803,19 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   actionRow: {
+    backgroundColor: theme.colors.surface,
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 20,
     borderRadius: 15,
     padding: 15,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowRadius: 8,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   actionButton: {
     flex: 1,
@@ -782,29 +829,33 @@ const styles = StyleSheet.create({
     borderRadius: 1.5,
   },
   statsRow: {
+    backgroundColor: theme.colors.surface,
     flexDirection: 'row',
     justifyContent: 'space-between',
     borderRadius: 20,
     padding: 20,
     marginBottom: 15,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowRadius: 8,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   statItem: {
     alignItems: 'center',
   },
   statValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 19,
+    fontWeight: '800',
   },
   statLabel: {
     fontSize: 12,
     marginTop: 2,
   },
   plantsButton: {
+    backgroundColor: theme.colors.surface,
     borderRadius: 15,
     padding: 15,
     flexDirection: 'row',
@@ -812,10 +863,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowRadius: 8,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   plantsButtonText: {
     fontSize: 16,
@@ -832,17 +885,24 @@ const styles = StyleSheet.create({
     marginBottom: 250,
   },
   comingSoonContainer: {
+    backgroundColor: theme.colors.secondaryTint,
     borderRadius: 15,
     padding: 30,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
     borderWidth: 1,
+    borderColor: theme.colors.border,
     borderStyle: 'dashed',
     paddingBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 2,
   },
   comingSoonText: {
     fontSize: 16,
     fontStyle: 'italic',
   },
-});
+}));

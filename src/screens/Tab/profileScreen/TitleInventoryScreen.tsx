@@ -30,6 +30,8 @@ export default function TitleInventoryScreen() {
     await equipTitle(titleId);
   };
 
+  const hasEquippedTitle = ownedTitles.some(t => t.is_equipped);
+
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Header */}
@@ -62,8 +64,11 @@ export default function TitleInventoryScreen() {
             <View
               style={[
                 styles.card,
-                { backgroundColor: theme.colors.surface },
-                !ownedTitles.some(t => t.is_equipped) && { borderColor: theme.colors.accent, borderWidth: 2 }
+                {
+                  backgroundColor: hasEquippedTitle ? theme.colors.surface : theme.colors.secondaryTint,
+                  borderColor: hasEquippedTitle ? theme.colors.border : theme.colors.primary,
+                },
+                { borderWidth: 1 },
               ]}
             >
               <View style={styles.previewContainer}>
@@ -73,15 +78,17 @@ export default function TitleInventoryScreen() {
               <TouchableOpacity
                 style={[
                   styles.equipButton,
-                  { backgroundColor: !ownedTitles.some(t => t.is_equipped) ? theme.colors.accent : theme.colors.primary }
+                  {
+                    backgroundColor: hasEquippedTitle ? theme.colors.primary : theme.colors.secondaryTint,
+                  }
                 ]}
-                disabled={!ownedTitles.some(t => t.is_equipped)}
+                disabled={!hasEquippedTitle}
                 onPress={() => handleEquip(null)}
               >
-                {!ownedTitles.some(t => t.is_equipped) ? (
+                {!hasEquippedTitle ? (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                    <FontAwesome6 name="check" size={12} color="#fff" />
-                    <Text style={styles.equipButtonText}>Equipped</Text>
+                    <FontAwesome6 name="check" size={12} color={theme.colors.primary} />
+                    <Text style={[styles.equipButtonText, { color: theme.colors.primary }]}>Equipped</Text>
                   </View>
                 ) : (
                   <Text style={styles.equipButtonText}>Equip</Text>
@@ -94,8 +101,11 @@ export default function TitleInventoryScreen() {
                 key={title.id}
                 style={[
                   styles.card,
-                  { backgroundColor: theme.colors.surface },
-                  title.is_equipped && { borderColor: theme.colors.accent, borderWidth: 2 }
+                  {
+                    backgroundColor: title.is_equipped ? theme.colors.secondaryTint : theme.colors.surface,
+                    borderColor: title.is_equipped ? theme.colors.primary : theme.colors.border,
+                  },
+                  { borderWidth: 1 },
                 ]}
               >
                 <View style={styles.previewContainer}>
@@ -107,15 +117,17 @@ export default function TitleInventoryScreen() {
                 <TouchableOpacity
                   style={[
                     styles.equipButton,
-                    { backgroundColor: title.is_equipped ? theme.colors.accent : theme.colors.primary }
+                    {
+                      backgroundColor: title.is_equipped ? theme.colors.secondaryTint : theme.colors.primary,
+                    }
                   ]}
                   disabled={title.is_equipped}
                   onPress={() => handleEquip(title.id)}
                 >
                   {title.is_equipped ? (
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                      <FontAwesome6 name="check" size={12} color="#fff" />
-                      <Text style={styles.equipButtonText}>Equipped</Text>
+                      <FontAwesome6 name="check" size={12} color={theme.colors.primary} />
+                      <Text style={[styles.equipButtonText, { color: theme.colors.primary }]}>Equipped</Text>
                     </View>
                   ) : (
                     <Text style={styles.equipButtonText}>Equip</Text>
@@ -181,8 +193,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
     elevation: 3,
   },
   previewContainer: {
